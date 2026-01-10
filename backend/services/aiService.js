@@ -20,9 +20,99 @@ class AIService {
     }
   }
 
+  // Extract file ID from Google Drive URL
+  extractGoogleDriveFileId(url) {
+    // Patterns for Google Drive URLs
+    const patterns = [
+      /\/file\/d\/([a-zA-Z0-9_-]+)/,           // /file/d/FILE_ID/
+      /id=([a-zA-Z0-9_-]+)/,                    // ?id=FILE_ID
+      /\/d\/([a-zA-Z0-9_-]+)/,                  // /d/FILE_ID/
+      /drive\.google\.com\/open\?id=([a-zA-Z0-9_-]+)/ // /open?id=FILE_ID
+    ];
+
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match && match[1]) {
+        return match[1];
+      }
+    }
+    return null;
+  }
+
+  // Check if URL is a Google Drive link
+  isGoogleDriveUrl(url) {
+    return url.includes('drive.google.com') || url.includes('docs.google.com');
+  }
+
+  // Extract PDF from Google Drive
+  async extractFromGoogleDrive(url) {
+    const fileId = this.extractGoogleDriveFileId(url);
+    
+    if (!fileId) {
+      throw new Error('Invalid Google Drive URL. Please make sure you\'re sharing a valid Drive link.');
+    }
+
+    // Convert to direct download URL
+    const downloadUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
+    
+    try {
+      const response = await axios.get(downloadUrl, {
+        responseType: 'arraybuffer',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        },
+        timeout: 30000,
+        maxRedirects: 5
+      });
+
+      // Check if we got a PDF or HTML (Drive might return a confirmation page for large files)
+      const contentType = response.headers['content-type'] || '';
+      
+      if (contentType.includes('text/html')) {
+        // Try to extract confirmation link from HTML response
+        const html = response.data.toString();
+        
+        // Check if it's an access denied page
+        if (html.includes('Sign in') || html.includes('Request access')) {
+          throw new Error('This Google Drive file is not publicly accessible. Please set sharing to "Anyone with the link can view".');
+        }
+        
+        // Check for virus scan warning (large files)
+        const confirmMatch = html.match(/confirm=([^&"]+)/);
+        if (confirmMatch) {
+          const confirmUrl = `https://drive.google.com/uc?export=download&confirm=${confirmMatch[1]}&id=${fileId}`;
+          const confirmedResponse = await axios.get(confirmUrl, {
+            responseType: 'arraybuffer',
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            },
+            timeout: 30000
+          });
+          return await this.extractTextFromPDF(Buffer.from(confirmedResponse.data));
+        }
+        
+        throw new Error('Could not download the file from Google Drive. Please ensure the file is a PDF and is publicly shared.');
+      }
+
+      // Parse PDF
+      return await this.extractTextFromPDF(Buffer.from(response.data));
+    } catch (error) {
+      if (error.message.includes('Google Drive')) {
+        throw error;
+      }
+      console.error('Google Drive extraction error:', error);
+      throw new Error('Failed to download from Google Drive. Please ensure the file is publicly shared and is a valid PDF.');
+    }
+  }
+
   // Extract text from URL
   async extractTextFromURL(url) {
     try {
+      // Check if it's a Google Drive URL
+      if (this.isGoogleDriveUrl(url)) {
+        return await this.extractFromGoogleDrive(url);
+      }
+
       // Check for blocked domains
       const blockedDomains = ['linkedin.com', 'glassdoor.com'];
       const urlLower = url.toLowerCase();
@@ -86,6 +176,10 @@ class AIService {
       return text;
     } catch (error) {
       console.error('URL extraction error:', error);
+      // Re-throw custom errors
+      if (error.message.includes('Google Drive') || error.message.includes('blocks direct access')) {
+        throw error;
+      }
       throw new Error('Failed to extract content from URL. The page might be protected or unavailable.');
     }
   }
