@@ -57,6 +57,7 @@ export const userAPI = {
     api.put(`/users/students/${studentId}/profile/approve`, { status, revisionNotes }),
   updateStudentProfile: (studentId, data) =>
     api.put(`/users/students/${studentId}/profile`, data),
+  getEligibleCount: (params) => api.get('/users/eligible-count', { params }),
   uploadAvatar: (file) => {
     const formData = new FormData();
     formData.append('avatar', file);

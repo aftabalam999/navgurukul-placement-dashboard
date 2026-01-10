@@ -512,4 +512,66 @@ router.post('/avatar', auth, upload.single('avatar'), async (req, res) => {
   }
 });
 
+// Get eligible student count based on criteria (for Coordinators)
+router.get('/eligible-count', auth, authorize('coordinator', 'manager'), async (req, res) => {
+  try {
+    const {
+      tenthRequired,
+      tenthMinPercentage,
+      twelfthRequired,
+      twelfthMinPercentage,
+      higherEducationRequired,
+      higherEducationMinPercentage,
+      schools,
+      campuses,
+      currentModule
+    } = req.query;
+
+    // Build query for students
+    let query = { 
+      role: 'student',
+      'studentProfile.profileStatus': 'approved'
+    };
+
+    // Academic requirements
+    if (tenthRequired === 'true' && tenthMinPercentage) {
+      query['studentProfile.tenthMarks'] = { $gte: parseFloat(tenthMinPercentage) };
+    }
+
+    if (twelfthRequired === 'true' && twelfthMinPercentage) {
+      query['studentProfile.twelfthMarks'] = { $gte: parseFloat(twelfthMinPercentage) };
+    }
+
+    if (higherEducationRequired === 'true' && higherEducationMinPercentage) {
+      query['studentProfile.higherEducationMarks'] = { $gte: parseFloat(higherEducationMinPercentage) };
+    }
+
+    // Navgurukul specific filters
+    if (schools) {
+      const schoolList = schools.split(',').filter(s => s.trim());
+      if (schoolList.length > 0) {
+        query['studentProfile.currentSchool'] = { $in: schoolList };
+      }
+    }
+
+    if (campuses) {
+      const campusList = campuses.split(',').filter(c => c.trim());
+      if (campusList.length > 0) {
+        query.campus = { $in: campusList };
+      }
+    }
+
+    if (currentModule) {
+      query['studentProfile.currentModule'] = currentModule;
+    }
+
+    const count = await User.countDocuments(query);
+
+    res.json({ count });
+  } catch (error) {
+    console.error('Get eligible count error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;

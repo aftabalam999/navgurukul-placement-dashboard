@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { jobAPI, skillAPI, campusAPI } from '../../services/api';
+import { jobAPI, skillAPI, campusAPI, userAPI } from '../../services/api';
 import { LoadingSpinner } from '../../components/common/UIComponents';
-import { ArrowLeft, Save, Plus, X, Sparkles, Upload, Link, FileText, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Save, Plus, X, Sparkles, Upload, Link, FileText, AlertCircle, Users, CheckCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const JobForm = () => {
@@ -81,6 +81,7 @@ const JobForm = () => {
   useEffect(() => {
     fetchSkills();
     fetchCampuses();
+    fetchStudentCount();
     if (isEdit) fetchJob();
   }, [id]);
 
@@ -99,6 +100,90 @@ const JobForm = () => {
       setCampuses(response.data);
     } catch (error) {
       console.error('Error fetching campuses:', error);
+    }
+  };
+
+  // Fetch total student count for eligible estimation
+  const [totalStudents, setTotalStudents] = useState(0);
+  const [eligibleCount, setEligibleCount] = useState(0);
+  
+  const fetchStudentCount = async () => {
+    try {
+      const response = await userAPI.getStudents({ limit: 1 });
+      setTotalStudents(response.data.pagination?.total || 0);
+      setEligibleCount(response.data.pagination?.total || 0);
+    } catch (error) {
+      console.error('Error fetching student count:', error);
+    }
+  };
+
+  // Update eligible count when eligibility changes
+  useEffect(() => {
+    // Simple estimation based on restrictions
+    let estimate = totalStudents;
+    
+    if (formData.eligibility.tenthGrade?.required && formData.eligibility.tenthGrade?.minPercentage) {
+      estimate = Math.round(estimate * (1 - (formData.eligibility.tenthGrade.minPercentage / 200)));
+    }
+    if (formData.eligibility.twelfthGrade?.required && formData.eligibility.twelfthGrade?.minPercentage) {
+      estimate = Math.round(estimate * (1 - (formData.eligibility.twelfthGrade.minPercentage / 200)));
+    }
+    if (formData.eligibility.higherEducation?.required) {
+      estimate = Math.round(estimate * 0.6); // Assume 60% have higher education
+    }
+    if (formData.eligibility.schools?.length > 0) {
+      estimate = Math.round(estimate * (formData.eligibility.schools.length / 5));
+    }
+    if (formData.eligibility.campuses?.length > 0 && campuses.length > 0) {
+      estimate = Math.round(estimate * (formData.eligibility.campuses.length / campuses.length));
+    }
+    if (formData.eligibility.minModule) {
+      const moduleIndex = moduleHierarchy.indexOf(formData.eligibility.minModule);
+      estimate = Math.round(estimate * (1 - (moduleIndex / moduleHierarchy.length) * 0.5));
+    }
+    if (formData.eligibility.minCgpa) {
+      estimate = Math.round(estimate * (1 - (formData.eligibility.minCgpa / 20)));
+    }
+    
+    setEligibleCount(Math.max(0, estimate));
+  }, [formData.eligibility, totalStudents, campuses.length]);
+
+  // Handle toggling academic requirements with auto-select logic
+  const toggleAcademicRequirement = (type) => {
+    if (type === 'tenth') {
+      setFormData({
+        ...formData,
+        eligibility: {
+          ...formData.eligibility,
+          tenthGrade: { 
+            ...formData.eligibility.tenthGrade, 
+            required: !formData.eligibility.tenthGrade?.required 
+          }
+        }
+      });
+    } else if (type === 'twelfth') {
+      const newValue = !formData.eligibility.twelfthGrade?.required;
+      setFormData({
+        ...formData,
+        eligibility: {
+          ...formData.eligibility,
+          // Auto-select 10th if 12th is selected
+          tenthGrade: newValue ? { ...formData.eligibility.tenthGrade, required: true } : formData.eligibility.tenthGrade,
+          twelfthGrade: { ...formData.eligibility.twelfthGrade, required: newValue }
+        }
+      });
+    } else if (type === 'higher') {
+      const newValue = !formData.eligibility.higherEducation?.required;
+      setFormData({
+        ...formData,
+        eligibility: {
+          ...formData.eligibility,
+          // Auto-select 10th and 12th if higher education is selected
+          tenthGrade: newValue ? { ...formData.eligibility.tenthGrade, required: true } : formData.eligibility.tenthGrade,
+          twelfthGrade: newValue ? { ...formData.eligibility.twelfthGrade, required: true } : formData.eligibility.twelfthGrade,
+          higherEducation: { ...formData.eligibility.higherEducation, required: newValue }
+        }
+      });
     }
   };
 
@@ -788,45 +873,43 @@ const JobForm = () => {
 
         {/* Eligibility */}
         <div className="card">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-2">
             <h2 className="text-lg font-semibold">Eligibility Criteria</h2>
-            <span className="text-sm text-gray-500 italic">
-              (Leave all fields empty to make it open for all students)
-            </span>
           </div>
+          <p className="text-sm text-gray-500 mb-4">
+            Click to select criteria. Unselected criteria means open for all in that category.
+          </p>
           
-          {/* Open for All indicator */}
-          {!hasEligibilityRestrictions && (
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-              <p className="text-sm text-green-700 flex items-center gap-2">
-                <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                This {formData.jobType === 'internship' ? 'internship' : 'job'} is open for all students to apply
-              </p>
-            </div>
-          )}
-
           {/* Academic Requirements Section */}
           <div className="mb-6">
-            <h3 className="text-md font-medium text-gray-800 mb-3">Academic Requirements</h3>
+            <h3 className="text-md font-medium text-gray-800 mb-3 flex items-center gap-2">
+              <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
+              Academic Requirements
+            </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* 10th Grade */}
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <label className="flex items-center gap-2 mb-2">
-                  <input
-                    type="checkbox"
-                    checked={formData.eligibility.tenthGrade?.required || false}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      eligibility: {
-                        ...formData.eligibility,
-                        tenthGrade: { ...formData.eligibility.tenthGrade, required: e.target.checked }
-                      }
-                    })}
-                  />
-                  <span className="font-medium">10th Grade</span>
-                </label>
-                {formData.eligibility.tenthGrade?.required && (
-                  <div>
+              <div 
+                onClick={() => toggleAcademicRequirement('tenth')}
+                className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                  formData.eligibility.tenthGrade?.required 
+                    ? 'border-blue-500 bg-blue-50 shadow-sm' 
+                    : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-medium text-gray-900">10th Grade</span>
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${
+                    formData.eligibility.tenthGrade?.required 
+                      ? 'bg-blue-500' 
+                      : 'bg-gray-200'
+                  }`}>
+                    {formData.eligibility.tenthGrade?.required && (
+                      <CheckCircle className="w-4 h-4 text-white" />
+                    )}
+                  </div>
+                </div>
+                {formData.eligibility.tenthGrade?.required ? (
+                  <div onClick={(e) => e.stopPropagation()}>
                     <label className="text-xs text-gray-600">Min Percentage</label>
                     <input
                       type="number"
@@ -840,31 +923,38 @@ const JobForm = () => {
                           tenthGrade: { ...formData.eligibility.tenthGrade, minPercentage: e.target.value }
                         }
                       })}
-                      placeholder="Any %"
-                      className="mt-1"
+                      placeholder="e.g., 50"
+                      className="mt-1 w-full"
                     />
                   </div>
+                ) : (
+                  <p className="text-xs text-gray-500">Open for all • Click to set criteria</p>
                 )}
               </div>
 
               {/* 12th Grade */}
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <label className="flex items-center gap-2 mb-2">
-                  <input
-                    type="checkbox"
-                    checked={formData.eligibility.twelfthGrade?.required || false}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      eligibility: {
-                        ...formData.eligibility,
-                        twelfthGrade: { ...formData.eligibility.twelfthGrade, required: e.target.checked }
-                      }
-                    })}
-                  />
-                  <span className="font-medium">12th Grade</span>
-                </label>
-                {formData.eligibility.twelfthGrade?.required && (
-                  <div>
+              <div 
+                onClick={() => toggleAcademicRequirement('twelfth')}
+                className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                  formData.eligibility.twelfthGrade?.required 
+                    ? 'border-blue-500 bg-blue-50 shadow-sm' 
+                    : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-medium text-gray-900">12th Grade</span>
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${
+                    formData.eligibility.twelfthGrade?.required 
+                      ? 'bg-blue-500' 
+                      : 'bg-gray-200'
+                  }`}>
+                    {formData.eligibility.twelfthGrade?.required && (
+                      <CheckCircle className="w-4 h-4 text-white" />
+                    )}
+                  </div>
+                </div>
+                {formData.eligibility.twelfthGrade?.required ? (
+                  <div onClick={(e) => e.stopPropagation()}>
                     <label className="text-xs text-gray-600">Min Percentage</label>
                     <input
                       type="number"
@@ -878,35 +968,42 @@ const JobForm = () => {
                           twelfthGrade: { ...formData.eligibility.twelfthGrade, minPercentage: e.target.value }
                         }
                       })}
-                      placeholder="Any %"
-                      className="mt-1"
+                      placeholder="e.g., 50"
+                      className="mt-1 w-full"
                     />
                   </div>
+                ) : (
+                  <p className="text-xs text-gray-500">Open for all • Click to set criteria</p>
                 )}
               </div>
 
               {/* Higher Education */}
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <label className="flex items-center gap-2 mb-2">
-                  <input
-                    type="checkbox"
-                    checked={formData.eligibility.higherEducation?.required || false}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      eligibility: {
-                        ...formData.eligibility,
-                        higherEducation: { ...formData.eligibility.higherEducation, required: e.target.checked }
-                      }
-                    })}
-                  />
-                  <span className="font-medium">Higher Education</span>
-                </label>
-                {formData.eligibility.higherEducation?.required && (
-                  <div>
-                    <label className="text-xs text-gray-600">Accepted Degrees</label>
-                    <div className="mt-1 max-h-24 overflow-y-auto space-y-1">
+              <div 
+                onClick={() => toggleAcademicRequirement('higher')}
+                className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                  formData.eligibility.higherEducation?.required 
+                    ? 'border-blue-500 bg-blue-50 shadow-sm' 
+                    : 'border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-medium text-gray-900">Higher Education</span>
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center transition-colors ${
+                    formData.eligibility.higherEducation?.required 
+                      ? 'bg-blue-500' 
+                      : 'bg-gray-200'
+                  }`}>
+                    {formData.eligibility.higherEducation?.required && (
+                      <CheckCircle className="w-4 h-4 text-white" />
+                    )}
+                  </div>
+                </div>
+                {formData.eligibility.higherEducation?.required ? (
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <label className="text-xs text-gray-600 block mb-1">Accepted Degrees</label>
+                    <div className="max-h-28 overflow-y-auto space-y-1 bg-white rounded p-2 border">
                       {degreeOptions.map(degree => (
-                        <label key={degree} className="flex items-center gap-1 text-xs">
+                        <label key={degree} className="flex items-center gap-2 text-xs cursor-pointer hover:bg-gray-50 p-1 rounded">
                           <input
                             type="checkbox"
                             checked={(formData.eligibility.higherEducation?.acceptedDegrees || []).includes(degree)}
@@ -923,27 +1020,59 @@ const JobForm = () => {
                                 }
                               });
                             }}
+                            className="rounded"
                           />
                           {degree}
                         </label>
                       ))}
                     </div>
+                    {(formData.eligibility.higherEducation?.acceptedDegrees || []).length === 0 && (
+                      <p className="text-xs text-amber-600 mt-1">Select at least one degree</p>
+                    )}
                   </div>
+                ) : (
+                  <p className="text-xs text-gray-500">Open for all • Click to set criteria</p>
                 )}
               </div>
             </div>
+            {/* Auto-select hint */}
+            <p className="text-xs text-blue-600 mt-2 flex items-center gap-1">
+              <AlertCircle className="w-3 h-3" />
+              Selecting Higher Education auto-selects 10th & 12th. Selecting 12th auto-selects 10th.
+            </p>
           </div>
 
           {/* Navgurukul Specific Section */}
           <div className="mb-6">
-            <h3 className="text-md font-medium text-gray-800 mb-3">Navgurukul Specific</h3>
+            <h3 className="text-md font-medium text-gray-800 mb-3 flex items-center gap-2">
+              <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
+              Navgurukul Specific
+            </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Schools */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Schools</label>
+              <div className={`p-4 rounded-lg border-2 transition-all ${
+                (formData.eligibility.schools || []).length > 0
+                  ? 'border-purple-500 bg-purple-50 shadow-sm' 
+                  : 'border-gray-200 bg-white'
+              }`}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-medium text-gray-900">Schools</span>
+                  {(formData.eligibility.schools || []).length > 0 && (
+                    <span className="text-xs bg-purple-500 text-white px-2 py-0.5 rounded-full">
+                      {formData.eligibility.schools.length} selected
+                    </span>
+                  )}
+                </div>
                 <div className="space-y-1 max-h-32 overflow-y-auto">
                   {schools.map(school => (
-                    <label key={school} className="flex items-center gap-2 text-sm">
+                    <label 
+                      key={school} 
+                      className={`flex items-center gap-2 text-sm p-2 rounded cursor-pointer transition-colors ${
+                        (formData.eligibility.schools || []).includes(school)
+                          ? 'bg-purple-100 text-purple-800'
+                          : 'hover:bg-gray-100'
+                      }`}
+                    >
                       <input
                         type="checkbox"
                         checked={(formData.eligibility.schools || []).includes(school)}
@@ -956,20 +1085,41 @@ const JobForm = () => {
                             eligibility: { ...formData.eligibility, schools: newSchools }
                           });
                         }}
+                        className="rounded"
                       />
-                      {school}
+                      <span className="text-xs">{school}</span>
                     </label>
                   ))}
                 </div>
-                <p className="text-xs text-gray-500 mt-1">Leave empty for all schools</p>
+                {(formData.eligibility.schools || []).length === 0 && (
+                  <p className="text-xs text-gray-500 mt-2">Open for all schools</p>
+                )}
               </div>
 
               {/* Campuses */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Campuses</label>
+              <div className={`p-4 rounded-lg border-2 transition-all ${
+                (formData.eligibility.campuses || []).length > 0
+                  ? 'border-purple-500 bg-purple-50 shadow-sm' 
+                  : 'border-gray-200 bg-white'
+              }`}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-medium text-gray-900">Campuses</span>
+                  {(formData.eligibility.campuses || []).length > 0 && (
+                    <span className="text-xs bg-purple-500 text-white px-2 py-0.5 rounded-full">
+                      {formData.eligibility.campuses.length} selected
+                    </span>
+                  )}
+                </div>
                 <div className="space-y-1 max-h-32 overflow-y-auto">
                   {campuses.map(campus => (
-                    <label key={campus._id} className="flex items-center gap-2 text-sm">
+                    <label 
+                      key={campus._id} 
+                      className={`flex items-center gap-2 text-sm p-2 rounded cursor-pointer transition-colors ${
+                        (formData.eligibility.campuses || []).includes(campus._id)
+                          ? 'bg-purple-100 text-purple-800'
+                          : 'hover:bg-gray-100'
+                      }`}
+                    >
                       <input
                         type="checkbox"
                         checked={(formData.eligibility.campuses || []).includes(campus._id)}
@@ -982,58 +1132,132 @@ const JobForm = () => {
                             eligibility: { ...formData.eligibility, campuses: newCampuses }
                           });
                         }}
+                        className="rounded"
                       />
-                      {campus.name}
+                      <span className="text-xs">{campus.name}</span>
                     </label>
                   ))}
                 </div>
-                <p className="text-xs text-gray-500 mt-1">Leave empty for all campuses</p>
+                {(formData.eligibility.campuses || []).length === 0 && (
+                  <p className="text-xs text-gray-500 mt-2">Open for all campuses</p>
+                )}
               </div>
 
               {/* Module Requirement */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Minimum Module (Programming)</label>
+              <div className={`p-4 rounded-lg border-2 transition-all ${
+                formData.eligibility.minModule
+                  ? 'border-purple-500 bg-purple-50 shadow-sm' 
+                  : 'border-gray-200 bg-white'
+              }`}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-medium text-gray-900">Min Module</span>
+                  {formData.eligibility.minModule && (
+                    <button 
+                      type="button"
+                      onClick={() => setFormData({
+                        ...formData,
+                        eligibility: { ...formData.eligibility, minModule: '' }
+                      })}
+                      className="text-xs text-red-500 hover:text-red-700"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
                 <select
                   value={formData.eligibility.minModule || ''}
                   onChange={(e) => setFormData({
                     ...formData,
                     eligibility: { ...formData.eligibility, minModule: e.target.value }
                   })}
+                  className="w-full text-sm"
                 >
-                  <option value="">No minimum</option>
+                  <option value="">Open for all modules</option>
                   {moduleHierarchy.map(module => (
                     <option key={module} value={module}>{module}</option>
                   ))}
                 </select>
-                <p className="text-xs text-gray-500 mt-1">Only for School of Programming</p>
+                <p className="text-xs text-gray-500 mt-2">For School of Programming only</p>
               </div>
             </div>
           </div>
 
-          {/* Legacy CGPA (for backward compatibility) */}
-          <div>
-            <h3 className="text-md font-medium text-gray-800 mb-3">Other Requirements</h3>
+          {/* Other Requirements */}
+          <div className="mb-6">
+            <h3 className="text-md font-medium text-gray-800 mb-3 flex items-center gap-2">
+              <span className="w-2 h-2 bg-green-500 rounded-full"></span>
+              Other Requirements
+            </h3>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Minimum CGPA</label>
-              <input
-                type="number"
-                step="0.1"
-                min="0"
-                max="10"
-                value={formData.eligibility.minCgpa}
-                onChange={(e) => setFormData({ 
-                  ...formData, 
-                  eligibility: { ...formData.eligibility, minCgpa: e.target.value } 
-                })}
-                placeholder="Any CGPA"
-              />
-            </div>
+              <div className={`p-4 rounded-lg border-2 transition-all ${
+                formData.eligibility.minCgpa
+                  ? 'border-green-500 bg-green-50 shadow-sm' 
+                  : 'border-gray-200 bg-white'
+              }`}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-medium text-gray-900">Min CGPA</span>
+                  {formData.eligibility.minCgpa && (
+                    <button 
+                      type="button"
+                      onClick={() => setFormData({
+                        ...formData,
+                        eligibility: { ...formData.eligibility, minCgpa: '' }
+                      })}
+                      className="text-xs text-red-500 hover:text-red-700"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="10"
+                  value={formData.eligibility.minCgpa || ''}
+                  onChange={(e) => setFormData({ 
+                    ...formData, 
+                    eligibility: { ...formData.eligibility, minCgpa: e.target.value } 
+                  })}
+                  placeholder="e.g., 6.0"
+                  className="w-full"
+                />
+                {!formData.eligibility.minCgpa && (
+                  <p className="text-xs text-gray-500 mt-2">Open for all CGPAs</p>
+                )}
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Interview Rounds */}
+          {/* Eligible Students Count */}
+          <div className={`p-4 rounded-lg flex items-center justify-between ${
+            hasEligibilityRestrictions 
+              ? 'bg-amber-50 border border-amber-200' 
+              : 'bg-green-50 border border-green-200'
+          }`}>
+            <div className="flex items-center gap-3">
+              <Users className={`w-8 h-8 ${hasEligibilityRestrictions ? 'text-amber-500' : 'text-green-500'}`} />
+              <div>
+                <p className={`font-medium ${hasEligibilityRestrictions ? 'text-amber-800' : 'text-green-800'}`}>
+                  {hasEligibilityRestrictions ? 'Restricted Eligibility' : 'Open for All Students'}
+                </p>
+                <p className={`text-sm ${hasEligibilityRestrictions ? 'text-amber-600' : 'text-green-600'}`}>
+                  {hasEligibilityRestrictions 
+                    ? 'Only students matching criteria can apply' 
+                    : 'All registered students can apply to this job'}
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className={`text-3xl font-bold ${hasEligibilityRestrictions ? 'text-amber-600' : 'text-green-600'}`}>
+                ~{eligibleCount}
+              </div>
+              <p className="text-xs text-gray-500">
+                {hasEligibilityRestrictions ? 'estimated eligible' : 'total students'}
+              </p>
+            </div>
+          </div>
+        </div>        {/* Interview Rounds */}
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold">Interview Rounds</h2>
