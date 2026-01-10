@@ -1,19 +1,23 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { jobAPI, skillAPI, campusAPI } from '../../services/api';
 import { LoadingSpinner } from '../../components/common/UIComponents';
-import { ArrowLeft, Save, Plus, X } from 'lucide-react';
+import { ArrowLeft, Save, Plus, X, Sparkles, Upload, Link, FileText, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const JobForm = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const isEdit = Boolean(id);
+  const fileInputRef = useRef(null);
   
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
+  const [parsing, setParsing] = useState(false);
   const [allSkills, setAllSkills] = useState([]);
   const [campuses, setCampuses] = useState([]);
+  const [jdUrl, setJdUrl] = useState('');
+  const [aiParseInfo, setAiParseInfo] = useState(null);
   const [formData, setFormData] = useState({
     title: '',
     company: { name: '', website: '', description: '' },
@@ -60,6 +64,96 @@ const JobForm = () => {
     } catch (error) {
       console.error('Error fetching campuses:', error);
     }
+  };
+
+  // AI Auto-fill from URL
+  const handleParseFromUrl = async () => {
+    if (!jdUrl.trim()) {
+      toast.error('Please enter a JD URL');
+      return;
+    }
+
+    setParsing(true);
+    setAiParseInfo(null);
+    
+    try {
+      const response = await jobAPI.parseJDFromUrl(jdUrl);
+      if (response.data.success) {
+        applyParsedData(response.data.data);
+        setAiParseInfo({
+          type: response.data.data.parsedWith,
+          message: response.data.message
+        });
+        toast.success(response.data.message);
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to parse JD from URL');
+    } finally {
+      setParsing(false);
+    }
+  };
+
+  // AI Auto-fill from PDF
+  const handleParseFromPDF = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== 'application/pdf') {
+      toast.error('Please upload a PDF file');
+      return;
+    }
+
+    setParsing(true);
+    setAiParseInfo(null);
+    
+    try {
+      const response = await jobAPI.parseJDFromPDF(file);
+      if (response.data.success) {
+        applyParsedData(response.data.data);
+        setAiParseInfo({
+          type: response.data.data.parsedWith,
+          message: response.data.message
+        });
+        toast.success(response.data.message);
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to parse PDF');
+    } finally {
+      setParsing(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  // Apply parsed data to form
+  const applyParsedData = (data) => {
+    setFormData(prev => ({
+      ...prev,
+      title: data.title || prev.title,
+      company: {
+        name: data.company?.name || prev.company.name,
+        website: data.company?.website || prev.company.website,
+        description: data.company?.description || prev.company.description
+      },
+      description: data.description || prev.description,
+      requirements: data.requirements?.length > 0 ? data.requirements : prev.requirements,
+      responsibilities: data.responsibilities?.length > 0 ? data.responsibilities : prev.responsibilities,
+      location: data.location || prev.location,
+      jobType: data.jobType || prev.jobType,
+      duration: data.duration || prev.duration,
+      salary: {
+        min: data.salary?.min || prev.salary.min,
+        max: data.salary?.max || prev.salary.max,
+        currency: data.salary?.currency || prev.salary.currency
+      },
+      maxPositions: data.maxPositions || prev.maxPositions,
+      // Add matched skills
+      requiredSkills: data.matchedSkillIds?.length > 0 
+        ? data.matchedSkillIds.map(id => ({ skill: id, required: true }))
+        : prev.requiredSkills
+    }));
   };
 
   const fetchJob = async () => {
@@ -200,6 +294,117 @@ const JobForm = () => {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* AI Auto-Fill Section */}
+        {!isEdit && (
+          <div className="card bg-gradient-to-r from-purple-50 to-indigo-50 border-purple-200">
+            <div className="flex items-center gap-2 mb-4">
+              <Sparkles className="w-5 h-5 text-purple-600" />
+              <h2 className="text-lg font-semibold text-purple-900">AI Auto-Fill</h2>
+              <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">Beta</span>
+            </div>
+            <p className="text-sm text-purple-700 mb-4">
+              Upload a JD PDF or paste a job posting URL to automatically fill the form using AI.
+            </p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* URL Input */}
+              <div>
+                <label className="block text-sm font-medium text-purple-800 mb-1">
+                  <Link className="w-4 h-4 inline mr-1" />
+                  JD URL
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={jdUrl}
+                    onChange={(e) => setJdUrl(e.target.value)}
+                    placeholder="https://careers.example.com/job/..."
+                    className="flex-1"
+                    disabled={parsing}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleParseFromUrl}
+                    disabled={parsing || !jdUrl.trim()}
+                    className="btn btn-primary whitespace-nowrap flex items-center gap-2"
+                  >
+                    {parsing ? (
+                      <>
+                        <LoadingSpinner size="sm" />
+                        Parsing...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4" />
+                        Parse URL
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* PDF Upload */}
+              <div>
+                <label className="block text-sm font-medium text-purple-800 mb-1">
+                  <FileText className="w-4 h-4 inline mr-1" />
+                  Upload JD PDF
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf"
+                    onChange={handleParseFromPDF}
+                    className="hidden"
+                    disabled={parsing}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={parsing}
+                    className="btn btn-secondary flex-1 flex items-center justify-center gap-2"
+                  >
+                    {parsing ? (
+                      <>
+                        <LoadingSpinner size="sm" />
+                        Parsing...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4" />
+                        Choose PDF File
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* AI Parse Info */}
+            {aiParseInfo && (
+              <div className={`mt-4 p-3 rounded-lg flex items-start gap-2 ${
+                aiParseInfo.type === 'ai' 
+                  ? 'bg-green-50 border border-green-200' 
+                  : 'bg-yellow-50 border border-yellow-200'
+              }`}>
+                <AlertCircle className={`w-5 h-5 shrink-0 ${
+                  aiParseInfo.type === 'ai' ? 'text-green-600' : 'text-yellow-600'
+                }`} />
+                <div className="text-sm">
+                  <p className={aiParseInfo.type === 'ai' ? 'text-green-700' : 'text-yellow-700'}>
+                    {aiParseInfo.message}
+                  </p>
+                  {aiParseInfo.type === 'fallback' && (
+                    <p className="text-yellow-600 mt-1">
+                      💡 Tip: Add your Google AI API key in Manager Settings for better results.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Basic Information */}
         <div className="card">
           <h2 className="text-lg font-semibold mb-4">Basic Information</h2>

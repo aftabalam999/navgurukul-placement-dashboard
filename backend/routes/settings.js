@@ -258,4 +258,181 @@ router.post('/course-skills', auth, async (req, res) => {
   }
 });
 
+// ==================== PIPELINE STAGES ROUTES ====================
+
+// Get all pipeline stages (public for dropdowns)
+router.get('/pipeline-stages', auth, async (req, res) => {
+  try {
+    const settings = await Settings.getSettings();
+    const stages = settings.jobPipelineStages.sort((a, b) => a.order - b.order);
+    
+    res.json({ 
+      success: true, 
+      data: stages 
+    });
+  } catch (error) {
+    console.error('Get pipeline stages error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Create a new pipeline stage (coordinator/manager only)
+router.post('/pipeline-stages', auth, authorize('coordinator', 'manager'), async (req, res) => {
+  try {
+    const { id, label, description, color, order, visibleToStudents, studentLabel } = req.body;
+    
+    if (!label || label.trim().length === 0) {
+      return res.status(400).json({ success: false, message: 'Stage label is required' });
+    }
+    
+    const stage = {
+      id: id || label.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, ''),
+      label: label.trim(),
+      description: description || '',
+      color: color || 'gray',
+      order,
+      isDefault: false,
+      visibleToStudents: visibleToStudents !== false,
+      studentLabel: studentLabel || ''
+    };
+    
+    const settings = await Settings.addPipelineStage(stage, req.userId);
+    
+    res.json({ 
+      success: true, 
+      message: 'Pipeline stage created successfully',
+      data: settings.jobPipelineStages.sort((a, b) => a.order - b.order)
+    });
+  } catch (error) {
+    console.error('Create pipeline stage error:', error);
+    res.status(400).json({ success: false, message: error.message || 'Server error' });
+  }
+});
+
+// Update a pipeline stage (coordinator/manager only)
+router.put('/pipeline-stages/:stageId', auth, authorize('coordinator', 'manager'), async (req, res) => {
+  try {
+    const { stageId } = req.params;
+    const { label, description, color, visibleToStudents, studentLabel } = req.body;
+    
+    const settings = await Settings.updatePipelineStage(stageId, {
+      label,
+      description,
+      color,
+      visibleToStudents,
+      studentLabel
+    }, req.userId);
+    
+    res.json({ 
+      success: true, 
+      message: 'Pipeline stage updated successfully',
+      data: settings.jobPipelineStages.sort((a, b) => a.order - b.order)
+    });
+  } catch (error) {
+    console.error('Update pipeline stage error:', error);
+    res.status(400).json({ success: false, message: error.message || 'Server error' });
+  }
+});
+
+// Delete a pipeline stage (coordinator/manager only)
+router.delete('/pipeline-stages/:stageId', auth, authorize('coordinator', 'manager'), async (req, res) => {
+  try {
+    const { stageId } = req.params;
+    
+    const settings = await Settings.deletePipelineStage(stageId, req.userId);
+    
+    res.json({ 
+      success: true, 
+      message: 'Pipeline stage deleted successfully',
+      data: settings.jobPipelineStages.sort((a, b) => a.order - b.order)
+    });
+  } catch (error) {
+    console.error('Delete pipeline stage error:', error);
+    res.status(400).json({ success: false, message: error.message || 'Server error' });
+  }
+});
+
+// Reorder pipeline stages (coordinator/manager only)
+router.put('/pipeline-stages-order', auth, authorize('coordinator', 'manager'), async (req, res) => {
+  try {
+    const { stageIds } = req.body;
+    
+    if (!Array.isArray(stageIds) || stageIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'Stage IDs array is required' });
+    }
+    
+    const settings = await Settings.reorderPipelineStages(stageIds, req.userId);
+    
+    res.json({ 
+      success: true, 
+      message: 'Pipeline stages reordered successfully',
+      data: settings.jobPipelineStages.sort((a, b) => a.order - b.order)
+    });
+  } catch (error) {
+    console.error('Reorder pipeline stages error:', error);
+    res.status(400).json({ success: false, message: error.message || 'Server error' });
+  }
+});
+
+// Get AI config (manager only)
+router.get('/ai-config', auth, authorize('manager'), async (req, res) => {
+  try {
+    const settings = await Settings.getSettings();
+    
+    res.json({ 
+      success: true, 
+      data: {
+        hasApiKey: !!settings.aiConfig?.googleApiKey,
+        enabled: settings.aiConfig?.enabled !== false,
+        // Don't send the actual API key for security
+        apiKeyPreview: settings.aiConfig?.googleApiKey 
+          ? `${settings.aiConfig.googleApiKey.substring(0, 8)}...${settings.aiConfig.googleApiKey.slice(-4)}`
+          : null
+      }
+    });
+  } catch (error) {
+    console.error('Get AI config error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Update AI config (manager only)
+router.put('/ai-config', auth, authorize('manager'), async (req, res) => {
+  try {
+    const { googleApiKey, enabled } = req.body;
+    
+    const settings = await Settings.getSettings();
+    
+    if (!settings.aiConfig) {
+      settings.aiConfig = {};
+    }
+    
+    if (googleApiKey !== undefined) {
+      settings.aiConfig.googleApiKey = googleApiKey;
+    }
+    
+    if (enabled !== undefined) {
+      settings.aiConfig.enabled = enabled;
+    }
+    
+    settings.lastUpdatedBy = req.userId;
+    await settings.save();
+    
+    res.json({ 
+      success: true, 
+      message: 'AI configuration updated successfully',
+      data: {
+        hasApiKey: !!settings.aiConfig.googleApiKey,
+        enabled: settings.aiConfig.enabled !== false,
+        apiKeyPreview: settings.aiConfig.googleApiKey 
+          ? `${settings.aiConfig.googleApiKey.substring(0, 8)}...${settings.aiConfig.googleApiKey.slice(-4)}`
+          : null
+      }
+    });
+  } catch (error) {
+    console.error('Update AI config error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 module.exports = router;

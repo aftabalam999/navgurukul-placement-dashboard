@@ -81,7 +81,16 @@ export const settingsAPI = {
   addItem: (key, item) => api.post(`/settings/${key}/add`, { item }),
   removeItem: (key, item) => api.post(`/settings/${key}/remove`, { item }),
   initSettings: () => api.post('/settings/init'),
-  addCourseSkill: (skill) => api.post('/settings/course-skills', { skill })
+  addCourseSkill: (skill) => api.post('/settings/course-skills', { skill }),
+  // Pipeline stages
+  getPipelineStages: () => api.get('/settings/pipeline-stages'),
+  createPipelineStage: (stage) => api.post('/settings/pipeline-stages', stage),
+  updatePipelineStage: (stageId, updates) => api.put(`/settings/pipeline-stages/${stageId}`, updates),
+  deletePipelineStage: (stageId) => api.delete(`/settings/pipeline-stages/${stageId}`),
+  reorderPipelineStages: (stageIds) => api.put('/settings/pipeline-stages-order', { stageIds }),
+  // AI config
+  getAIConfig: () => api.get('/settings/ai-config'),
+  updateAIConfig: (config) => api.put('/settings/ai-config', config)
 };
 
 // Job APIs
@@ -91,7 +100,17 @@ export const jobAPI = {
   getJob: (id) => api.get(`/jobs/${id}`),
   createJob: (data) => api.post('/jobs', data),
   updateJob: (id, data) => api.put(`/jobs/${id}`, data),
-  deleteJob: (id) => api.delete(`/jobs/${id}`)
+  deleteJob: (id) => api.delete(`/jobs/${id}`),
+  updateJobStatus: (id, status, notes) => api.patch(`/jobs/${id}/status`, { status, notes }),
+  // AI-powered JD parsing
+  parseJDFromUrl: (url) => api.post('/jobs/parse-jd', { url }),
+  parseJDFromPDF: (file) => {
+    const formData = new FormData();
+    formData.append('pdf', file);
+    return api.post('/jobs/parse-jd', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  }
 };
 
 // Application APIs

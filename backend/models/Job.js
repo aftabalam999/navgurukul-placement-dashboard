@@ -75,9 +75,15 @@ const jobSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['draft', 'active', 'closed', 'filled'],
     default: 'draft'
+    // Note: Validation against pipeline stages is done in routes
   },
+  statusHistory: [{
+    status: String,
+    changedAt: { type: Date, default: Date.now },
+    changedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    notes: String
+  }],
   interviewRounds: [{
     name: String,
     type: {

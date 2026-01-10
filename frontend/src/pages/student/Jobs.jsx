@@ -1,9 +1,40 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { jobAPI, authAPI } from '../../services/api';
-import { LoadingSpinner, StatusBadge, Pagination, EmptyState } from '../../components/common/UIComponents';
-import { Briefcase, MapPin, DollarSign, Calendar, Search, Filter, Star, AlertCircle, GraduationCap, Clock } from 'lucide-react';
+import { jobAPI, authAPI, settingsAPI } from '../../services/api';
+import { LoadingSpinner, StatusBadge, Pagination, EmptyState, Badge } from '../../components/common/UIComponents';
+import { Briefcase, MapPin, DollarSign, Calendar, Search, Filter, Star, AlertCircle, GraduationCap, Clock, CheckCircle, Users } from 'lucide-react';
 import { format } from 'date-fns';
+
+// Color variant mapping for stage colors
+const COLOR_VARIANTS = {
+  gray: 'default',
+  yellow: 'warning',
+  green: 'success',
+  orange: 'warning',
+  blue: 'info',
+  red: 'danger',
+  purple: 'primary',
+  pink: 'primary',
+  indigo: 'info'
+};
+
+// Dynamic Job Status Badge that uses pipeline stages
+const JobStatusBadge = ({ status, stages }) => {
+  // Find the stage configuration
+  const stage = stages.find(s => s.id === status);
+  
+  // Don't show badge if stage is not visible to students or not found
+  if (!stage || !stage.visibleToStudents) return null;
+  
+  const variant = COLOR_VARIANTS[stage.color] || 'default';
+  const label = stage.studentLabel || stage.label;
+  
+  return (
+    <Badge variant={variant} className="flex items-center gap-1">
+      {label}
+    </Badge>
+  );
+};
 
 const StudentJobs = () => {
   const [jobs, setJobs] = useState([]);
@@ -16,10 +47,21 @@ const StudentJobs = () => {
   const [jobPagination, setJobPagination] = useState({ current: 1, pages: 1, total: 0 });
   const [internshipPagination, setInternshipPagination] = useState({ current: 1, pages: 1, total: 0 });
   const [filters, setFilters] = useState({ search: '' });
+  const [pipelineStages, setPipelineStages] = useState([]);
 
   useEffect(() => {
     fetchProfileStatus();
+    fetchPipelineStages();
   }, []);
+
+  const fetchPipelineStages = async () => {
+    try {
+      const response = await settingsAPI.getPipelineStages();
+      setPipelineStages(response.data.data || []);
+    } catch (error) {
+      console.error('Error fetching pipeline stages:', error);
+    }
+  };
 
   useEffect(() => {
     if (activeTab === 'matching') {
@@ -291,6 +333,7 @@ const StudentJobs = () => {
                 </div>
 
                 <div className="flex flex-col items-end gap-2">
+                  <JobStatusBadge status={job.status} stages={pipelineStages} />
                   <StatusBadge status={job.jobType} />
                   {job.matchPercentage !== undefined && (
                     <div className={`text-sm font-medium ${

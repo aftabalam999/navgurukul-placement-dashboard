@@ -24,11 +24,55 @@ const Settings = () => {
   const [creatingCycle, setCreatingCycle] = useState(false);
   const [campuses, setCampuses] = useState([]);
 
+  // AI Config states
+  const [aiConfig, setAiConfig] = useState({ hasApiKey: false, enabled: true, apiKeyPreview: null });
+  const [newApiKey, setNewApiKey] = useState('');
+  const [savingAiConfig, setSavingAiConfig] = useState(false);
+
   useEffect(() => {
     fetchSettings();
     fetchPlacementCycles();
     fetchCampuses();
+    fetchAiConfig();
   }, []);
+
+  const fetchAiConfig = async () => {
+    try {
+      const response = await settingsAPI.getAIConfig();
+      setAiConfig(response.data.data);
+    } catch (err) {
+      console.error('Error fetching AI config:', err);
+    }
+  };
+
+  const saveAiConfig = async () => {
+    try {
+      setSavingAiConfig(true);
+      await settingsAPI.updateAIConfig({
+        googleApiKey: newApiKey || undefined,
+        enabled: aiConfig.enabled
+      });
+      setSuccess('AI configuration saved successfully');
+      setNewApiKey('');
+      fetchAiConfig();
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to save AI configuration');
+    } finally {
+      setSavingAiConfig(false);
+    }
+  };
+
+  const toggleAiEnabled = async () => {
+    try {
+      await settingsAPI.updateAIConfig({ enabled: !aiConfig.enabled });
+      setAiConfig(prev => ({ ...prev, enabled: !prev.enabled }));
+      setSuccess(aiConfig.enabled ? 'AI disabled' : 'AI enabled');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError('Failed to update AI status');
+    }
+  };
 
   const fetchPlacementCycles = async () => {
     try {
@@ -201,7 +245,8 @@ const Settings = () => {
     { id: 'degrees', label: 'Degree Options', icon: '🎓' },
     { id: 'softskills', label: 'Soft Skills', icon: '🤝' },
     { id: 'cycles', label: 'Placement Cycles', icon: '📅' },
-    { id: 'campuses', label: 'Campuses', icon: '🏫' }
+    { id: 'campuses', label: 'Campuses', icon: '🏫' },
+    { id: 'ai', label: 'AI Integration', icon: '🤖' }
   ];
 
   if (loading) {
@@ -714,6 +759,113 @@ const Settings = () => {
             </p>
           </div>
         </Card>
+      )}
+
+      {/* AI Integration Tab */}
+      {activeTab === 'ai' && (
+        <div className="space-y-6">
+          <Card>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">AI-Powered Job Description Parsing</h3>
+            <p className="text-gray-600 mb-4">
+              Enable AI to automatically extract job details from PDFs and URLs when creating new jobs.
+            </p>
+
+            {/* Status */}
+            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg mb-4">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">🤖</span>
+                <div>
+                  <p className="font-medium text-gray-900">AI Auto-Fill</p>
+                  <p className="text-sm text-gray-500">
+                    {aiConfig.hasApiKey 
+                      ? `API Key: ${aiConfig.apiKeyPreview}`
+                      : 'No API key configured'
+                    }
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <Badge variant={aiConfig.enabled ? 'success' : 'danger'}>
+                  {aiConfig.enabled ? 'Enabled' : 'Disabled'}
+                </Badge>
+                <button
+                  onClick={toggleAiEnabled}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    aiConfig.enabled ? 'bg-green-500' : 'bg-gray-200'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      aiConfig.enabled ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+            </div>
+
+            {/* API Key Input */}
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Google AI Studio API Key
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="password"
+                    value={newApiKey}
+                    onChange={(e) => setNewApiKey(e.target.value)}
+                    placeholder={aiConfig.hasApiKey ? 'Enter new key to replace' : 'Enter your API key'}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <Button
+                    variant="primary"
+                    onClick={saveAiConfig}
+                    disabled={savingAiConfig || !newApiKey.trim()}
+                  >
+                    {savingAiConfig ? 'Saving...' : 'Save Key'}
+                  </Button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  Get your free API key from{' '}
+                  <a 
+                    href="https://aistudio.google.com/app/apikey" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline"
+                  >
+                    Google AI Studio
+                  </a>
+                </p>
+              </div>
+            </div>
+
+            {/* Features */}
+            <div className="mt-6 border-t pt-4">
+              <h4 className="font-medium text-gray-900 mb-3">What AI can extract:</h4>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {[
+                  'Job Title', 'Company Name', 'Location', 'Job Type',
+                  'Salary Range', 'Requirements', 'Responsibilities',
+                  'Skills', 'Experience Level', 'No. of Positions'
+                ].map(feature => (
+                  <div key={feature} className="flex items-center gap-2 text-sm text-gray-600">
+                    <span className="text-green-500">✓</span>
+                    {feature}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Fallback Info */}
+            <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-blue-800 text-sm">
+                <strong>Fallback Mode:</strong> If AI is disabled or API key is not set, 
+                the system will use basic text extraction (regex-based) which provides 
+                limited but still useful auto-fill functionality.
+              </p>
+            </div>
+          </Card>
+        </div>
       )}
 
       {/* Save reminder */}

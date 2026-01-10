@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { jobAPI } from '../../services/api';
+import { jobAPI, settingsAPI } from '../../services/api';
 import { LoadingSpinner, StatusBadge, Pagination, EmptyState, ConfirmModal } from '../../components/common/UIComponents';
-import { Briefcase, Plus, Search, Edit, Trash2, MapPin, Calendar, Users, GraduationCap, Clock } from 'lucide-react';
+import { Briefcase, Plus, Search, Edit, Trash2, MapPin, Calendar, Users, GraduationCap, Clock, LayoutGrid, List } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
+import JobsKanban from './JobsKanban';
 
 const CoordinatorJobs = () => {
   const [jobs, setJobs] = useState([]);
@@ -12,10 +13,34 @@ const CoordinatorJobs = () => {
   const [pagination, setPagination] = useState({ current: 1, pages: 1, total: 0 });
   const [filters, setFilters] = useState({ search: '', status: '', jobType: '' });
   const [deleteModal, setDeleteModal] = useState({ show: false, jobId: null });
+  const [viewMode, setViewMode] = useState(() => {
+    return localStorage.getItem('jobsViewMode') || 'list';
+  });
+  const [pipelineStages, setPipelineStages] = useState([]);
 
   useEffect(() => {
-    fetchJobs();
-  }, [pagination.current, filters]);
+    fetchPipelineStages();
+  }, []);
+
+  useEffect(() => {
+    if (viewMode === 'list') {
+      fetchJobs();
+    }
+  }, [pagination.current, filters, viewMode]);
+
+  // Save view mode preference
+  useEffect(() => {
+    localStorage.setItem('jobsViewMode', viewMode);
+  }, [viewMode]);
+
+  const fetchPipelineStages = async () => {
+    try {
+      const response = await settingsAPI.getPipelineStages();
+      setPipelineStages(response.data.data || []);
+    } catch (error) {
+      console.error('Error fetching pipeline stages:', error);
+    }
+  };
 
   const fetchJobs = async () => {
     setLoading(true);
@@ -67,49 +92,80 @@ const CoordinatorJobs = () => {
           <h1 className="text-2xl font-bold text-gray-900">Job Management</h1>
           <p className="text-gray-600">Create and manage job postings</p>
         </div>
-        <Link to="/coordinator/jobs/new" className="btn btn-primary flex items-center gap-2">
-          <Plus className="w-4 h-4" />
-          Create Job
-        </Link>
-      </div>
-
-      {/* Filters */}
-      <div className="card">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search jobs..."
-              value={filters.search}
-              onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-              className="pl-10"
-            />
+        <div className="flex items-center gap-3">
+          {/* View Toggle */}
+          <div className="flex items-center bg-gray-100 rounded-lg p-1">
+            <button
+              onClick={() => setViewMode('list')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                viewMode === 'list' 
+                  ? 'bg-white shadow-sm text-gray-900' 
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <List className="w-4 h-4" />
+              List
+            </button>
+            <button
+              onClick={() => setViewMode('kanban')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                viewMode === 'kanban' 
+                  ? 'bg-white shadow-sm text-gray-900' 
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <LayoutGrid className="w-4 h-4" />
+              Kanban
+            </button>
           </div>
-          <select
-            value={filters.jobType}
-            onChange={(e) => setFilters({ ...filters, jobType: e.target.value })}
-            className="w-full md:w-40"
-          >
-            <option value="">All Types</option>
-            <option value="full_time">Full Time</option>
-            <option value="part_time">Part Time</option>
-            <option value="internship">Internship</option>
-            <option value="contract">Contract</option>
-          </select>
-          <select
-            value={filters.status}
-            onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-            className="w-full md:w-40"
-          >
-            <option value="">All Status</option>
-            <option value="draft">Draft</option>
-            <option value="active">Active</option>
-            <option value="closed">Closed</option>
-            <option value="filled">Filled</option>
-          </select>
+          <Link to="/coordinator/jobs/new" className="btn btn-primary flex items-center gap-2">
+            <Plus className="w-4 h-4" />
+            Create Job
+          </Link>
         </div>
       </div>
+
+      {/* Kanban View */}
+      {viewMode === 'kanban' ? (
+        <JobsKanban />
+      ) : (
+        <>
+          {/* Filters */}
+          <div className="card">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search jobs..."
+                  value={filters.search}
+                  onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                  className="pl-10"
+                />
+              </div>
+              <select
+                value={filters.jobType}
+                onChange={(e) => setFilters({ ...filters, jobType: e.target.value })}
+                className="w-full md:w-40"
+              >
+                <option value="">All Types</option>
+                <option value="full_time">Full Time</option>
+                <option value="part_time">Part Time</option>
+                <option value="internship">Internship</option>
+                <option value="contract">Contract</option>
+              </select>
+              <select
+                value={filters.status}
+                onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+                className="w-full md:w-48"
+              >
+                <option value="">All Status</option>
+                {pipelineStages.map(stage => (
+                  <option key={stage.id} value={stage.id}>{stage.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
 
       {/* Jobs List */}
       {loading ? (
@@ -177,10 +233,9 @@ const CoordinatorJobs = () => {
                       onChange={(e) => handleStatusChange(job._id, e.target.value)}
                       className="text-sm border rounded-lg px-2 py-1"
                     >
-                      <option value="draft">Draft</option>
-                      <option value="active">Active</option>
-                      <option value="closed">Closed</option>
-                      <option value="filled">Filled</option>
+                      {pipelineStages.map(stage => (
+                        <option key={stage.id} value={stage.id}>{stage.label}</option>
+                      ))}
                     </select>
                     <Link
                       to={`/coordinator/jobs/${job._id}/edit`}
@@ -229,6 +284,8 @@ const CoordinatorJobs = () => {
             </Link>
           }
         />
+      )}
+        </>
       )}
 
       {/* Delete Confirmation */}
