@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Environment files (keep .env.example)
+.env
+.env.local
+.env.*.local
+
+# Build outputs
+dist/
+build/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Uploads (user data)
+backend/uploads/avatars/*
+backend/uploads/resumes/*
+backend/uploads/documents/*
+!backend/uploads/avatars/.gitkeep
+!backend/uploads/resumes/.gitkeep
+!backend/uploads/documents/.gitkeep

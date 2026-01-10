@@ -1,0 +1,40 @@
+services:
+  # Backend API Service
+  - type: web
+    name: placement-dashboard-api
+    env: node
+    region: oregon
+    plan: free
+    branch: main
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: MONGODB_URI
+        sync: false  # You'll set this manually from MongoDB Atlas
+      - key: PORT
+        value: 10000
+
+  # Frontend Static Site
+  - type: web
+    name: placement-dashboard-frontend
+    env: static
+    region: oregon
+    plan: free
+    branch: main
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: no-cache
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
