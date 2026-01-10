@@ -11,7 +11,9 @@ import {
   Settings,
   X,
   GraduationCap,
-  ClipboardCheck
+  ClipboardCheck,
+  Target,
+  ExternalLink
 } from 'lucide-react';
 
 const Sidebar = ({ isOpen, onClose }) => {
@@ -25,14 +27,18 @@ const Sidebar = ({ isOpen, onClose }) => {
           { path: '/student', icon: Home, label: 'Dashboard', exact: true },
           { path: '/student/profile', icon: User, label: 'My Profile' },
           { path: '/student/jobs', icon: Briefcase, label: 'Job Listings' },
-          { path: '/student/applications', icon: FileText, label: 'My Applications' }
+          { path: '/student/applications', icon: FileText, label: 'My Applications' },
+          { path: '/student/job-readiness', icon: Target, label: 'Job Readiness' },
+          { path: '/student/self-applications', icon: ExternalLink, label: 'Self Applications' }
         ];
       case 'campus_poc':
         return [
           { path: '/campus-poc', icon: Home, label: 'Dashboard', exact: true },
           { path: '/campus-poc/students', icon: Users, label: 'Students' },
           { path: '/campus-poc/profile-approvals', icon: ClipboardCheck, label: 'Profile Approvals' },
-          { path: '/campus-poc/skill-approvals', icon: CheckSquare, label: 'Skill Approvals' }
+          { path: '/campus-poc/skill-approvals', icon: CheckSquare, label: 'Skill Approvals' },
+          { path: '/campus-poc/job-readiness', icon: Target, label: 'Job Readiness' },
+          { path: '/campus-poc/self-applications', icon: ExternalLink, label: 'Self Applications' }
         ];
       case 'coordinator':
         return [

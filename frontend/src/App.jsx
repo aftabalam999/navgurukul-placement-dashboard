@@ -14,6 +14,8 @@ import StudentProfile from './pages/student/Profile';
 import StudentJobs from './pages/student/Jobs';
 import StudentApplications from './pages/student/Applications';
 import JobDetails from './pages/student/JobDetails';
+import StudentJobReadiness from './pages/student/JobReadiness';
+import StudentSelfApplications from './pages/student/SelfApplications';
 
 // Campus POC Pages
 import POCDashboard from './pages/campus-poc/Dashboard';
@@ -21,6 +23,8 @@ import POCStudents from './pages/campus-poc/Students';
 import POCSkillApprovals from './pages/campus-poc/SkillApprovals';
 import POCStudentDetails from './pages/campus-poc/StudentDetails';
 import POCProfileApprovals from './pages/campus-poc/ProfileApprovals';
+import POCJobReadinessReview from './pages/campus-poc/JobReadinessReview';
+import POCSelfApplicationsReview from './pages/campus-poc/SelfApplicationsReview';
 
 // Coordinator Pages
 import CoordinatorDashboard from './pages/coordinator/Dashboard';
@@ -99,6 +103,8 @@ function App() {
         <Route path="jobs" element={<StudentJobs />} />
         <Route path="jobs/:id" element={<JobDetails />} />
         <Route path="applications" element={<StudentApplications />} />
+        <Route path="job-readiness" element={<StudentJobReadiness />} />
+        <Route path="self-applications" element={<StudentSelfApplications />} />
         <Route path="notifications" element={<Notifications />} />
       </Route>
 
@@ -113,6 +119,8 @@ function App() {
         <Route path="students/:id" element={<POCStudentDetails />} />
         <Route path="skill-approvals" element={<POCSkillApprovals />} />
         <Route path="profile-approvals" element={<POCProfileApprovals />} />
+        <Route path="job-readiness" element={<POCJobReadinessReview />} />
+        <Route path="self-applications" element={<POCSelfApplicationsReview />} />
         <Route path="notifications" element={<Notifications />} />
       </Route>
 

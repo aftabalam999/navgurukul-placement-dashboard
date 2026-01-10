@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { userAPI } from '../../services/api';
-import { LoadingSpinner, Pagination, EmptyState, StatusBadge } from '../../components/common/UIComponents';
-import { Users, Search, ChevronRight, GraduationCap } from 'lucide-react';
+import { LoadingSpinner, Pagination, EmptyState, StatusBadge, Button } from '../../components/common/UIComponents';
+import { BulkUploadModal } from '../../components/common/BulkUpload';
+import { Users, Search, ChevronRight, GraduationCap, Upload } from 'lucide-react';
 
 const schools = [
   'School of Programming',
@@ -17,6 +18,7 @@ const POCStudents = () => {
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ current: 1, pages: 1, total: 0 });
   const [filters, setFilters] = useState({ search: '', school: '', batch: '' });
+  const [bulkUploadModal, setBulkUploadModal] = useState(false);
 
   useEffect(() => {
     fetchStudents();
@@ -52,9 +54,15 @@ const POCStudents = () => {
   return (
     <div className="space-y-6 animate-fadeIn">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Students</h1>
-        <p className="text-gray-600">View and manage students from your campus</p>
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Students</h1>
+          <p className="text-gray-600">View and manage students from your campus</p>
+        </div>
+        <Button onClick={() => setBulkUploadModal(true)}>
+          <Upload className="w-5 h-5 mr-2" />
+          Bulk Upload Students
+        </Button>
       </div>
 
       {/* Filters */}
@@ -166,6 +174,17 @@ const POCStudents = () => {
           description="Try adjusting your search filters"
         />
       )}
+
+      {/* Bulk Upload Modal */}
+      <BulkUploadModal
+        isOpen={bulkUploadModal}
+        onClose={() => setBulkUploadModal(false)}
+        type="students"
+        onSuccess={() => {
+          fetchStudents();
+          setBulkUploadModal(false);
+        }}
+      />
     </div>
   );
 };

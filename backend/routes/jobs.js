@@ -6,8 +6,10 @@ const User = require('../models/User');
 const Notification = require('../models/Notification');
 const Settings = require('../models/Settings');
 const Skill = require('../models/Skill');
+const InterestRequest = require('../models/InterestRequest');
 const { auth, authorize } = require('../middleware/auth');
 const AIService = require('../services/aiService');
+const { calculateMatch, getJobsWithMatch } = require('../services/matchService');
 const multer = require('multer');
 
 // Configure multer for PDF uploads
@@ -191,47 +193,78 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
-// Get matching jobs for student
+// Get matching jobs for student with detailed match calculation
 router.get('/matching', auth, authorize('student'), async (req, res) => {
   try {
     const student = await User.findById(req.userId)
-      .populate('studentProfile.skills.skill');
+      .populate('studentProfile.skills.skill')
+      .populate('campus');
 
-    const approvedSkillIds = student.studentProfile.skills
-      .filter(s => s.status === 'approved')
-      .map(s => s.skill._id);
-
+    // Get all active jobs that meet basic criteria
     const jobs = await Job.find({
       status: 'active',
       applicationDeadline: { $gte: new Date() },
-      'requiredSkills.skill': { $in: approvedSkillIds }
+      $or: [
+        { 'eligibility.campuses': { $size: 0 } },
+        { 'eligibility.campuses': student.campus?._id }
+      ]
     })
       .populate('requiredSkills.skill')
       .populate('eligibility.campuses', 'name')
       .sort({ createdAt: -1 });
 
-    // Calculate match percentage for each job
+    // Calculate detailed match for each job
     const jobsWithMatch = jobs.map(job => {
-      const requiredSkillIds = job.requiredSkills.map(s => s.skill._id.toString());
-      const matchingSkills = requiredSkillIds.filter(
-        skillId => approvedSkillIds.map(id => id.toString()).includes(skillId)
-      );
-      const matchPercentage = Math.round((matchingSkills.length / requiredSkillIds.length) * 100);
-
+      const matchDetails = calculateMatch(student, job);
       return {
         ...job.toObject(),
-        matchPercentage,
-        matchingSkillsCount: matchingSkills.length,
-        totalRequiredSkills: requiredSkillIds.length
+        matchDetails
       };
     });
 
-    // Sort by match percentage
-    jobsWithMatch.sort((a, b) => b.matchPercentage - a.matchPercentage);
+    // Sort by match percentage (highest first)
+    jobsWithMatch.sort((a, b) => b.matchDetails.overallPercentage - a.matchDetails.overallPercentage);
 
     res.json(jobsWithMatch);
   } catch (error) {
     console.error('Get matching jobs error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get single job with match details for student
+router.get('/:id/match', auth, authorize('student'), async (req, res) => {
+  try {
+    const student = await User.findById(req.userId)
+      .populate('studentProfile.skills.skill')
+      .populate('campus');
+
+    const job = await Job.findById(req.params.id)
+      .populate('requiredSkills.skill')
+      .populate('eligibility.campuses', 'name code');
+
+    if (!job) {
+      return res.status(404).json({ message: 'Job not found' });
+    }
+
+    const matchDetails = calculateMatch(student, job);
+
+    // Check if student has an existing interest request
+    const existingInterest = await InterestRequest.findOne({
+      student: req.userId,
+      job: req.params.id
+    });
+
+    res.json({
+      ...job.toObject(),
+      matchDetails,
+      interestRequest: existingInterest ? {
+        status: existingInterest.status,
+        createdAt: existingInterest.createdAt
+      } : null
+    });
+  } catch (error) {
+    console.error('Get job match error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -446,6 +479,191 @@ router.patch('/:id/status', auth, authorize('coordinator', 'manager'), async (re
     });
   } catch (error) {
     console.error('Update job status error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// === Interest Request Routes ===
+
+// Submit interest request (for students with <60% match)
+router.post('/:id/interest', auth, authorize('student'), [
+  body('reason').trim().isLength({ min: 50 }).withMessage('Please provide a detailed reason (at least 50 characters)'),
+  body('acknowledgedGaps').isArray(),
+  body('improvementPlan').optional().trim()
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { reason, acknowledgedGaps, improvementPlan } = req.body;
+    const jobId = req.params.id;
+
+    // Get job and student
+    const job = await Job.findById(jobId).populate('requiredSkills.skill');
+    if (!job) {
+      return res.status(404).json({ message: 'Job not found' });
+    }
+
+    const student = await User.findById(req.userId)
+      .populate('studentProfile.skills.skill')
+      .populate('campus');
+
+    // Calculate match
+    const matchDetails = calculateMatch(student, job);
+
+    // Only allow interest requests for <60% match
+    if (matchDetails.overallPercentage >= 60) {
+      return res.status(400).json({ 
+        message: 'You meet the requirements. Please apply directly instead of showing interest.'
+      });
+    }
+
+    // Check for existing request
+    const existing = await InterestRequest.findOne({
+      student: req.userId,
+      job: jobId
+    });
+
+    if (existing) {
+      return res.status(400).json({ 
+        message: `You already have a ${existing.status} interest request for this job.`
+      });
+    }
+
+    // Create interest request
+    const interestRequest = new InterestRequest({
+      student: req.userId,
+      job: jobId,
+      matchDetails: {
+        overallPercentage: matchDetails.overallPercentage,
+        skillMatch: matchDetails.breakdown.skills,
+        eligibilityMatch: matchDetails.breakdown.eligibility.details,
+        requirementsMatch: matchDetails.breakdown.requirements
+      },
+      reason,
+      acknowledgedGaps,
+      improvementPlan
+    });
+
+    await interestRequest.save();
+
+    // Notify Campus PoC
+    const campusPoCs = await User.find({
+      role: 'campus_poc',
+      campus: student.campus?._id,
+      isActive: true
+    });
+
+    const notifications = campusPoCs.map(poc => ({
+      recipient: poc._id,
+      type: 'interest_request',
+      title: 'New Interest Request',
+      message: `${student.firstName} ${student.lastName} has shown interest in ${job.title} at ${job.company.name} (${matchDetails.overallPercentage}% match)`,
+      link: `/campus-poc/interest-requests/${interestRequest._id}`,
+      relatedEntity: { type: 'interest_request', id: interestRequest._id }
+    }));
+
+    if (notifications.length > 0) {
+      await Notification.insertMany(notifications);
+    }
+
+    res.status(201).json({
+      message: 'Interest request submitted successfully. Your Campus PoC will review it.',
+      interestRequest
+    });
+  } catch (error) {
+    console.error('Submit interest error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get interest requests for a job (Coordinators/Managers)
+router.get('/:id/interest-requests', auth, authorize('coordinator', 'manager', 'campus_poc'), async (req, res) => {
+  try {
+    const { status } = req.query;
+    let query = { job: req.params.id };
+
+    if (status) {
+      query.status = status;
+    }
+
+    // Campus PoC can only see requests from their campus
+    if (req.user.role === 'campus_poc') {
+      const campusStudents = await User.find({ 
+        role: 'student', 
+        campus: req.user.campus 
+      }).select('_id');
+      query.student = { $in: campusStudents.map(s => s._id) };
+    }
+
+    const requests = await InterestRequest.find(query)
+      .populate('student', 'firstName lastName email studentProfile.currentSchool')
+      .populate('reviewedBy', 'firstName lastName')
+      .sort({ createdAt: -1 });
+
+    res.json(requests);
+  } catch (error) {
+    console.error('Get interest requests error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Review interest request (Campus PoC)
+router.patch('/interest-requests/:requestId', auth, authorize('campus_poc', 'coordinator', 'manager'), [
+  body('status').isIn(['approved', 'rejected']),
+  body('reviewNotes').optional().trim(),
+  body('rejectionReason').optional().trim()
+], async (req, res) => {
+  try {
+    const { status, reviewNotes, rejectionReason } = req.body;
+    const request = await InterestRequest.findById(req.params.requestId)
+      .populate('student')
+      .populate('job');
+
+    if (!request) {
+      return res.status(404).json({ message: 'Interest request not found' });
+    }
+
+    // Campus PoC can only review their campus students
+    if (req.user.role === 'campus_poc') {
+      if (request.student.campus?.toString() !== req.user.campus?.toString()) {
+        return res.status(403).json({ message: 'Not authorized to review this request' });
+      }
+    }
+
+    request.status = status;
+    request.reviewedBy = req.userId;
+    request.reviewedAt = new Date();
+    request.reviewNotes = reviewNotes;
+    
+    if (status === 'rejected') {
+      request.rejectionReason = rejectionReason || 'Not approved by Campus PoC';
+    }
+
+    await request.save();
+
+    // Notify student
+    const notification = new Notification({
+      recipient: request.student._id,
+      type: status === 'approved' ? 'interest_approved' : 'interest_rejected',
+      title: status === 'approved' ? 'Interest Request Approved!' : 'Interest Request Update',
+      message: status === 'approved'
+        ? `Your interest in ${request.job.title} at ${request.job.company.name} has been approved. You can now apply!`
+        : `Your interest in ${request.job.title} at ${request.job.company.name} was not approved. Reason: ${rejectionReason || 'Not specified'}`,
+      link: `/student/jobs/${request.job._id}`,
+      relatedEntity: { type: 'interest_request', id: request._id }
+    });
+
+    await notification.save();
+
+    res.json({
+      message: `Interest request ${status}`,
+      request
+    });
+  } catch (error) {
+    console.error('Review interest request error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

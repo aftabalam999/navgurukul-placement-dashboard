@@ -4,24 +4,96 @@ import { jobAPI, applicationAPI, authAPI } from '../../services/api';
 import { LoadingSpinner, StatusBadge } from '../../components/common/UIComponents';
 import { 
   ArrowLeft, Briefcase, MapPin, DollarSign, Calendar, Clock, 
-  Users, Building, Globe, CheckCircle, AlertCircle 
+  Users, Building, Globe, CheckCircle, AlertCircle, Heart, XCircle,
+  TrendingUp, Award, GraduationCap
 } from 'lucide-react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
+
+// Match Percentage Circle Component
+const MatchCircle = ({ percentage }) => {
+  const radius = 40;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (percentage / 100) * circumference;
+  
+  const getColor = () => {
+    if (percentage >= 80) return '#22c55e'; // green
+    if (percentage >= 60) return '#3b82f6'; // blue
+    if (percentage >= 40) return '#eab308'; // yellow
+    return '#ef4444'; // red
+  };
+
+  return (
+    <div className="relative inline-flex items-center justify-center">
+      <svg className="transform -rotate-90 w-24 h-24">
+        <circle
+          cx="48"
+          cy="48"
+          r={radius}
+          stroke="#e5e7eb"
+          strokeWidth="8"
+          fill="none"
+        />
+        <circle
+          cx="48"
+          cy="48"
+          r={radius}
+          stroke={getColor()}
+          strokeWidth="8"
+          fill="none"
+          strokeDasharray={circumference}
+          strokeDashoffset={strokeDashoffset}
+          strokeLinecap="round"
+          className="transition-all duration-500"
+        />
+      </svg>
+      <span className={`absolute text-2xl font-bold`} style={{ color: getColor() }}>
+        {percentage}%
+      </span>
+    </div>
+  );
+};
+
+// Proficiency Level Display
+const ProficiencyBadge = ({ level }) => {
+  const labels = ['None', 'Beginner', 'Intermediate', 'Advanced', 'Expert'];
+  const colors = [
+    'bg-gray-100 text-gray-600',
+    'bg-blue-100 text-blue-700',
+    'bg-green-100 text-green-700',
+    'bg-purple-100 text-purple-700',
+    'bg-yellow-100 text-yellow-700'
+  ];
+  return (
+    <span className={`text-xs px-2 py-0.5 rounded ${colors[level] || colors[0]}`}>
+      {labels[level] || 'Unknown'}
+    </span>
+  );
+};
 
 const JobDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [job, setJob] = useState(null);
+  const [matchDetails, setMatchDetails] = useState(null);
   const [loading, setLoading] = useState(true);
   const [applying, setApplying] = useState(false);
+  const [submittingInterest, setSubmittingInterest] = useState(false);
   const [hasApplied, setHasApplied] = useState(false);
+  const [interestRequest, setInterestRequest] = useState(null);
   const [profileStatus, setProfileStatus] = useState('draft');
   const [coverLetter, setCoverLetter] = useState('');
   const [showApplyModal, setShowApplyModal] = useState(false);
+  const [showInterestModal, setShowInterestModal] = useState(false);
+  const [interestForm, setInterestForm] = useState({
+    reason: '',
+    acknowledgedGaps: [],
+    improvementPlan: ''
+  });
+  const [customResponses, setCustomResponses] = useState({});
 
   useEffect(() => {
-    fetchJob();
+    fetchJobWithMatch();
     checkIfApplied();
     fetchProfileStatus();
   }, [id]);
@@ -35,10 +107,19 @@ const JobDetails = () => {
     }
   };
 
-  const fetchJob = async () => {
+  const fetchJobWithMatch = async () => {
     try {
-      const response = await jobAPI.getJob(id);
-      setJob(response.data);
+      // Try to get job with match details first
+      try {
+        const matchResponse = await jobAPI.getJobWithMatch(id);
+        setJob(matchResponse.data);
+        setMatchDetails(matchResponse.data.matchDetails);
+        setInterestRequest(matchResponse.data.interestRequest);
+      } catch (matchError) {
+        // Fallback to regular job fetch
+        const response = await jobAPI.getJob(id);
+        setJob(response.data);
+      }
     } catch (error) {
       toast.error('Error loading job details');
       navigate('/student/jobs');
@@ -67,6 +148,29 @@ const JobDetails = () => {
       toast.error(error.response?.data?.message || 'Error submitting application');
     } finally {
       setApplying(false);
+    }
+  };
+
+  const handleSubmitInterest = async () => {
+    if (interestForm.reason.length < 50) {
+      toast.error('Please provide a detailed reason (at least 50 characters)');
+      return;
+    }
+
+    setSubmittingInterest(true);
+    try {
+      const response = await jobAPI.submitInterest(id, {
+        reason: interestForm.reason,
+        acknowledgedGaps: interestForm.acknowledgedGaps,
+        improvementPlan: interestForm.improvementPlan
+      });
+      toast.success('Interest request submitted! Your Campus PoC will review it.');
+      setInterestRequest({ status: 'pending', createdAt: new Date() });
+      setShowInterestModal(false);
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Error submitting interest request');
+    } finally {
+      setSubmittingInterest(false);
     }
   };
 
@@ -164,6 +268,24 @@ const JobDetails = () => {
                 Complete your profile →
               </Link>
             </div>
+          ) : interestRequest?.status === 'pending' ? (
+            <div className="flex items-center gap-2 text-yellow-600">
+              <Clock className="w-5 h-5" />
+              <span>Interest request pending approval</span>
+            </div>
+          ) : interestRequest?.status === 'rejected' ? (
+            <div className="flex items-center gap-2 text-red-600">
+              <XCircle className="w-5 h-5" />
+              <span>Interest request not approved</span>
+            </div>
+          ) : matchDetails && !matchDetails.canApply ? (
+            <button
+              onClick={() => setShowInterestModal(true)}
+              className="btn bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-2"
+            >
+              <Heart className="w-4 h-4" />
+              Show Interest
+            </button>
           ) : (
             <button
               onClick={() => setShowApplyModal(true)}
@@ -174,6 +296,53 @@ const JobDetails = () => {
           )}
         </div>
       </div>
+
+      {/* Match Details Card - Show only if we have match details */}
+      {matchDetails && (
+        <div className="card bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+          <div className="flex flex-col md:flex-row items-center gap-6">
+            <div className="text-center">
+              <MatchCircle percentage={matchDetails.overallPercentage} />
+              <p className="text-sm text-gray-600 mt-2">Your Match Score</p>
+            </div>
+            
+            <div className="flex-1 space-y-4">
+              {/* Summary Messages */}
+              <div className="space-y-1">
+                {matchDetails.summary?.map((msg, i) => (
+                  <p key={i} className="text-sm">{msg}</p>
+                ))}
+              </div>
+
+              {/* Breakdown */}
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div className="p-3 bg-white rounded-lg">
+                  <div className="text-lg font-bold text-blue-600">
+                    {matchDetails.breakdown?.skills?.matched || 0}/{matchDetails.breakdown?.skills?.required || 0}
+                  </div>
+                  <p className="text-xs text-gray-500">Skills Match</p>
+                </div>
+                <div className="p-3 bg-white rounded-lg">
+                  <div className="text-lg font-bold text-green-600">
+                    {matchDetails.breakdown?.eligibility?.passed || 0}/{matchDetails.breakdown?.eligibility?.total || 0}
+                  </div>
+                  <p className="text-xs text-gray-500">Eligibility</p>
+                </div>
+                <div className="p-3 bg-white rounded-lg">
+                  <div className="text-lg font-bold text-purple-600">
+                    {matchDetails.canApply ? (
+                      <CheckCircle className="w-6 h-6 mx-auto text-green-500" />
+                    ) : (
+                      <span className="text-orange-500">Need Approval</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500">Apply Status</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content */}
@@ -368,6 +537,105 @@ const JobDetails = () => {
                 disabled={applying}
               >
                 {applying ? 'Submitting...' : 'Submit Application'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Interest Request Modal */}
+      {showInterestModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 my-8 animate-fadeIn">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
+                <Heart className="w-5 h-5 text-orange-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold">Show Interest in {job.title}</h3>
+                <p className="text-sm text-gray-500">Your match score is below 60%. Request Campus PoC approval to apply.</p>
+              </div>
+            </div>
+
+            {/* Match Gap Summary */}
+            {matchDetails && (
+              <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <h4 className="font-medium text-yellow-800 mb-2">What you're missing:</h4>
+                <ul className="space-y-1 text-sm text-yellow-700">
+                  {matchDetails.breakdown?.skills?.details?.filter(s => !s.meets).map((skill, i) => (
+                    <li key={i} className="flex items-center gap-2">
+                      <XCircle className="w-4 h-4" />
+                      {skill.skillName}: Need {skill.requiredLevelLabel}, you have {skill.studentLevelLabel}
+                    </li>
+                  ))}
+                  {Object.entries(matchDetails.breakdown?.eligibility?.details || {})
+                    .filter(([_, d]) => d.required && !d.meets)
+                    .map(([key, detail]) => (
+                      <li key={key} className="flex items-center gap-2">
+                        <XCircle className="w-4 h-4" />
+                        {detail.message}
+                      </li>
+                    ))
+                  }
+                </ul>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Why do you want to apply for this role? *
+                  <span className="text-gray-400 font-normal"> (min 50 characters)</span>
+                </label>
+                <textarea
+                  rows={4}
+                  value={interestForm.reason}
+                  onChange={(e) => setInterestForm({ ...interestForm, reason: e.target.value })}
+                  placeholder="Explain why you're interested in this role despite not meeting all requirements. What unique skills or experiences do you bring?"
+                  className={interestForm.reason.length > 0 && interestForm.reason.length < 50 ? 'border-red-300' : ''}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  {interestForm.reason.length}/50 characters minimum
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  How do you plan to address the gaps? (Optional)
+                </label>
+                <textarea
+                  rows={3}
+                  value={interestForm.improvementPlan}
+                  onChange={(e) => setInterestForm({ ...interestForm, improvementPlan: e.target.value })}
+                  placeholder="E.g., Currently learning React through a course, will complete DSA practice within 2 weeks..."
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <button 
+                onClick={() => setShowInterestModal(false)} 
+                className="btn btn-secondary"
+                disabled={submittingInterest}
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleSubmitInterest} 
+                className="btn bg-orange-500 hover:bg-orange-600 text-white flex items-center gap-2"
+                disabled={submittingInterest || interestForm.reason.length < 50}
+              >
+                {submittingInterest ? (
+                  <>
+                    <LoadingSpinner size="sm" />
+                    Submitting...
+                  </>
+                ) : (
+                  <>
+                    <Heart className="w-4 h-4" />
+                    Submit Interest Request
+                  </>
+                )}
               </button>
             </div>
           </div>

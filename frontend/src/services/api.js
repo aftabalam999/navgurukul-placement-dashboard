@@ -98,6 +98,7 @@ export const jobAPI = {
   getJobs: (params) => api.get('/jobs', { params }),
   getMatchingJobs: () => api.get('/jobs/matching'),
   getJob: (id) => api.get(`/jobs/${id}`),
+  getJobWithMatch: (id) => api.get(`/jobs/${id}/match`),
   createJob: (data) => api.post('/jobs', data),
   updateJob: (id, data) => api.put(`/jobs/${id}`, data),
   deleteJob: (id) => api.delete(`/jobs/${id}`),
@@ -110,7 +111,11 @@ export const jobAPI = {
     return api.post('/jobs/parse-jd', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
-  }
+  },
+  // Interest requests (for <60% match students)
+  submitInterest: (jobId, data) => api.post(`/jobs/${jobId}/interest`, data),
+  getInterestRequests: (jobId, params) => api.get(`/jobs/${jobId}/interest-requests`, { params }),
+  reviewInterestRequest: (requestId, data) => api.patch(`/jobs/interest-requests/${requestId}`, data)
 };
 
 // Application APIs
@@ -180,6 +185,73 @@ export const campusAPI = {
   createCampus: (data) => api.post('/campuses', data),
   updateCampus: (id, data) => api.put(`/campuses/${id}`, data),
   deleteCampus: (id) => api.delete(`/campuses/${id}`)
+};
+
+// Self Application APIs (for external jobs)
+export const selfApplicationAPI = {
+  getAll: (params) => api.get('/self-applications', { params }),
+  getOne: (id) => api.get(`/self-applications/${id}`),
+  create: (data) => api.post('/self-applications', data),
+  update: (id, data) => api.put(`/self-applications/${id}`, data),
+  delete: (id) => api.delete(`/self-applications/${id}`),
+  updateStatus: (id, statusUpdate) => api.patch(`/self-applications/${id}/status`, statusUpdate),
+  verify: (id, data) => api.patch(`/self-applications/${id}/verify`, data),
+  getCampusStats: (params) => api.get('/self-applications/stats/campus', { params }),
+  getCampusApplications: (params) => api.get('/self-applications', { params })
+};
+
+// Job Readiness APIs
+export const jobReadinessAPI = {
+  // Config management (for Coordinator/Manager)
+  getConfig: (params) => api.get('/job-readiness/config', { params }),
+  createConfig: (data) => api.post('/job-readiness/config', data),
+  // Student self-tracking
+  getMyStatus: () => api.get('/job-readiness/my-status'),
+  updateMyCriterion: (criteriaId, data) => {
+    const formData = new FormData();
+    formData.append('completed', data.completed);
+    if (data.notes) formData.append('notes', data.notes);
+    if (data.proofFile) formData.append('proofFile', data.proofFile);
+    return api.patch(`/job-readiness/my-status/${criteriaId}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
+  // Campus PoC review
+  getCampusStudents: (params) => api.get('/job-readiness/campus-students', { params }),
+  verifyStudentCriterion: (studentId, criteriaId, data) => 
+    api.patch(`/job-readiness/student/${studentId}/verify/${criteriaId}`, data),
+  approveStudentJobReady: (studentId, data) => 
+    api.patch(`/job-readiness/student/${studentId}/approve`, data)
+};
+
+// Bulk Upload APIs
+export const bulkUploadAPI = {
+  // Download sample templates
+  downloadStudentsSample: () => api.get('/bulk-upload/sample/students', { responseType: 'blob' }),
+  downloadSelfApplicationsSample: () => api.get('/bulk-upload/sample/self-applications', { responseType: 'blob' }),
+  downloadSelfApplicationsCampusSample: () => api.get('/bulk-upload/sample/self-applications-campus', { responseType: 'blob' }),
+  // Upload files
+  uploadStudents: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/bulk-upload/students', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
+  uploadSelfApplications: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/bulk-upload/self-applications', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
+  uploadSelfApplicationsCampus: (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/bulk-upload/self-applications/campus', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  }
 };
 
 export default api;

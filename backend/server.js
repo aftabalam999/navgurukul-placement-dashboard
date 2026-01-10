@@ -15,6 +15,9 @@ const statsRoutes = require('./routes/stats');
 const settingsRoutes = require('./routes/settings');
 const placementCycleRoutes = require('./routes/placementCycles');
 const campusRoutes = require('./routes/campuses');
+const selfApplicationRoutes = require('./routes/selfApplications');
+const jobReadinessRoutes = require('./routes/jobReadiness');
+const bulkUploadRoutes = require('./routes/bulkUpload');
 
 const app = express();
 
@@ -64,6 +67,9 @@ app.use('/api/stats', statsRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/placement-cycles', placementCycleRoutes);
 app.use('/api/campuses', campusRoutes);
+app.use('/api/self-applications', selfApplicationRoutes);
+app.use('/api/job-readiness', jobReadinessRoutes);
+app.use('/api/bulk-upload', bulkUploadRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

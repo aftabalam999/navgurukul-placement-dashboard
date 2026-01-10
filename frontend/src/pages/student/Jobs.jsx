@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { jobAPI, authAPI, settingsAPI } from '../../services/api';
 import { LoadingSpinner, StatusBadge, Pagination, EmptyState, Badge } from '../../components/common/UIComponents';
-import { Briefcase, MapPin, DollarSign, Calendar, Search, Filter, Star, AlertCircle, GraduationCap, Clock, CheckCircle, Users } from 'lucide-react';
+import { Briefcase, MapPin, DollarSign, Calendar, Search, Filter, Star, AlertCircle, GraduationCap, Clock, CheckCircle, Users, TrendingUp, XCircle, Heart } from 'lucide-react';
 import { format } from 'date-fns';
 
 // Color variant mapping for stage colors
@@ -335,7 +335,33 @@ const StudentJobs = () => {
                 <div className="flex flex-col items-end gap-2">
                   <JobStatusBadge status={job.status} stages={pipelineStages} />
                   <StatusBadge status={job.jobType} />
-                  {job.matchPercentage !== undefined && (
+                  
+                  {/* Match Percentage Display */}
+                  {job.matchDetails && (
+                    <div className="text-right">
+                      <div className={`text-lg font-bold ${
+                        job.matchDetails.overallPercentage >= 80 ? 'text-green-600' :
+                        job.matchDetails.overallPercentage >= 60 ? 'text-blue-600' :
+                        job.matchDetails.overallPercentage >= 40 ? 'text-yellow-600' : 'text-red-600'
+                      }`}>
+                        {job.matchDetails.overallPercentage}% Match
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {job.matchDetails.canApply ? (
+                          <span className="flex items-center gap-1 text-green-600">
+                            <CheckCircle className="w-3 h-3" /> Eligible to apply
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1 text-orange-600">
+                            <Heart className="w-3 h-3" /> Show interest
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Legacy match percentage for backward compatibility */}
+                  {!job.matchDetails && job.matchPercentage !== undefined && (
                     <div className={`text-sm font-medium ${
                       job.matchPercentage >= 70 ? 'text-green-600' :
                       job.matchPercentage >= 40 ? 'text-yellow-600' : 'text-red-600'

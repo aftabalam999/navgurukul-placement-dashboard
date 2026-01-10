@@ -42,6 +42,7 @@ const jobSchema = new mongoose.Schema({
       default: 'INR'
     }
   },
+  // Skills with proficiency levels (0-4: None, Beginner, Intermediate, Advanced, Expert)
   requiredSkills: [{
     skill: {
       type: mongoose.Schema.Types.ObjectId,
@@ -50,20 +51,64 @@ const jobSchema = new mongoose.Schema({
     required: {
       type: Boolean,
       default: true
+    },
+    proficiencyLevel: {
+      type: Number,
+      min: 0,
+      max: 4,
+      default: 1 // Default: Beginner (any level acceptable)
+    }
+  }],
+  // Custom requirements visible to students (yes/no selection)
+  customRequirements: [{
+    requirement: {
+      type: String,
+      required: true
+    },
+    isMandatory: {
+      type: Boolean,
+      default: true
     }
   }],
   eligibility: {
     // When all criteria fields are empty/null, the job is open for everyone
-    minCgpa: { type: Number, default: null }, // null means no minimum CGPA requirement
-    departments: { type: [String], default: [] }, // empty means all departments eligible
-    batches: { type: [String], default: [] }, // empty means all batches eligible
+    openForAll: { type: Boolean, default: true }, // Explicit flag for open positions
+    
+    // Academic Requirements
+    tenthGrade: {
+      required: { type: Boolean, default: false },
+      minPercentage: { type: Number, default: null }
+    },
+    twelfthGrade: {
+      required: { type: Boolean, default: false },
+      minPercentage: { type: Number, default: null }
+    },
+    higherEducation: {
+      required: { type: Boolean, default: false },
+      acceptedDegrees: { 
+        type: [String], 
+        default: [] // e.g., ['BA', 'BSc', 'BCom', 'BCA', 'BTech', 'Any Graduate']
+      }
+    },
+    
+    // Navgurukul Specific
+    schools: { type: [String], default: [] }, // Navgurukul schools - empty means all schools
     campuses: [{
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Campus'
     }], // empty means all campuses eligible
-    schools: { type: [String], default: [] }, // Navgurukul schools - empty means all schools
-    minModule: { type: String, default: null }, // Minimum module requirement - null means no requirement
-    openForAll: { type: Boolean, default: true } // Explicit flag for open positions
+    
+    // Module hierarchy requirement (only for School of Programming)
+    minModule: { 
+      type: String, 
+      default: null,
+      enum: [null, 'Foundation', 'Basics of Programming', 'DSA', 'Backend', 'Full Stack', 'Interview Prep']
+    },
+    
+    // Legacy fields for backward compatibility
+    minCgpa: { type: Number, default: null },
+    departments: { type: [String], default: [] },
+    batches: { type: [String], default: [] }
   },
   applicationDeadline: {
     type: Date,

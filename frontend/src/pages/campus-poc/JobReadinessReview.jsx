@@ -1,0 +1,497 @@
+import { useState, useEffect } from 'react';
+import { useAuth } from '../../context/AuthContext';
+import { jobReadinessAPI, userAPI } from '../../services/api';
+import { Card, Button, Badge, LoadingSpinner, Alert, Modal } from '../../components/common/UIComponents';
+import { 
+  CheckCircleIcon, 
+  XCircleIcon, 
+  ClockIcon,
+  UserIcon,
+  AcademicCapIcon,
+  EyeIcon,
+  MagnifyingGlassIcon,
+  FunnelIcon,
+  TrophyIcon
+} from '@heroicons/react/24/outline';
+import { CheckIcon, XMarkIcon } from '@heroicons/react/24/solid';
+
+function JobReadinessReview() {
+  const { user } = useAuth();
+  const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [filter, setFilter] = useState('pending'); // pending, all, job-ready
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [reviewModal, setReviewModal] = useState({ open: false, student: null, criterion: null });
+  const [approveModal, setApproveModal] = useState({ open: false, student: null });
+  const [processing, setProcessing] = useState(false);
+
+  useEffect(() => {
+    fetchStudents();
+  }, [filter]);
+
+  const fetchStudents = async () => {
+    try {
+      setLoading(true);
+      const params = {};
+      if (filter === 'pending') params.status = 'pending';
+      if (filter === 'job-ready') params.isJobReady = true;
+      
+      const res = await jobReadinessAPI.getCampusStudents(params);
+      setStudents(res.data);
+      setError(null);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to load students');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyCriterion = async (status) => {
+    try {
+      setProcessing(true);
+      await jobReadinessAPI.verifyStudentCriterion(
+        reviewModal.student._id,
+        reviewModal.criterion.criteriaId,
+        {
+          status,
+          notes: document.getElementById('verificationNotes')?.value || ''
+        }
+      );
+      setReviewModal({ open: false, student: null, criterion: null });
+      await fetchStudents();
+      
+      // Refresh selected student if viewing details
+      if (selectedStudent?._id === reviewModal.student._id) {
+        const updated = students.find(s => s._id === reviewModal.student._id);
+        if (updated) setSelectedStudent(updated);
+      }
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to verify criterion');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleApproveJobReady = async () => {
+    try {
+      setProcessing(true);
+      await jobReadinessAPI.approveStudentJobReady(
+        approveModal.student._id,
+        { notes: document.getElementById('approvalNotes')?.value || '' }
+      );
+      setApproveModal({ open: false, student: null });
+      await fetchStudents();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to approve student');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const getProgressStats = (student) => {
+    const criteria = student.jobReadiness?.progress?.criteria || [];
+    const total = criteria.length;
+    const verified = criteria.filter(c => c.verificationStatus === 'verified').length;
+    const pending = criteria.filter(c => c.verificationStatus === 'pending' && c.completed).length;
+    const selfMarked = criteria.filter(c => c.completed && c.verificationStatus === 'self_marked').length;
+    return { total, verified, pending, selfMarked };
+  };
+
+  const canApproveJobReady = (student) => {
+    const stats = getProgressStats(student);
+    return stats.verified === stats.total && stats.total > 0;
+  };
+
+  const filteredStudents = students.filter(student => {
+    if (!searchTerm) return true;
+    const search = searchTerm.toLowerCase();
+    return (
+      student.name?.toLowerCase().includes(search) ||
+      student.email?.toLowerCase().includes(search) ||
+      student.phone?.includes(search)
+    );
+  });
+
+  const getOverallStats = () => {
+    const total = students.length;
+    const jobReady = students.filter(s => s.jobReadiness?.progress?.isJobReady).length;
+    const pendingReview = students.filter(s => {
+      const stats = getProgressStats(s);
+      return stats.pending > 0;
+    }).length;
+    return { total, jobReady, pendingReview };
+  };
+
+  const overallStats = getOverallStats();
+
+  if (loading && students.length === 0) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <LoadingSpinner size="large" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-gray-900">Job Readiness Review</h1>
+        <p className="mt-2 text-gray-600">
+          Review and verify student job readiness criteria submissions.
+        </p>
+      </div>
+
+      {error && <Alert type="error" className="mb-6">{error}</Alert>}
+
+      {/* Stats Overview */}
+      <div className="grid grid-cols-3 gap-4 mb-8">
+        <Card className="text-center">
+          <div className="text-3xl font-bold text-gray-900">{overallStats.total}</div>
+          <div className="text-sm text-gray-500">Total Students</div>
+        </Card>
+        <Card className="text-center bg-yellow-50">
+          <div className="text-3xl font-bold text-yellow-600">{overallStats.pendingReview}</div>
+          <div className="text-sm text-gray-500">Pending Review</div>
+        </Card>
+        <Card className="text-center bg-green-50">
+          <div className="text-3xl font-bold text-green-600">{overallStats.jobReady}</div>
+          <div className="text-sm text-gray-500">Job Ready</div>
+        </Card>
+      </div>
+
+      {/* Filters and Search */}
+      <div className="flex flex-col md:flex-row gap-4 mb-6">
+        <div className="flex gap-2">
+          <button
+            onClick={() => setFilter('pending')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center ${
+              filter === 'pending' 
+                ? 'bg-yellow-100 text-yellow-800 border-2 border-yellow-300' 
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            <ClockIcon className="w-4 h-4 mr-2" />
+            Pending Review
+          </button>
+          <button
+            onClick={() => setFilter('all')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              filter === 'all' 
+                ? 'bg-indigo-100 text-indigo-800 border-2 border-indigo-300' 
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            All Students
+          </button>
+          <button
+            onClick={() => setFilter('job-ready')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center ${
+              filter === 'job-ready' 
+                ? 'bg-green-100 text-green-800 border-2 border-green-300' 
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            <TrophyIcon className="w-4 h-4 mr-2" />
+            Job Ready
+          </button>
+        </div>
+
+        <div className="flex-1 relative">
+          <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search students..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+          />
+        </div>
+      </div>
+
+      {/* Students List */}
+      {filteredStudents.length === 0 ? (
+        <Card className="text-center py-12">
+          <UserIcon className="w-16 h-16 mx-auto text-gray-300 mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No students found</h3>
+          <p className="text-gray-500">
+            {filter === 'pending' 
+              ? 'No students have pending criteria to review.'
+              : 'No students match your search.'}
+          </p>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {filteredStudents.map(student => {
+            const stats = getProgressStats(student);
+            const isJobReady = student.jobReadiness?.progress?.isJobReady;
+            
+            return (
+              <Card 
+                key={student._id} 
+                className={`hover:shadow-md transition-shadow cursor-pointer ${
+                  selectedStudent?._id === student._id ? 'ring-2 ring-indigo-500' : ''
+                } ${isJobReady ? 'border-l-4 border-l-green-500' : ''}`}
+                onClick={() => setSelectedStudent(selectedStudent?._id === student._id ? null : student)}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex items-start">
+                    <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center mr-4">
+                      {student.avatar ? (
+                        <img src={student.avatar} alt="" className="w-12 h-12 rounded-full object-cover" />
+                      ) : (
+                        <UserIcon className="w-6 h-6 text-indigo-600" />
+                      )}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-gray-900">{student.name}</h3>
+                        {isJobReady && (
+                          <Badge variant="success">
+                            <TrophyIcon className="w-3 h-3 mr-1" />
+                            Job Ready
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-500">{student.email}</p>
+                      <p className="text-sm text-gray-500">{student.school}</p>
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <div className="text-2xl font-bold text-indigo-600">
+                      {stats.verified}/{stats.total}
+                    </div>
+                    <div className="text-xs text-gray-500">Verified</div>
+                    {stats.pending > 0 && (
+                      <Badge variant="warning" className="mt-1">
+                        {stats.pending} pending
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="mt-4">
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="h-2 rounded-full bg-green-500 transition-all"
+                      style={{ width: `${stats.total > 0 ? (stats.verified / stats.total) * 100 : 0}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Expanded Details */}
+                {selectedStudent?._id === student._id && (
+                  <div className="mt-4 pt-4 border-t">
+                    <h4 className="font-medium text-gray-900 mb-3">Criteria Details</h4>
+                    <div className="space-y-2">
+                      {student.jobReadiness?.progress?.criteria?.map(criterion => (
+                        <div 
+                          key={criterion.criteriaId}
+                          className={`p-3 rounded-lg border flex items-center justify-between ${
+                            criterion.verificationStatus === 'verified' 
+                              ? 'bg-green-50 border-green-200' 
+                              : criterion.verificationStatus === 'pending'
+                              ? 'bg-yellow-50 border-yellow-200'
+                              : criterion.verificationStatus === 'rejected'
+                              ? 'bg-red-50 border-red-200'
+                              : 'bg-gray-50 border-gray-200'
+                          }`}
+                        >
+                          <div className="flex items-center">
+                            {criterion.verificationStatus === 'verified' ? (
+                              <CheckCircleIcon className="w-5 h-5 text-green-600 mr-2" />
+                            ) : criterion.verificationStatus === 'pending' ? (
+                              <ClockIcon className="w-5 h-5 text-yellow-600 mr-2" />
+                            ) : criterion.verificationStatus === 'rejected' ? (
+                              <XCircleIcon className="w-5 h-5 text-red-600 mr-2" />
+                            ) : (
+                              <div className="w-5 h-5 border-2 border-gray-300 rounded-full mr-2" />
+                            )}
+                            <div>
+                              <span className="font-medium text-gray-900">{criterion.name}</span>
+                              {criterion.proofUrl && (
+                                <a 
+                                  href={criterion.proofUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-indigo-600 ml-2 hover:underline"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  View Proof
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {criterion.verificationStatus === 'pending' && (
+                            <Button
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setReviewModal({ open: true, student, criterion });
+                              }}
+                            >
+                              Review
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Approve as Job Ready Button */}
+                    {!isJobReady && canApproveJobReady(student) && (
+                      <div className="mt-4 pt-4 border-t">
+                        <Button
+                          className="w-full"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setApproveModal({ open: true, student });
+                          }}
+                        >
+                          <TrophyIcon className="w-5 h-5 mr-2" />
+                          Approve as Job Ready
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Review Criterion Modal */}
+      <Modal
+        isOpen={reviewModal.open}
+        onClose={() => setReviewModal({ open: false, student: null, criterion: null })}
+        title={`Review: ${reviewModal.criterion?.name || ''}`}
+      >
+        <div className="space-y-4">
+          <div>
+            <p className="text-sm text-gray-600">
+              <strong>Student:</strong> {reviewModal.student?.name}
+            </p>
+            <p className="text-sm text-gray-600 mt-1">
+              <strong>Criterion:</strong> {reviewModal.criterion?.name}
+            </p>
+            {reviewModal.criterion?.description && (
+              <p className="text-sm text-gray-500 mt-1">
+                {reviewModal.criterion.description}
+              </p>
+            )}
+          </div>
+
+          {reviewModal.criterion?.proofUrl && (
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-2">Uploaded Proof:</p>
+              <a 
+                href={reviewModal.criterion.proofUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-indigo-600 hover:underline flex items-center"
+              >
+                <EyeIcon className="w-4 h-4 mr-1" />
+                View Document
+              </a>
+            </div>
+          )}
+
+          {reviewModal.criterion?.notes && (
+            <div>
+              <p className="text-sm font-medium text-gray-700 mb-1">Student Notes:</p>
+              <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
+                {reviewModal.criterion.notes}
+              </p>
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Verification Notes (optional)
+            </label>
+            <textarea
+              id="verificationNotes"
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+              placeholder="Add notes about your decision..."
+            />
+          </div>
+
+          <div className="flex gap-3">
+            <Button
+              variant="danger"
+              className="flex-1"
+              onClick={() => handleVerifyCriterion('rejected')}
+              disabled={processing}
+            >
+              <XMarkIcon className="w-5 h-5 mr-1" />
+              Reject
+            </Button>
+            <Button
+              className="flex-1"
+              onClick={() => handleVerifyCriterion('verified')}
+              disabled={processing}
+            >
+              <CheckIcon className="w-5 h-5 mr-1" />
+              Verify
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Approve Job Ready Modal */}
+      <Modal
+        isOpen={approveModal.open}
+        onClose={() => setApproveModal({ open: false, student: null })}
+        title="Approve as Job Ready"
+      >
+        <div className="space-y-4">
+          <div className="text-center py-4">
+            <TrophyIcon className="w-16 h-16 mx-auto text-green-500 mb-4" />
+            <p className="text-lg font-medium text-gray-900">
+              Approve {approveModal.student?.name} as Job Ready?
+            </p>
+            <p className="text-sm text-gray-500 mt-2">
+              This student has completed and verified all job readiness criteria.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Approval Notes (optional)
+            </label>
+            <textarea
+              id="approvalNotes"
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+              placeholder="Congratulations message or additional notes..."
+            />
+          </div>
+
+          <div className="flex gap-3">
+            <Button
+              variant="secondary"
+              className="flex-1"
+              onClick={() => setApproveModal({ open: false, student: null })}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="flex-1"
+              onClick={handleApproveJobReady}
+              disabled={processing}
+            >
+              {processing ? 'Approving...' : 'Approve as Job Ready'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
+export default JobReadinessReview;

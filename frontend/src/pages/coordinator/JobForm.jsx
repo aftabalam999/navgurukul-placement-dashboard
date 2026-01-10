@@ -24,23 +24,59 @@ const JobForm = () => {
     description: '',
     requirements: [''],
     responsibilities: [''],
+    customRequirements: [], // New: visible requirements for students
     location: '',
     jobType: 'full_time',
     duration: '', // For internships
     salary: { min: '', max: '', currency: 'INR' },
-    requiredSkills: [],
+    requiredSkills: [], // Now includes proficiencyLevel
     eligibility: { 
-      minCgpa: '', 
+      openForAll: true,
+      // Academic requirements
+      tenthGrade: { required: false, minPercentage: '' },
+      twelfthGrade: { required: false, minPercentage: '' },
+      higherEducation: { required: false, acceptedDegrees: [] },
+      // Navgurukul specific
       schools: [],
+      campuses: [],
       minModule: '',
-      campuses: [], // Which campuses can apply (empty = all)
-      openForAll: true 
+      // Legacy
+      minCgpa: ''
     },
     applicationDeadline: '',
     maxPositions: 1,
     status: 'draft',
     interviewRounds: [{ name: '', type: 'technical', description: '' }]
   });
+
+  // Available degree options
+  const degreeOptions = [
+    'Any Graduate',
+    '10th Pass',
+    '12th Pass',
+    'BA', 'BSc', 'BCom', 'BCA', 'BTech', 'BE', 'BBA',
+    'MA', 'MSc', 'MCom', 'MCA', 'MTech', 'ME', 'MBA',
+    'Diploma', 'ITI', 'Other'
+  ];
+
+  // Module hierarchy for School of Programming
+  const moduleHierarchy = [
+    'Foundation',
+    'Basics of Programming',
+    'DSA',
+    'Backend',
+    'Full Stack',
+    'Interview Prep'
+  ];
+
+  // Proficiency level labels
+  const proficiencyLevels = [
+    { value: 0, label: 'None', description: 'Not required' },
+    { value: 1, label: 'Beginner', description: 'Basic understanding' },
+    { value: 2, label: 'Intermediate', description: 'Can work independently' },
+    { value: 3, label: 'Advanced', description: 'Deep expertise' },
+    { value: 4, label: 'Expert', description: 'Industry expert level' }
+  ];
 
   useEffect(() => {
     fetchSkills();
@@ -164,7 +200,17 @@ const JobForm = () => {
         ...job,
         duration: job.duration || '',
         salary: job.salary || { min: '', max: '', currency: 'INR' },
-        eligibility: job.eligibility || { minCgpa: '', schools: [], minModule: '', campuses: [], openForAll: true },
+        customRequirements: job.customRequirements || [],
+        eligibility: {
+          openForAll: job.eligibility?.openForAll ?? true,
+          tenthGrade: job.eligibility?.tenthGrade || { required: false, minPercentage: '' },
+          twelfthGrade: job.eligibility?.twelfthGrade || { required: false, minPercentage: '' },
+          higherEducation: job.eligibility?.higherEducation || { required: false, acceptedDegrees: [] },
+          schools: job.eligibility?.schools || [],
+          campuses: job.eligibility?.campuses || [],
+          minModule: job.eligibility?.minModule || '',
+          minCgpa: job.eligibility?.minCgpa || ''
+        },
         requirements: job.requirements?.length ? job.requirements : [''],
         responsibilities: job.responsibilities?.length ? job.responsibilities : [''],
         interviewRounds: job.interviewRounds?.length ? job.interviewRounds : [{ name: '', type: 'technical', description: '' }],
@@ -188,6 +234,7 @@ const JobForm = () => {
         ...formData,
         requirements: formData.requirements.filter(r => r.trim()),
         responsibilities: formData.responsibilities.filter(r => r.trim()),
+        customRequirements: (formData.customRequirements || []).filter(r => r.requirement?.trim()),
         interviewRounds: formData.interviewRounds.filter(r => r.name.trim()),
         duration: formData.jobType === 'internship' ? formData.duration : null,
         salary: {
@@ -196,14 +243,35 @@ const JobForm = () => {
           currency: formData.salary.currency
         },
         eligibility: {
-          minCgpa: formData.eligibility.minCgpa ? Number(formData.eligibility.minCgpa) : null,
+          // Academic requirements
+          tenthGrade: {
+            required: formData.eligibility.tenthGrade?.required || false,
+            minPercentage: formData.eligibility.tenthGrade?.minPercentage ? 
+              Number(formData.eligibility.tenthGrade.minPercentage) : null
+          },
+          twelfthGrade: {
+            required: formData.eligibility.twelfthGrade?.required || false,
+            minPercentage: formData.eligibility.twelfthGrade?.minPercentage ? 
+              Number(formData.eligibility.twelfthGrade.minPercentage) : null
+          },
+          higherEducation: {
+            required: formData.eligibility.higherEducation?.required || false,
+            acceptedDegrees: formData.eligibility.higherEducation?.acceptedDegrees || []
+          },
+          // Navgurukul specific
           schools: formData.eligibility.schools || [],
-          minModule: formData.eligibility.minModule || null,
           campuses: formData.eligibility.campuses || [],
-          openForAll: !formData.eligibility.minCgpa && 
+          minModule: formData.eligibility.minModule || null,
+          // Legacy
+          minCgpa: formData.eligibility.minCgpa ? Number(formData.eligibility.minCgpa) : null,
+          // Calculate openForAll
+          openForAll: !formData.eligibility.tenthGrade?.required && 
+                     !formData.eligibility.twelfthGrade?.required &&
+                     !formData.eligibility.higherEducation?.required &&
                      (!formData.eligibility.schools || formData.eligibility.schools.length === 0) &&
                      (!formData.eligibility.campuses || formData.eligibility.campuses.length === 0) &&
-                     !formData.eligibility.minModule
+                     !formData.eligibility.minModule &&
+                     !formData.eligibility.minCgpa
         }
       };
 
@@ -256,9 +324,41 @@ const JobForm = () => {
     } else {
       setFormData({
         ...formData,
-        requiredSkills: [...formData.requiredSkills, { skill: skillId, required }]
+        requiredSkills: [...formData.requiredSkills, { skill: skillId, required, proficiencyLevel: 1 }]
       });
     }
+  };
+
+  const updateSkillProficiency = (skillId, proficiencyLevel) => {
+    setFormData({
+      ...formData,
+      requiredSkills: formData.requiredSkills.map(s => {
+        if (s.skill === skillId || s.skill?._id === skillId) {
+          return { ...s, proficiencyLevel };
+        }
+        return s;
+      })
+    });
+  };
+
+  const addCustomRequirement = () => {
+    setFormData({
+      ...formData,
+      customRequirements: [...(formData.customRequirements || []), { requirement: '', isMandatory: true }]
+    });
+  };
+
+  const updateCustomRequirement = (index, field, value) => {
+    const updated = [...(formData.customRequirements || [])];
+    updated[index] = { ...updated[index], [field]: value };
+    setFormData({ ...formData, customRequirements: updated });
+  };
+
+  const removeCustomRequirement = (index) => {
+    setFormData({
+      ...formData,
+      customRequirements: (formData.customRequirements || []).filter((_, i) => i !== index)
+    });
   };
 
   const schools = [
@@ -268,6 +368,15 @@ const JobForm = () => {
     'School of Education',
     'School of Second Chance'
   ];
+
+  // Check if eligibility has any restrictions
+  const hasEligibilityRestrictions = formData.eligibility.tenthGrade?.required ||
+    formData.eligibility.twelfthGrade?.required ||
+    formData.eligibility.higherEducation?.required ||
+    (formData.eligibility.schools && formData.eligibility.schools.length > 0) ||
+    (formData.eligibility.campuses && formData.eligibility.campuses.length > 0) ||
+    formData.eligibility.minModule ||
+    formData.eligibility.minCgpa;
 
   if (loading) {
     return (
@@ -572,24 +681,105 @@ const JobForm = () => {
           </div>
         </div>
 
-        {/* Required Skills */}
+        {/* Custom Requirements for Students */}
         <div className="card">
-          <h2 className="text-lg font-semibold mb-4">Required Skills</h2>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-semibold">Custom Requirements</h2>
+              <p className="text-sm text-gray-500">These will be shown to students who must confirm each one (Yes/No)</p>
+            </div>
+            <button type="button" onClick={addCustomRequirement} className="text-primary-600 text-sm">
+              + Add Requirement
+            </button>
+          </div>
+          <div className="space-y-3">
+            {(formData.customRequirements || []).map((req, index) => (
+              <div key={index} className="flex gap-3 items-center p-3 bg-gray-50 rounded-lg">
+                <input
+                  type="text"
+                  value={req.requirement}
+                  onChange={(e) => updateCustomRequirement(index, 'requirement', e.target.value)}
+                  placeholder="e.g., Willing to relocate to Bangalore?"
+                  className="flex-1"
+                />
+                <label className="flex items-center gap-2 text-sm whitespace-nowrap">
+                  <input
+                    type="checkbox"
+                    checked={req.isMandatory}
+                    onChange={(e) => updateCustomRequirement(index, 'isMandatory', e.target.checked)}
+                  />
+                  Mandatory
+                </label>
+                <button
+                  type="button"
+                  onClick={() => removeCustomRequirement(index)}
+                  className="p-2 text-red-500 hover:bg-red-50 rounded"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+            {(!formData.customRequirements || formData.customRequirements.length === 0) && (
+              <p className="text-gray-500 text-sm italic">No custom requirements added yet</p>
+            )}
+          </div>
+        </div>
+
+        {/* Required Skills with Proficiency Levels */}
+        <div className="card">
+          <div className="mb-4">
+            <h2 className="text-lg font-semibold">Required Skills</h2>
+            <p className="text-sm text-gray-500">Select skills and set the minimum proficiency level required</p>
+          </div>
+          
+          {/* Selected Skills with Proficiency */}
+          {formData.requiredSkills.length > 0 && (
+            <div className="mb-4 space-y-2">
+              <p className="text-sm font-medium text-gray-700">Selected Skills:</p>
+              {formData.requiredSkills.map((selectedSkill) => {
+                const skillId = selectedSkill.skill?._id || selectedSkill.skill;
+                const skillInfo = allSkills.find(s => s._id === skillId);
+                if (!skillInfo) return null;
+                return (
+                  <div key={skillId} className="flex items-center gap-3 p-3 bg-primary-50 rounded-lg">
+                    <span className="font-medium text-primary-800 min-w-32">{skillInfo.name}</span>
+                    <select
+                      value={selectedSkill.proficiencyLevel || 1}
+                      onChange={(e) => updateSkillProficiency(skillId, parseInt(e.target.value))}
+                      className="text-sm"
+                    >
+                      {proficiencyLevels.map(level => (
+                        <option key={level.value} value={level.value}>
+                          {level.label} - {level.description}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => toggleSkill(skillId)}
+                      className="ml-auto text-red-500 hover:text-red-700"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Available Skills to Add */}
           <div className="flex flex-wrap gap-2">
             {allSkills.map((skill) => {
               const isSelected = formData.requiredSkills.some(s => s.skill === skill._id || s.skill?._id === skill._id);
+              if (isSelected) return null; // Don't show already selected skills
               return (
                 <button
                   key={skill._id}
                   type="button"
                   onClick={() => toggleSkill(skill._id)}
-                  className={`px-3 py-1 rounded-full text-sm transition ${
-                    isSelected 
-                      ? 'bg-primary-600 text-white' 
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
+                  className="px-3 py-1 rounded-full text-sm transition bg-gray-100 text-gray-700 hover:bg-gray-200"
                 >
-                  {skill.name}
+                  + {skill.name}
                 </button>
               );
             })}
@@ -606,11 +796,7 @@ const JobForm = () => {
           </div>
           
           {/* Open for All indicator */}
-          {(!formData.eligibility.minCgpa && 
-            (!formData.eligibility.departments || formData.eligibility.departments.length === 0) &&
-            (!formData.eligibility.batches || formData.eligibility.batches.length === 0) &&
-            (!formData.eligibility.schools || formData.eligibility.schools.length === 0) &&
-            !formData.eligibility.minModule) && (
+          {!hasEligibilityRestrictions && (
             <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
               <p className="text-sm text-green-700 flex items-center gap-2">
                 <span className="w-2 h-2 bg-green-500 rounded-full"></span>
@@ -619,7 +805,215 @@ const JobForm = () => {
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Academic Requirements Section */}
+          <div className="mb-6">
+            <h3 className="text-md font-medium text-gray-800 mb-3">Academic Requirements</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* 10th Grade */}
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <label className="flex items-center gap-2 mb-2">
+                  <input
+                    type="checkbox"
+                    checked={formData.eligibility.tenthGrade?.required || false}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      eligibility: {
+                        ...formData.eligibility,
+                        tenthGrade: { ...formData.eligibility.tenthGrade, required: e.target.checked }
+                      }
+                    })}
+                  />
+                  <span className="font-medium">10th Grade</span>
+                </label>
+                {formData.eligibility.tenthGrade?.required && (
+                  <div>
+                    <label className="text-xs text-gray-600">Min Percentage</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={formData.eligibility.tenthGrade?.minPercentage || ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        eligibility: {
+                          ...formData.eligibility,
+                          tenthGrade: { ...formData.eligibility.tenthGrade, minPercentage: e.target.value }
+                        }
+                      })}
+                      placeholder="Any %"
+                      className="mt-1"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* 12th Grade */}
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <label className="flex items-center gap-2 mb-2">
+                  <input
+                    type="checkbox"
+                    checked={formData.eligibility.twelfthGrade?.required || false}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      eligibility: {
+                        ...formData.eligibility,
+                        twelfthGrade: { ...formData.eligibility.twelfthGrade, required: e.target.checked }
+                      }
+                    })}
+                  />
+                  <span className="font-medium">12th Grade</span>
+                </label>
+                {formData.eligibility.twelfthGrade?.required && (
+                  <div>
+                    <label className="text-xs text-gray-600">Min Percentage</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      value={formData.eligibility.twelfthGrade?.minPercentage || ''}
+                      onChange={(e) => setFormData({
+                        ...formData,
+                        eligibility: {
+                          ...formData.eligibility,
+                          twelfthGrade: { ...formData.eligibility.twelfthGrade, minPercentage: e.target.value }
+                        }
+                      })}
+                      placeholder="Any %"
+                      className="mt-1"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Higher Education */}
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <label className="flex items-center gap-2 mb-2">
+                  <input
+                    type="checkbox"
+                    checked={formData.eligibility.higherEducation?.required || false}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      eligibility: {
+                        ...formData.eligibility,
+                        higherEducation: { ...formData.eligibility.higherEducation, required: e.target.checked }
+                      }
+                    })}
+                  />
+                  <span className="font-medium">Higher Education</span>
+                </label>
+                {formData.eligibility.higherEducation?.required && (
+                  <div>
+                    <label className="text-xs text-gray-600">Accepted Degrees</label>
+                    <div className="mt-1 max-h-24 overflow-y-auto space-y-1">
+                      {degreeOptions.map(degree => (
+                        <label key={degree} className="flex items-center gap-1 text-xs">
+                          <input
+                            type="checkbox"
+                            checked={(formData.eligibility.higherEducation?.acceptedDegrees || []).includes(degree)}
+                            onChange={(e) => {
+                              const current = formData.eligibility.higherEducation?.acceptedDegrees || [];
+                              const updated = e.target.checked
+                                ? [...current, degree]
+                                : current.filter(d => d !== degree);
+                              setFormData({
+                                ...formData,
+                                eligibility: {
+                                  ...formData.eligibility,
+                                  higherEducation: { ...formData.eligibility.higherEducation, acceptedDegrees: updated }
+                                }
+                              });
+                            }}
+                          />
+                          {degree}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Navgurukul Specific Section */}
+          <div className="mb-6">
+            <h3 className="text-md font-medium text-gray-800 mb-3">Navgurukul Specific</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Schools */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Schools</label>
+                <div className="space-y-1 max-h-32 overflow-y-auto">
+                  {schools.map(school => (
+                    <label key={school} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={(formData.eligibility.schools || []).includes(school)}
+                        onChange={(e) => {
+                          const newSchools = e.target.checked
+                            ? [...(formData.eligibility.schools || []), school]
+                            : (formData.eligibility.schools || []).filter(s => s !== school);
+                          setFormData({
+                            ...formData,
+                            eligibility: { ...formData.eligibility, schools: newSchools }
+                          });
+                        }}
+                      />
+                      {school}
+                    </label>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Leave empty for all schools</p>
+              </div>
+
+              {/* Campuses */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Campuses</label>
+                <div className="space-y-1 max-h-32 overflow-y-auto">
+                  {campuses.map(campus => (
+                    <label key={campus._id} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={(formData.eligibility.campuses || []).includes(campus._id)}
+                        onChange={(e) => {
+                          const newCampuses = e.target.checked
+                            ? [...(formData.eligibility.campuses || []), campus._id]
+                            : (formData.eligibility.campuses || []).filter(c => c !== campus._id);
+                          setFormData({
+                            ...formData,
+                            eligibility: { ...formData.eligibility, campuses: newCampuses }
+                          });
+                        }}
+                      />
+                      {campus.name}
+                    </label>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Leave empty for all campuses</p>
+              </div>
+
+              {/* Module Requirement */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Minimum Module (Programming)</label>
+                <select
+                  value={formData.eligibility.minModule || ''}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    eligibility: { ...formData.eligibility, minModule: e.target.value }
+                  })}
+                >
+                  <option value="">No minimum</option>
+                  {moduleHierarchy.map(module => (
+                    <option key={module} value={module}>{module}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">Only for School of Programming</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Legacy CGPA (for backward compatibility) */}
+          <div>
+            <h3 className="text-md font-medium text-gray-800 mb-3">Other Requirements</h3>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Minimum CGPA</label>
               <input
@@ -635,74 +1029,6 @@ const JobForm = () => {
                 placeholder="Any CGPA"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Schools</label>
-              <div className="space-y-1 max-h-32 overflow-y-auto">
-                {schools.map(school => (
-                  <label key={school} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={(formData.eligibility.schools || []).includes(school)}
-                      onChange={(e) => {
-                        const newSchools = e.target.checked
-                          ? [...(formData.eligibility.schools || []), school]
-                          : (formData.eligibility.schools || []).filter(s => s !== school);
-                        setFormData({
-                          ...formData,
-                          eligibility: { ...formData.eligibility, schools: newSchools }
-                        });
-                      }}
-                    />
-                    {school}
-                  </label>
-                ))}
-              </div>
-              <p className="text-xs text-gray-500 mt-1">Leave empty for all schools</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Campuses</label>
-              <div className="space-y-1 max-h-32 overflow-y-auto">
-                {campuses.map(campus => (
-                  <label key={campus._id} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={(formData.eligibility.campuses || []).includes(campus._id)}
-                      onChange={(e) => {
-                        const newCampuses = e.target.checked
-                          ? [...(formData.eligibility.campuses || []), campus._id]
-                          : (formData.eligibility.campuses || []).filter(c => c !== campus._id);
-                        setFormData({
-                          ...formData,
-                          eligibility: { ...formData.eligibility, campuses: newCampuses }
-                        });
-                      }}
-                    />
-                    {campus.name}
-                  </label>
-                ))}
-              </div>
-              <p className="text-xs text-gray-500 mt-1">Leave empty for all campuses</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Minimum Module (Programming)</label>
-              <select
-                value={formData.eligibility.minModule || ''}
-                onChange={(e) => setFormData({
-                  ...formData,
-                  eligibility: { ...formData.eligibility, minModule: e.target.value }
-                })}
-              >
-                <option value="">No minimum</option>
-                <option value="Programming Foundations">Programming Foundations</option>
-                <option value="Web Fundamentals">Web Fundamentals</option>
-                <option value="JavaScript Fundamentals">JavaScript Fundamentals</option>
-                <option value="Advanced JavaScript">Advanced JavaScript</option>
-                <option value="DOM & Browser APIs">DOM & Browser APIs</option>
-                <option value="Python Fundamentals">Python Fundamentals</option>
-                <option value="Advanced Python">Advanced Python</option>
-                <option value="Data Structures & Algorithms">Data Structures & Algorithms</option>
-                <option value="React & Frontend Frameworks">React & Frontend Frameworks</option>
-              </select>
             </div>
           </div>
         </div>
