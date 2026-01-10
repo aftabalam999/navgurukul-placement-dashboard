@@ -805,21 +805,22 @@ const Settings = () => {
 
             {/* API Key Input */}
             <div className="space-y-4">
-              <div>
+              <form onSubmit={(e) => { e.preventDefault(); saveAiConfig(); }}>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Google AI Studio API Key
                 </label>
                 <div className="flex gap-2">
                   <input
                     type="password"
+                    autoComplete="off"
                     value={newApiKey}
                     onChange={(e) => setNewApiKey(e.target.value)}
                     placeholder={aiConfig.hasApiKey ? 'Enter new key to replace' : 'Enter your API key'}
                     className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                   <Button
+                    type="submit"
                     variant="primary"
-                    onClick={saveAiConfig}
                     disabled={savingAiConfig || !newApiKey.trim()}
                   >
                     {savingAiConfig ? 'Saving...' : 'Save Key'}
@@ -836,7 +837,7 @@ const Settings = () => {
                     Google AI Studio
                   </a>
                 </p>
-              </div>
+              </form>
             </div>
 
             {/* Features */}

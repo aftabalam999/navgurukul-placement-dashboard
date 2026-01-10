@@ -39,17 +39,30 @@ router.post('/parse-jd', auth, authorize('coordinator', 'manager'), upload.singl
     const apiKey = settings.aiConfig?.googleApiKey;
 
     // Get existing skills for better matching
-    const existingSkills = await Skill.find({ status: 'active' }).select('name');
-    const skillNames = existingSkills.map(s => s.name);
+    let existingSkills = [];
+    let skillNames = [];
+    try {
+      existingSkills = await Skill.find({ isActive: true }).select('name');
+      skillNames = existingSkills.map(s => s.name);
+    } catch (skillError) {
+      console.warn('Could not fetch skills:', skillError.message);
+    }
 
     const aiService = new AIService(apiKey);
     let text = '';
 
     // Extract text from PDF or URL
-    if (pdfFile) {
-      text = await aiService.extractTextFromPDF(pdfFile.buffer);
-    } else if (url) {
-      text = await aiService.extractTextFromURL(url);
+    try {
+      if (pdfFile) {
+        text = await aiService.extractTextFromPDF(pdfFile.buffer);
+      } else if (url) {
+        text = await aiService.extractTextFromURL(url);
+      }
+    } catch (extractError) {
+      return res.status(400).json({ 
+        message: extractError.message || 'Failed to extract content from the provided source.',
+        success: false
+      });
     }
 
     if (!text || text.length < 50) {
@@ -79,7 +92,7 @@ router.post('/parse-jd', auth, authorize('coordinator', 'manager'), upload.singl
     }
 
     // Match suggested skills with existing skills in database
-    if (parsedData.suggestedSkills?.length > 0) {
+    if (parsedData.suggestedSkills?.length > 0 && existingSkills.length > 0) {
       const matchedSkills = existingSkills.filter(skill => 
         parsedData.suggestedSkills.some(suggested => 
           skill.name.toLowerCase().includes(suggested.toLowerCase()) ||
