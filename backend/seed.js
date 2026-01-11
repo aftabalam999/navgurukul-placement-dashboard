@@ -486,7 +486,7 @@ const seedData = async () => {
         },
         applicationDeadline: new Date('2026-03-01'),
         maxPositions: 10,
-        status: 'active',
+        status: 'application_stage',
         interviewRounds: [
           { name: 'Online Aptitude Test', type: 'aptitude' },
           { name: 'Technical Interview', type: 'technical' },
@@ -518,7 +518,7 @@ const seedData = async () => {
         },
         applicationDeadline: new Date('2026-02-15'),
         maxPositions: 5,
-        status: 'active',
+        status: 'application_stage',
         interviewRounds: [
           { name: 'Coding Test', type: 'coding' },
           { name: 'ML Case Study', type: 'technical' },
@@ -551,7 +551,7 @@ const seedData = async () => {
         },
         applicationDeadline: new Date('2026-01-31'),
         maxPositions: 15,
-        status: 'active',
+        status: 'application_stage',
         interviewRounds: [
           { name: 'Technical Interview', type: 'technical' }
         ],
@@ -593,7 +593,7 @@ const seedData = async () => {
         name: 'January 2026',
         month: 1,
         year: 2026,
-        status: 'active',
+        status: 'application_stage',
         description: 'Current active placement cycle',
         targetPlacements: 150,
         createdBy: manager._id
@@ -602,7 +602,7 @@ const seedData = async () => {
         name: 'February 2026',
         month: 2,
         year: 2026,
-        status: 'active',
+        status: 'application_stage',
         description: 'February 2026 placements',
         targetPlacements: 120,
         createdBy: manager._id
@@ -611,7 +611,7 @@ const seedData = async () => {
         name: 'March 2026',
         month: 3,
         year: 2026,
-        status: 'active',
+        status: 'application_stage',
         description: 'March 2026 placements',
         targetPlacements: 100,
         createdBy: manager._id

@@ -22,13 +22,15 @@ router.get('/dashboard', auth, authorize('coordinator', 'manager'), async (req, 
     }
 
     // Get counts
+    // Support both legacy 'active' status and new pipeline stages
+    const activeStatuses = ['active', 'application_stage', 'hr_shortlisting', 'interviewing'];
     const totalStudents = await User.countDocuments(studentQuery);
-    const totalJobs = await Job.countDocuments({ status: 'active' });
+    const totalJobs = await Job.countDocuments({ status: { $in: activeStatuses } });
     const totalApplications = await Application.countDocuments(applicationQuery);
     const totalPlacements = await Application.countDocuments({ ...applicationQuery, status: 'selected' });
 
     // Get active companies
-    const activeJobs = await Job.find({ status: 'active' }).distinct('company.name');
+    const activeJobs = await Job.find({ status: { $in: activeStatuses } }).distinct('company.name');
     const activeCompanies = activeJobs.length;
 
     // Applications by status
@@ -328,13 +330,14 @@ router.get('/coordinator-stats', auth, authorize('manager'), async (req, res) =>
         createdBy: coordinator._id
       });
 
-      // Active jobs
+      // Active jobs - support both legacy 'active' and pipeline stages
+      const activeStatuses = ['active', 'application_stage', 'hr_shortlisting', 'interviewing'];
       const activeJobs = await Job.countDocuments({
         $or: [
           { assignedCoordinator: coordinator._id },
           { createdBy: coordinator._id }
         ],
-        status: 'active'
+        status: { $in: activeStatuses }
       });
 
       // Get applications for jobs handled by this coordinator
@@ -430,6 +433,166 @@ router.get('/campus-poc', auth, authorize('campus_poc'), async (req, res) => {
   }
 });
 
+// Get eligible students for a specific job (Campus POC)
+router.get('/campus-poc/job/:jobId/eligible-students', auth, authorize('campus_poc'), async (req, res) => {
+  try {
+    const campusId = req.user.campus;
+    const { jobId } = req.params;
+
+    // Get the job
+    const job = await Job.findById(jobId)
+      .populate('requiredSkills.skill', 'name category');
+
+    if (!job) {
+      return res.status(404).json({ message: 'Job not found' });
+    }
+
+    // Get students for this campus
+    const students = await User.find({
+      role: 'student',
+      campus: campusId,
+      isActive: true,
+      'studentProfile.profileStatus': 'approved'
+    })
+      .populate('studentProfile.skills.skill', 'name')
+      .select('firstName lastName email studentProfile.currentSchool studentProfile.enrollmentNumber studentProfile.skills studentProfile.academicRecords');
+
+    // Check if each student has already applied
+    const applicationMap = {};
+    const applications = await Application.find({
+      job: jobId,
+      student: { $in: students.map(s => s._id) }
+    }).select('student status');
+    
+    applications.forEach(app => {
+      applicationMap[app.student.toString()] = app.status;
+    });
+
+    // Build student list with match info
+    const eligibleStudents = students.map(student => {
+      const studentSkillIds = (student.studentProfile?.skills || [])
+        .filter(s => s.verified)
+        .map(s => s.skill?._id?.toString())
+        .filter(Boolean);
+      
+      const requiredSkillIds = (job.requiredSkills || [])
+        .filter(s => s.isRequired)
+        .map(s => s.skill?._id?.toString())
+        .filter(Boolean);
+      
+      const matchedSkills = studentSkillIds.filter(id => requiredSkillIds.includes(id)).length;
+      const totalRequired = requiredSkillIds.length;
+      const skillMatch = totalRequired > 0 ? Math.round((matchedSkills / totalRequired) * 100) : 100;
+
+      return {
+        _id: student._id,
+        firstName: student.firstName,
+        lastName: student.lastName,
+        email: student.email,
+        school: student.studentProfile?.currentSchool,
+        enrollmentNumber: student.studentProfile?.enrollmentNumber,
+        skillMatch,
+        matchedSkills,
+        totalRequired,
+        applicationStatus: applicationMap[student._id.toString()] || null,
+        hasApplied: !!applicationMap[student._id.toString()]
+      };
+    });
+
+    // Sort by skill match descending, then by name
+    eligibleStudents.sort((a, b) => {
+      if (b.skillMatch !== a.skillMatch) return b.skillMatch - a.skillMatch;
+      return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
+    });
+
+    res.json({
+      job: {
+        _id: job._id,
+        title: job.title,
+        company: job.company?.name
+      },
+      students: eligibleStudents,
+      total: eligibleStudents.length,
+      applied: eligibleStudents.filter(s => s.hasApplied).length,
+      notApplied: eligibleStudents.filter(s => !s.hasApplied).length
+    });
+  } catch (error) {
+    console.error('Get eligible students for job error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get all eligible active jobs for Campus POC (jobs their students can apply to)
+router.get('/campus-poc/eligible-jobs', auth, authorize('campus_poc'), async (req, res) => {
+  try {
+    const campusId = req.user.campus;
+    // Support both legacy 'active' and pipeline stages
+    const activeStatuses = ['active', 'application_stage', 'hr_shortlisting', 'interviewing'];
+
+    // Get all active jobs that are eligible for this campus
+    const jobs = await Job.find({
+      status: { $in: activeStatuses },
+      applicationDeadline: { $gte: new Date() },
+      $or: [
+        { 'eligibility.campuses': { $size: 0 } },  // Open for all campuses
+        { 'eligibility.campuses': campusId }       // Specifically includes this campus
+      ]
+    })
+      .populate('eligibility.campuses', 'name')
+      .select('title company jobType applicationDeadline maxPositions eligibility createdAt')
+      .sort({ createdAt: -1 });
+
+    // Get students count for this campus
+    const studentCount = await User.countDocuments({
+      role: 'student',
+      campus: campusId,
+      isActive: true
+    });
+
+    // Get application counts for each job
+    const studentIds = await User.find({
+      role: 'student',
+      campus: campusId,
+      isActive: true
+    }).select('_id');
+
+    const jobsWithStats = await Promise.all(jobs.map(async (job) => {
+      const applications = await Application.find({
+        job: job._id,
+        student: { $in: studentIds.map(s => s._id) }
+      }).select('status');
+
+      return {
+        _id: job._id,
+        title: job.title,
+        company: job.company,
+        jobType: job.jobType,
+        applicationDeadline: job.applicationDeadline,
+        maxPositions: job.maxPositions,
+        eligibleStudents: studentCount,
+        applicationCount: applications.length,
+        statusCounts: {
+          applied: applications.filter(a => a.status === 'applied').length,
+          shortlisted: applications.filter(a => a.status === 'shortlisted').length,
+          in_progress: applications.filter(a => a.status === 'in_progress').length,
+          selected: applications.filter(a => a.status === 'selected').length,
+          rejected: applications.filter(a => a.status === 'rejected').length
+        },
+        createdAt: job.createdAt
+      };
+    }));
+
+    res.json({
+      jobs: jobsWithStats,
+      totalJobs: jobs.length,
+      eligibleStudents: studentCount
+    });
+  } catch (error) {
+    console.error('Get eligible jobs error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Company-wise application tracking for POC
 router.get('/campus-poc/company-tracking', auth, authorize('campus_poc'), async (req, res) => {
   try {
@@ -450,12 +613,15 @@ router.get('/campus-poc/company-tracking', auth, authorize('campus_poc'), async 
     const students = await User.find(studentQuery).select('_id');
     const studentIds = students.map(s => s._id);
 
+    // Get total eligible students for this campus
+    const totalEligibleStudents = students.length;
+
     // Get all applications for these students with job details
     const applications = await Application.find({
       student: { $in: studentIds }
     })
       .populate('student', 'firstName lastName email studentProfile.currentSchool')
-      .populate('job', 'title company.name company.logo jobType status interviewRounds');
+      .populate('job', 'title company.name company.logo jobType status interviewRounds eligibility');
 
     // Group by company
     const companyMap = {};
@@ -484,10 +650,23 @@ router.get('/campus-poc/company-tracking', auth, authorize('campus_poc'), async 
       // Group by job within company
       const jobTitle = app.job?.title || 'Unknown';
       if (!companyMap[companyName].jobs[jobTitle]) {
+        // Calculate eligible students for this job based on campus eligibility
+        const jobEligibility = app.job?.eligibility || {};
+        let eligibleCount = totalEligibleStudents;
+        
+        // If job has specific campus restrictions, count accordingly
+        if (jobEligibility.campuses && jobEligibility.campuses.length > 0) {
+          const campusMatches = jobEligibility.campuses.some(c => 
+            c.toString() === campusId.toString()
+          );
+          eligibleCount = campusMatches ? totalEligibleStudents : 0;
+        }
+
         companyMap[companyName].jobs[jobTitle] = {
           jobId: app.job?._id,
           title: jobTitle,
           jobType: app.job?.jobType,
+          eligibleCount: eligibleCount,
           applications: []
         };
       }
@@ -713,12 +892,15 @@ router.get('/campus-poc/cycle-stats', auth, authorize('campus_poc'), async (req,
     const campusId = req.user.campus;
     const PlacementCycle = require('../models/PlacementCycle');
 
-    const cycles = await PlacementCycle.find({ campus: campusId })
+    // Placement cycles are global (not campus-specific), so fetch all
+    const cycles = await PlacementCycle.find({ isActive: true })
       .sort({ year: -1, month: -1 });
 
     const cycleStats = await Promise.all(cycles.map(async (cycle) => {
+      // Get students from this POC's campus assigned to this cycle
       const students = await User.find({
         role: 'student',
+        campus: campusId,
         placementCycle: cycle._id
       }).select('_id');
 

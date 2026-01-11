@@ -176,7 +176,7 @@ const userSchema = new mongoose.Schema({
       }
     }],
     
-    // English Proficiency (CEFR Levels)
+    // English Proficiency (CEFR Levels) - legacy, kept for backward compatibility
     englishProficiency: {
       speaking: {
         type: String,
@@ -187,6 +187,37 @@ const userSchema = new mongoose.Schema({
         enum: ['', 'A1', 'A2', 'B1', 'B2', 'C1', 'C2']
       }
     },
+    
+    // Multi-language proficiency with CEFR levels
+    languages: [{
+      language: {
+        type: String,
+        required: true,
+        trim: true
+      },
+      speaking: {
+        type: String,
+        enum: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'],
+        required: true
+      },
+      writing: {
+        type: String,
+        enum: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'],
+        required: true
+      },
+      reading: {
+        type: String,
+        enum: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']
+      },
+      listening: {
+        type: String,
+        enum: ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']
+      },
+      isNative: {
+        type: Boolean,
+        default: false
+      }
+    }],
     
     // Soft Skills with levels (0-4)
     softSkills: {

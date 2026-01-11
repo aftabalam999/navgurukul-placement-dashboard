@@ -71,9 +71,71 @@ app.use('/api/self-applications', selfApplicationRoutes);
 app.use('/api/job-readiness', jobReadinessRoutes);
 app.use('/api/bulk-upload', bulkUploadRoutes);
 
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+// Health check with detailed status
+app.get('/api/health', async (req, res) => {
+  const startTime = Date.now();
+  
+  // Check MongoDB connection
+  let dbStatus = 'disconnected';
+  let dbLatency = null;
+  let dbName = null;
+  
+  try {
+    const dbStart = Date.now();
+    await mongoose.connection.db.admin().ping();
+    dbLatency = Date.now() - dbStart;
+    dbStatus = 'connected';
+    dbName = mongoose.connection.name;
+  } catch (err) {
+    dbStatus = 'error: ' + err.message;
+  }
+  
+  const isProduction = process.env.MONGODB_URI && process.env.MONGODB_URI.includes('mongodb+srv');
+  
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    server: {
+      uptime: process.uptime(),
+      memoryUsage: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + ' MB'
+    },
+    database: {
+      status: dbStatus,
+      name: dbName,
+      type: isProduction ? 'cloud (MongoDB Atlas)' : 'local',
+      latency: dbLatency ? dbLatency + ' ms' : null
+    },
+    responseTime: (Date.now() - startTime) + ' ms'
+  });
+});
+
+// Sync endpoint - triggers data sync from production (for development only)
+app.post('/api/sync-from-production', async (req, res) => {
+  if (process.env.NODE_ENV === 'production') {
+    return res.status(403).json({ message: 'Sync not allowed in production' });
+  }
+  
+  const { productionUri } = req.body;
+  if (!productionUri) {
+    return res.status(400).json({ message: 'Production MongoDB URI required' });
+  }
+  
+  try {
+    const { exec } = require('child_process');
+    const util = require('util');
+    const execPromise = util.promisify(exec);
+    
+    // Run mongodump and mongorestore
+    const localUri = 'mongodb://localhost:27017/placement_dashboard';
+    const command = `mongodump --uri="${productionUri}" --archive | mongorestore --uri="${localUri}" --archive --drop`;
+    
+    await execPromise(command);
+    res.json({ message: 'Sync completed successfully!' });
+  } catch (error) {
+    console.error('Sync error:', error);
+    res.status(500).json({ message: 'Sync failed: ' + error.message });
+  }
 });
 
 // Error handling middleware

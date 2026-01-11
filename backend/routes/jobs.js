@@ -131,9 +131,10 @@ router.get('/', auth, async (req, res) => {
 
     let query = {};
 
-    // Students only see active jobs
+    // Students only see active/application_stage jobs
     if (req.user.role === 'student') {
-      query.status = 'active';
+      // Support both legacy 'active' status and new pipeline stages
+      query.status = { $in: ['active', 'application_stage', 'hr_shortlisting', 'interviewing'] };
       query.applicationDeadline = { $gte: new Date() };
       
       // Filter by student's campus
@@ -201,8 +202,9 @@ router.get('/matching', auth, authorize('student'), async (req, res) => {
       .populate('campus');
 
     // Get all active jobs that meet basic criteria
+    // Support both legacy 'active' status and new pipeline stages
     const jobs = await Job.find({
-      status: 'active',
+      status: { $in: ['active', 'application_stage', 'hr_shortlisting', 'interviewing'] },
       applicationDeadline: { $gte: new Date() },
       $or: [
         { 'eligibility.campuses': { $size: 0 } },
@@ -575,6 +577,48 @@ router.post('/:id/interest', auth, authorize('student'), [
     });
   } catch (error) {
     console.error('Submit interest error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get ALL interest requests for Campus PoC (across all jobs)
+router.get('/interest-requests/all', auth, authorize('campus_poc', 'coordinator', 'manager'), async (req, res) => {
+  try {
+    const { status, page = 1, limit = 20 } = req.query;
+    let query = {};
+
+    if (status) {
+      query.status = status;
+    }
+
+    // Campus PoC can only see requests from their campus students
+    if (req.user.role === 'campus_poc') {
+      const campusStudents = await User.find({ 
+        role: 'student', 
+        campus: req.user.campus 
+      }).select('_id');
+      query.student = { $in: campusStudents.map(s => s._id) };
+    }
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const total = await InterestRequest.countDocuments(query);
+    
+    const requests = await InterestRequest.find(query)
+      .populate('student', 'firstName lastName email studentProfile.currentSchool studentProfile.enrollmentNumber')
+      .populate('job', 'title company applicationDeadline application_stage')
+      .populate('reviewedBy', 'firstName lastName')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    res.json({
+      requests,
+      total,
+      page: parseInt(page),
+      pages: Math.ceil(total / parseInt(limit))
+    });
+  } catch (error) {
+    console.error('Get all interest requests error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
