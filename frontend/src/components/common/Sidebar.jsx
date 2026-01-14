@@ -14,7 +14,8 @@ import {
   ClipboardCheck,
   Target,
   ExternalLink,
-  Heart
+  Heart,
+  Key
 } from 'lucide-react';
 
 const Sidebar = ({ isOpen, onClose }) => {
@@ -38,6 +39,7 @@ const Sidebar = ({ isOpen, onClose }) => {
           { path: '/campus-poc/students', icon: Users, label: 'Students' },
           { path: '/campus-poc/profile-approvals', icon: ClipboardCheck, label: 'Profile Approvals' },
           { path: '/campus-poc/skill-approvals', icon: CheckSquare, label: 'Skill Approvals' },
+          { path: '/campus-poc/skills', icon: Settings, label: 'Skill Categories' },
           { path: '/campus-poc/job-readiness', icon: Target, label: 'Job Readiness' },
           { path: '/campus-poc/job-readiness-criteria', icon: CheckSquare, label: 'Readiness Criteria' },
           { path: '/campus-poc/self-applications', icon: ExternalLink, label: 'Self Applications' },
@@ -49,7 +51,8 @@ const Sidebar = ({ isOpen, onClose }) => {
           { path: '/coordinator/jobs', icon: Briefcase, label: 'Job Management' },
           { path: '/coordinator/applications', icon: FileText, label: 'Applications' },
           { path: '/coordinator/skills', icon: Settings, label: 'Skill Categories' },
-          { path: '/campus-poc/job-readiness-criteria', icon: CheckSquare, label: 'Readiness Criteria' }
+          { path: '/campus-poc/job-readiness-criteria', icon: CheckSquare, label: 'Readiness Criteria' },
+          { path: '/coordinator/settings', icon: Key, label: 'Settings' }
         ];
       case 'manager':
         return [

@@ -104,6 +104,9 @@ A comprehensive web application for managing campus placements with multiple use
    npm run dev
    ```
 
+### Development Troubleshooting
+If you run into issues (port in use, backend unreachable, DB errors), see `DEV-SETUP.md` for step-by-step commands to diagnose and fix common problems such as EADDRINUSE, failed migrations, and health checks.
+
 ### Frontend Setup
 
 1. Navigate to frontend directory:

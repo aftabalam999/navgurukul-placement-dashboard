@@ -297,6 +297,7 @@ router.get('/unassigned/students', auth, authorize('campus_poc', 'coordinator', 
 // Student can select their own placement cycle
 router.put('/my-cycle', auth, authorize('student'), async (req, res) => {
   try {
+    console.log(`Update my-cycle request from user ${req.userId} role=${req.user?.role}`);
     const { cycleId } = req.body;
     
     const cycle = await PlacementCycle.findById(cycleId);
@@ -304,16 +305,48 @@ router.put('/my-cycle', auth, authorize('student'), async (req, res) => {
       return res.status(404).json({ message: 'Placement cycle not found' });
     }
 
-    if (!cycle.isActive) {
-      return res.status(400).json({ message: 'This placement cycle is not active' });
+    // Business rule: students may change their placement cycle only if the target cycle is not 'active'.
+    // This prevents selecting a cycle that is already 'active'.
+    if (cycle.status === 'active') {
+      return res.status(400).json({ message: 'Cannot change to an active placement cycle. Please contact your Campus POC.' });
     }
 
-    await User.findByIdAndUpdate(req.userId, {
-      placementCycle: cycle._id,
-      placementCycleAssignedAt: new Date()
-    });
+    // Update student placement cycle and mark for approval (reuse profile submission flow)
+    const user = await User.findById(req.userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
 
-    res.json({ message: 'Placement cycle updated', cycle });
+    user.placementCycle = cycle._id;
+    user.placementCycleAssignedAt = new Date();
+    user.placementCycleAssignedBy = req.userId;
+
+    // Trigger profile re-approval flow: mark profile as pending approval and clear previous approval
+    user.studentProfile.profileStatus = 'pending_approval';
+    user.studentProfile.lastSubmittedAt = new Date();
+    user.studentProfile.revisionNotes = '';
+
+    await user.save();
+
+    // Notify Campus POCs who manage this campus
+    const campusPocs = await User.find({ 
+      role: 'campus_poc',
+      $or: [
+        { campus: user.campus },
+        { managedCampuses: user.campus }
+      ]
+    });
+    const Notification = require('../models/Notification');
+    for (const poc of campusPocs) {
+      await Notification.create({
+        recipient: poc._id,
+        type: 'profile_approval_needed',
+        title: 'Profile Approval Needed',
+        message: `${user.firstName} ${user.lastName} changed their placement cycle and submitted profile for approval.`,
+        link: `/students/${user._id}`,
+        relatedEntity: { type: 'user', id: user._id }
+      });
+    }
+
+    res.json({ message: 'Placement cycle updated and profile submitted for approval', cycle });
   } catch (error) {
     console.error('Update my cycle error:', error);
     res.status(500).json({ message: 'Server error' });

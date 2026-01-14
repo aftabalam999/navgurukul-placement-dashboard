@@ -11,6 +11,7 @@ router.get('/', auth, async (req, res) => {
     // Convert Map to plain object for JSON response
     const response = {
       schoolModules: Object.fromEntries(settings.schoolModules || new Map()),
+      schools: Object.keys(Object.fromEntries(settings.schoolModules || new Map())),
       rolePreferences: settings.rolePreferences || [],
       technicalSkills: settings.technicalSkills || [],
       degreeOptions: settings.degreeOptions || [],
@@ -217,6 +218,31 @@ router.delete('/skills/:skill', auth, authorize('manager', 'coordinator'), async
     });
   } catch (error) {
     console.error('Remove skill error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Add a new school (coordinator/manager/campus_poc)
+router.post('/schools', auth, authorize('manager', 'coordinator', 'campus_poc'), async (req, res) => {
+  try {
+    const { school } = req.body;
+    const normalized = (school || '').trim();
+    if (!normalized) {
+      return res.status(400).json({ success: false, message: 'School name is required' });
+    }
+
+    const settings = await Settings.getSettings();
+    const current = settings.schoolModules || new Map();
+    if (current.has(normalized)) {
+      return res.status(400).json({ success: false, message: 'School already exists' });
+    }
+    current.set(normalized, []);
+    settings.schoolModules = current;
+    settings.lastUpdatedBy = req.userId;
+    await settings.save();
+    res.json({ success: true, message: 'School added successfully', data: { schools: Array.from(current.keys()) } });
+  } catch (error) {
+    console.error('Add school error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
@@ -432,6 +458,21 @@ router.put('/ai-config', auth, authorize('manager'), async (req, res) => {
   } catch (error) {
     console.error('Update AI config error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Get AI runtime status (manager only) - shows whether API key is valid and model accessible
+router.get('/ai-status', auth, authorize('manager'), async (req, res) => {
+  try {
+    const settings = await Settings.getSettings();
+    const apiKey = settings.aiConfig?.googleApiKey;
+    const AIService = require('../services/aiService');
+    const ai = new AIService(apiKey);
+    const status = await ai.getStatus();
+    res.json({ success: true, data: status });
+  } catch (error) {
+    console.error('Get AI status error:', error);
+    res.status(500).json({ success: false, message: 'Failed to retrieve AI status' });
   }
 });
 

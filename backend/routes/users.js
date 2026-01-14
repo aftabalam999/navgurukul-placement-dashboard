@@ -106,8 +106,17 @@ router.put('/profile', auth, authorize('student'), upload.single('resume'), asyn
     if (user.role === 'student') {
       const profileUpdates = [
         'linkedIn', 'github', 'portfolio', 'about',
-        'currentSchool', 'currentModule', 'customModuleDescription'
+        'currentSchool', 'currentModule', 'customModuleDescription', 'resumeLink'
       ];
+
+      // Validate resume link if present before applying
+      if (updates.resumeLink !== undefined) {
+        const { checkUrlAccessible } = require('../utils/urlChecker');
+        const check = await checkUrlAccessible(updates.resumeLink);
+        if (!check.ok) {
+          return res.status(400).json({ message: 'Resume link is not accessible', reason: check.reason || 'inaccessible' });
+        }
+      }
 
       profileUpdates.forEach(field => {
         if (updates[field] !== undefined) {
@@ -377,6 +386,17 @@ router.put('/students/:studentId/profile', auth, authorize('campus_poc', 'coordi
     if (updates.lastName) student.lastName = updates.lastName;
     if (updates.phone) student.phone = updates.phone;
 
+    // Validate resume link if present before applying (by manager/POC)
+    if (updates.resumeLink !== undefined) {
+      const { checkUrlAccessible } = require('../utils/urlChecker');
+      const check = await checkUrlAccessible(updates.resumeLink);
+      if (!check.ok) {
+        return res.status(400).json({ message: 'Resume link is not accessible', reason: check.reason || 'inaccessible' });
+      }
+      // Apply it
+      student.studentProfile.resumeLink = updates.resumeLink;
+    }
+
     // Update student profile fields
     const profileUpdates = [
       'currentSchool', 'currentModule', 'customModuleDescription',
@@ -634,6 +654,177 @@ router.get('/eligible-count', auth, authorize('coordinator', 'manager'), async (
     res.json({ count });
   } catch (error) {
     console.error('Get eligible count error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Export-presets API for saving user presets (max 2)
+router.get('/me/export-presets', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).select('exportPresets');
+    res.json({ presets: user.exportPresets || [] });
+  } catch (error) {
+    console.error('Get export presets error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.post('/me/export-presets', auth, async (req, res) => {
+  try {
+    const { name, fields, format, layout } = req.body;
+    if (!name || !fields) {
+      return res.status(400).json({ message: 'Name and fields are required' });
+    }
+
+    const user = await User.findById(req.userId);
+    user.exportPresets = user.exportPresets || [];
+    if (user.exportPresets.length >= 2) {
+      return res.status(400).json({ message: 'Maximum of 2 presets allowed' });
+    }
+
+    const preset = { name, fields, format: format || 'pdf', layout: layout || 'resume' };
+    user.exportPresets.push(preset);
+    await user.save();
+
+    res.json({ presets: user.exportPresets });
+  } catch (error) {
+    console.error('Create export preset error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.delete('/me/export-presets/:presetId', auth, async (req, res) => {
+  try {
+    const { presetId } = req.params;
+    const user = await User.findById(req.userId);
+    user.exportPresets = (user.exportPresets || []).filter(p => p._id.toString() !== presetId);
+    await user.save();
+    res.json({ presets: user.exportPresets });
+  } catch (error) {
+    console.error('Delete export preset error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get user's AI API keys
+router.get('/me/ai-keys', auth, authorize('coordinator', 'manager'), async (req, res) => {
+  try {
+    const user = await User.findById(req.userId).select('aiApiKeys');
+    // Return keys with masked values for security
+    const maskedKeys = (user.aiApiKeys || []).map(k => ({
+      _id: k._id,
+      label: k.label,
+      keyPreview: k.key ? `${k.key.substring(0, 8)}...${k.key.substring(k.key.length - 4)}` : '',
+      addedAt: k.addedAt,
+      isActive: k.isActive
+    }));
+    res.json({ keys: maskedKeys });
+  } catch (error) {
+    console.error('Get AI keys error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Add AI API key
+router.post('/me/ai-keys', auth, authorize('coordinator', 'manager'), async (req, res) => {
+  try {
+    const { key, label } = req.body;
+    
+    if (!key || !key.trim()) {
+      return res.status(400).json({ message: 'API key is required' });
+    }
+
+    const user = await User.findById(req.userId);
+    if (!user.aiApiKeys) user.aiApiKeys = [];
+    
+    // Limit to 5 keys per user
+    if (user.aiApiKeys.length >= 5) {
+      return res.status(400).json({ message: 'Maximum 5 API keys allowed per user' });
+    }
+
+    user.aiApiKeys.push({
+      key: key.trim(),
+      label: label || `Key ${user.aiApiKeys.length + 1}`,
+      addedAt: new Date(),
+      isActive: true
+    });
+
+    await user.save();
+
+    // Return masked keys
+    const maskedKeys = user.aiApiKeys.map(k => ({
+      _id: k._id,
+      label: k.label,
+      keyPreview: k.key ? `${k.key.substring(0, 8)}...${k.key.substring(k.key.length - 4)}` : '',
+      addedAt: k.addedAt,
+      isActive: k.isActive
+    }));
+
+    res.json({ message: 'API key added successfully', keys: maskedKeys });
+  } catch (error) {
+    console.error('Add AI key error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Update AI API key (toggle active status or update label)
+router.patch('/me/ai-keys/:keyId', auth, authorize('coordinator', 'manager'), async (req, res) => {
+  try {
+    const { keyId } = req.params;
+    const { isActive, label } = req.body;
+
+    const user = await User.findById(req.userId);
+    const keyIndex = user.aiApiKeys.findIndex(k => k._id.toString() === keyId);
+
+    if (keyIndex === -1) {
+      return res.status(404).json({ message: 'API key not found' });
+    }
+
+    if (typeof isActive === 'boolean') {
+      user.aiApiKeys[keyIndex].isActive = isActive;
+    }
+    if (label !== undefined) {
+      user.aiApiKeys[keyIndex].label = label;
+    }
+
+    await user.save();
+
+    // Return masked keys
+    const maskedKeys = user.aiApiKeys.map(k => ({
+      _id: k._id,
+      label: k.label,
+      keyPreview: k.key ? `${k.key.substring(0, 8)}...${k.key.substring(k.key.length - 4)}` : '',
+      addedAt: k.addedAt,
+      isActive: k.isActive
+    }));
+
+    res.json({ message: 'API key updated successfully', keys: maskedKeys });
+  } catch (error) {
+    console.error('Update AI key error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Delete AI API key
+router.delete('/me/ai-keys/:keyId', auth, authorize('coordinator', 'manager'), async (req, res) => {
+  try {
+    const { keyId } = req.params;
+    const user = await User.findById(req.userId);
+    user.aiApiKeys = (user.aiApiKeys || []).filter(k => k._id.toString() !== keyId);
+    await user.save();
+
+    // Return masked keys
+    const maskedKeys = user.aiApiKeys.map(k => ({
+      _id: k._id,
+      label: k.label,
+      keyPreview: k.key ? `${k.key.substring(0, 8)}...${k.key.substring(k.key.length - 4)}` : '',
+      addedAt: k.addedAt,
+      isActive: k.isActive
+    }));
+
+    res.json({ message: 'API key deleted successfully', keys: maskedKeys });
+  } catch (error) {
+    console.error('Delete AI key error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

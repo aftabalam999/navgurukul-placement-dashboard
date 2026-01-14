@@ -1,0 +1,2623 @@
+{
+  "timestamp": "2026-01-12T03:26:03.515Z",
+  "environment": "development",
+  "collections": {
+    "settings": [
+      {
+        "aiConfig": {
+          "googleApiKey": "",
+          "enabled": true
+        },
+        "_id": "6963229b956a71e58145a7dc",
+        "schoolModules": {
+          "School Of Programming": [
+            "Programming Foundations",
+            "Problem Solving & Flowcharts",
+            "Web Fundamentals",
+            "JavaScript Fundamentals",
+            "Advanced JavaScript",
+            "DOM & Browser APIs",
+            "Python Fundamentals",
+            "Advanced Python",
+            "Data Structures & Algorithms",
+            "Advanced Data Structures",
+            "React & Frontend Frameworks"
+          ],
+          "School Of Business": [
+            "CRM",
+            "Digital Marketing",
+            "Data Analytics",
+            "Advance Google Sheet"
+          ],
+          "School of Second Chance": [
+            "Master Chef",
+            "Fashion Designing"
+          ],
+          "School of Finance": [
+            "Financial Literacy",
+            "Accounting Basics",
+            "Investment Fundamentals"
+          ],
+          "School of Education": [
+            "Pedagogy Basics",
+            "Classroom Management",
+            "Curriculum Development"
+          ]
+        },
+        "rolePreferences": [
+          "Frontend Developer",
+          "Backend Developer",
+          "Full Stack Developer",
+          "Low Code-No Code Developer",
+          "Data Analyst",
+          "Social Media Associate",
+          "Business Developer",
+          "CRM Executive",
+          "Digital Marketing",
+          "General Marketing",
+          "Intern - Full Stack",
+          "Intern - FE",
+          "Intern - BE",
+          "Chef",
+          "Fashion Designer",
+          "Teaching Assistant",
+          "Finance Executive"
+        ],
+        "technicalSkills": [
+          "HTML/CSS",
+          "JavaScript",
+          "React",
+          "Node.js",
+          "Python",
+          "Data Structures",
+          "Algorithms",
+          "Git/GitHub",
+          "REST APIs",
+          "Databases (SQL/NoSQL)",
+          "Salesforce CRM",
+          "HubSpot",
+          "Google Analytics",
+          "SEO/SEM",
+          "Social Media Marketing",
+          "Google Sheets/Excel",
+          "Data Visualization",
+          "Content Writing",
+          "Culinary Arts",
+          "Food Safety",
+          "Kitchen Management",
+          "Fashion Design",
+          "Garment Construction",
+          "Pattern Making",
+          "Tally",
+          "Accounting",
+          "Financial Analysis",
+          "Teaching Methods",
+          "Curriculum Planning",
+          "Student Assessment"
+        ],
+        "degreeOptions": [
+          "High School",
+          "10th Pass",
+          "12th Pass",
+          "Diploma",
+          "Bachelor's Degree (B.Tech/B.E.)",
+          "Bachelor's Degree (BCA)",
+          "Bachelor's Degree (B.Sc)",
+          "Bachelor's Degree (B.Com)",
+          "Bachelor's Degree (BA)",
+          "Bachelor's Degree (BBA)",
+          "Master's Degree",
+          "Other"
+        ],
+        "softSkills": [
+          "Communication",
+          "Teamwork",
+          "Problem Solving",
+          "Time Management",
+          "Leadership",
+          "Adaptability",
+          "Critical Thinking",
+          "Creativity",
+          "Attention to Detail",
+          "Work Ethic"
+        ],
+        "courseSkills": [],
+        "courseProviders": [
+          "Navgurukul",
+          "Coursera",
+          "Udemy",
+          "LinkedIn Learning",
+          "YouTube",
+          "Other"
+        ],
+        "jobPipelineStages": [
+          {
+            "id": "draft",
+            "label": "Draft",
+            "description": "Jobs being prepared",
+            "color": "gray",
+            "order": 0,
+            "isDefault": true,
+            "visibleToStudents": false,
+            "studentLabel": ""
+          },
+          {
+            "id": "pending_approval",
+            "label": "Pending Approval",
+            "description": "Awaiting manager approval",
+            "color": "yellow",
+            "order": 1,
+            "isDefault": true,
+            "visibleToStudents": false,
+            "studentLabel": ""
+          },
+          {
+            "id": "application_stage",
+            "label": "Application Stage",
+            "description": "Open for applications",
+            "color": "green",
+            "order": 2,
+            "isDefault": true,
+            "visibleToStudents": true,
+            "studentLabel": "Now Hiring"
+          },
+          {
+            "id": "hr_shortlisting",
+            "label": "HR Shortlisting",
+            "description": "Reviewing applications",
+            "color": "indigo",
+            "order": 3,
+            "isDefault": true,
+            "visibleToStudents": true,
+            "studentLabel": "Shortlisting"
+          },
+          {
+            "id": "interviewing",
+            "label": "Interviewing",
+            "description": "Interview process ongoing",
+            "color": "blue",
+            "order": 4,
+            "isDefault": true,
+            "visibleToStudents": true,
+            "studentLabel": "Interviews Ongoing"
+          },
+          {
+            "id": "on_hold",
+            "label": "On Hold",
+            "description": "Temporarily paused",
+            "color": "orange",
+            "order": 5,
+            "isDefault": false,
+            "visibleToStudents": true,
+            "studentLabel": "Applications Paused"
+          },
+          {
+            "id": "closed",
+            "label": "Closed",
+            "description": "No longer accepting applications",
+            "color": "red",
+            "order": 6,
+            "isDefault": true,
+            "visibleToStudents": true,
+            "studentLabel": "Closed"
+          },
+          {
+            "id": "filled",
+            "label": "Filled",
+            "description": "Position(s) filled",
+            "color": "purple",
+            "order": 7,
+            "isDefault": true,
+            "visibleToStudents": true,
+            "studentLabel": "Position Filled"
+          }
+        ],
+        "createdAt": "2026-01-11T04:10:03.371Z",
+        "updatedAt": "2026-01-11T04:11:52.898Z",
+        "__v": 1
+      }
+    ],
+    "campuses": [
+      {
+        "location": {
+          "city": "Jashpur",
+          "state": "Chhattisgarh"
+        },
+        "_id": "6963229b956a71e58145a7df",
+        "name": "Jashpur",
+        "code": "JASH",
+        "isActive": true,
+        "placementTarget": 50,
+        "__v": 0,
+        "createdAt": "2026-01-11T04:10:03.383Z",
+        "updatedAt": "2026-01-11T04:10:03.383Z"
+      },
+      {
+        "location": {
+          "city": "Raigarh",
+          "state": "Chhattisgarh"
+        },
+        "_id": "6963229b956a71e58145a7e0",
+        "name": "Raigarh",
+        "code": "RAIG",
+        "isActive": true,
+        "placementTarget": 50,
+        "__v": 0,
+        "createdAt": "2026-01-11T04:10:03.383Z",
+        "updatedAt": "2026-01-11T04:10:03.383Z"
+      },
+      {
+        "location": {
+          "city": "Dantewada",
+          "state": "Chhattisgarh"
+        },
+        "_id": "6963229b956a71e58145a7e1",
+        "name": "Dantewada",
+        "code": "DANT",
+        "isActive": true,
+        "placementTarget": 40,
+        "__v": 0,
+        "createdAt": "2026-01-11T04:10:03.383Z",
+        "updatedAt": "2026-01-11T04:10:03.383Z"
+      },
+      {
+        "location": {
+          "city": "Dharamshala",
+          "state": "Himachal Pradesh"
+        },
+        "_id": "6963229b956a71e58145a7e2",
+        "name": "Dharamshala",
+        "code": "DHAR",
+        "isActive": true,
+        "placementTarget": 60,
+        "__v": 0,
+        "createdAt": "2026-01-11T04:10:03.383Z",
+        "updatedAt": "2026-01-11T04:10:03.383Z"
+      },
+      {
+        "location": {
+          "city": "Bangalore",
+          "state": "Karnataka"
+        },
+        "_id": "6963229b956a71e58145a7e3",
+        "name": "Eternal BCA",
+        "code": "EBCA",
+        "isActive": true,
+        "placementTarget": 80,
+        "__v": 0,
+        "createdAt": "2026-01-11T04:10:03.383Z",
+        "updatedAt": "2026-01-11T04:10:03.383Z"
+      },
+      {
+        "location": {
+          "city": "Kishanganj",
+          "state": "Bihar"
+        },
+        "_id": "6963229b956a71e58145a7e4",
+        "name": "Kishanganj",
+        "code": "KISH",
+        "isActive": true,
+        "placementTarget": 45,
+        "__v": 0,
+        "createdAt": "2026-01-11T04:10:03.383Z",
+        "updatedAt": "2026-01-11T04:10:03.383Z"
+      },
+      {
+        "location": {
+          "city": "Sarjapur",
+          "state": "Karnataka"
+        },
+        "_id": "6963229b956a71e58145a7e5",
+        "name": "Sarjapur",
+        "code": "SARJ",
+        "isActive": true,
+        "placementTarget": 70,
+        "__v": 0,
+        "createdAt": "2026-01-11T04:10:03.383Z",
+        "updatedAt": "2026-01-11T04:10:03.383Z"
+      },
+      {
+        "location": {
+          "city": "Pune",
+          "state": "Maharashtra"
+        },
+        "_id": "6963229b956a71e58145a7e6",
+        "name": "Pune",
+        "code": "PUNE",
+        "isActive": true,
+        "placementTarget": 55,
+        "__v": 0,
+        "createdAt": "2026-01-11T04:10:03.383Z",
+        "updatedAt": "2026-01-11T04:10:03.383Z"
+      }
+    ],
+    "skills": [
+      {
+        "_id": "6963229b956a71e58145a7e8",
+        "name": "JavaScript",
+        "category": "technical",
+        "description": "JavaScript programming language",
+        "isActive": true,
+        "__v": 0,
+        "createdAt": "2026-01-11T04:10:03.389Z",
+        "updatedAt": "2026-01-11T04:10:03.389Z"
+      },
+      {
+        "_id": "6963229b956a71e58145a7e9",
+        "name": "Python",
+        "category": "technical",
+        "description": "Python programming language",
+        "isActive": true,
+        "__v": 0,
+        "createdAt": "2026-01-11T04:10:03.389Z",
+        "updatedAt": "2026-01-11T04:10:03.389Z"
+      },
+      {
+        "_id": "6963229b956a71e58145a7ea",
+        "name": "React",
+        "category": "technical",
+        "description": "React.js framework",
+        "isActive": true,
+        "__v": 0,
+        "createdAt": "2026-01-11T04:10:03.389Z",
+        "updatedAt": "2026-01-11T04:10:03.389Z"
+      },
+      {
+        "_id": "6963229b956a71e58145a7eb",
+        "name": "Node.js",
+        "category": "technical",
+        "description": "Node.js runtime",
+        "isActive": true,
+        "__v": 0,
+        "createdAt": "2026-01-11T04:10:03.389Z",
+        "updatedAt": "2026-01-11T04:10:03.389Z"
+      },
+      {
+        "_id": "6963229b956a71e58145a7ec",
+        "name": "SQL",
+        "category": "technical",
+        "description": "Structured Query Language",
+        "isActive": true,
+        "__v": 0,
+        "createdAt": "2026-01-11T04:10:03.389Z",
+        "updatedAt": "2026-01-11T04:10:03.389Z"
+      },
+      {
+        "_id": "6963229b956a71e58145a7ed",
+        "name": "MongoDB",
+        "category": "technical",
+        "description": "MongoDB NoSQL database",
+        "isActive": true,
+        "__v": 0,
+        "createdAt": "2026-01-11T04:10:03.389Z",
+        "updatedAt": "2026-01-11T04:10:03.389Z"
+      },
+      {
+        "_id": "6963229b956a71e58145a7ee",
+        "name": "Java",
+        "category": "technical",
+        "description": "Java programming language",
+        "isActive": true,
+        "__v": 0,
+        "createdAt": "2026-01-11T04:10:03.389Z",
+        "updatedAt": "2026-01-11T04:10:03.389Z"
+      },
+      {
+        "_id": "6963229b956a71e58145a7ef",
+        "name": "Communication",
+        "category": "soft_skill",
+        "description": "Verbal and written communication",
+        "isActive": true,
+        "__v": 0,
+        "createdAt": "2026-01-11T04:10:03.389Z",
+        "updatedAt": "2026-01-11T04:10:03.389Z"
+      },
+      {
+        "_id": "6963229b956a71e58145a7f0",
+        "name": "Teamwork",
+        "category": "soft_skill",
+        "description": "Ability to work in teams",
+        "isActive": true,
+        "__v": 0,
+        "createdAt": "2026-01-11T04:10:03.389Z",
+        "updatedAt": "2026-01-11T04:10:03.389Z"
+      },
+      {
+        "_id": "6963229b956a71e58145a7f1",
+        "name": "Problem Solving",
+        "category": "soft_skill",
+        "description": "Analytical thinking and problem solving",
+        "isActive": true,
+        "__v": 0,
+        "createdAt": "2026-01-11T04:10:03.389Z",
+        "updatedAt": "2026-01-11T04:10:03.389Z"
+      },
+      {
+        "_id": "6963229b956a71e58145a7f2",
+        "name": "English",
+        "category": "language",
+        "description": "English language proficiency",
+        "isActive": true,
+        "__v": 0,
+        "createdAt": "2026-01-11T04:10:03.389Z",
+        "updatedAt": "2026-01-11T04:10:03.389Z"
+      },
+      {
+        "_id": "6963229b956a71e58145a7f3",
+        "name": "AWS Certified",
+        "category": "certification",
+        "description": "AWS Cloud certification",
+        "isActive": true,
+        "__v": 0,
+        "createdAt": "2026-01-11T04:10:03.389Z",
+        "updatedAt": "2026-01-11T04:10:03.389Z"
+      },
+      {
+        "_id": "6963229b956a71e58145a7f4",
+        "name": "Machine Learning",
+        "category": "domain",
+        "description": "Machine learning and AI",
+        "isActive": true,
+        "__v": 0,
+        "createdAt": "2026-01-11T04:10:03.389Z",
+        "updatedAt": "2026-01-11T04:10:03.389Z"
+      }
+    ],
+    "users": [
+      {
+        "studentProfile": {
+          "softSkills": {
+            "communication": 0,
+            "collaboration": 0,
+            "creativity": 0,
+            "criticalThinking": 0,
+            "problemSolving": 0,
+            "adaptability": 0,
+            "timeManagement": 0,
+            "leadership": 0,
+            "teamwork": 0,
+            "emotionalIntelligence": 0
+          },
+          "profileStatus": "draft",
+          "attendancePercentage": null,
+          "openForRoles": [],
+          "higherEducation": [],
+          "courses": [],
+          "technicalSkills": [],
+          "skills": [],
+          "languages": []
+        },
+        "_id": "6963229b956a71e58145a7f6",
+        "email": "manager@placement.edu",
+        "password": "[HASHED]",
+        "role": "manager",
+        "firstName": "Admin",
+        "lastName": "Manager",
+        "phone": "9876543210",
+        "gender": "",
+        "isActive": true,
+        "managedCampuses": [],
+        "createdAt": "2026-01-11T04:10:03.393Z",
+        "updatedAt": "2026-01-12T03:16:23.840Z",
+        "__v": 1,
+        "lastLogin": "2026-01-12T03:16:23.838Z"
+      },
+      {
+        "studentProfile": {
+          "softSkills": {
+            "communication": 0,
+            "collaboration": 0,
+            "creativity": 0,
+            "criticalThinking": 0,
+            "problemSolving": 0,
+            "adaptability": 0,
+            "timeManagement": 0,
+            "leadership": 0,
+            "teamwork": 0,
+            "emotionalIntelligence": 0
+          },
+          "profileStatus": "draft",
+          "attendancePercentage": null,
+          "openForRoles": [],
+          "higherEducation": [],
+          "courses": [],
+          "technicalSkills": [],
+          "skills": [],
+          "languages": []
+        },
+        "_id": "6963229b956a71e58145a7f8",
+        "email": "coordinator@placement.edu",
+        "password": "[HASHED]",
+        "role": "coordinator",
+        "firstName": "Placement",
+        "lastName": "Coordinator",
+        "phone": "9876543211",
+        "gender": "",
+        "isActive": true,
+        "managedCampuses": [],
+        "createdAt": "2026-01-11T04:10:03.477Z",
+        "updatedAt": "2026-01-11T15:33:27.188Z",
+        "__v": 1,
+        "lastLogin": "2026-01-11T15:33:27.179Z"
+      },
+      {
+        "studentProfile": {
+          "softSkills": {
+            "communication": 0,
+            "collaboration": 0,
+            "creativity": 0,
+            "criticalThinking": 0,
+            "problemSolving": 0,
+            "adaptability": 0,
+            "timeManagement": 0,
+            "leadership": 0,
+            "teamwork": 0,
+            "emotionalIntelligence": 0
+          },
+          "profileStatus": "draft",
+          "attendancePercentage": null,
+          "openForRoles": [],
+          "higherEducation": [],
+          "courses": [],
+          "technicalSkills": [],
+          "skills": [],
+          "languages": []
+        },
+        "_id": "6963229b956a71e58145a7fa",
+        "email": "poc.jashpur@placement.edu",
+        "password": "[HASHED]",
+        "role": "campus_poc",
+        "firstName": "Jashpur",
+        "lastName": "POC",
+        "phone": "9876543212",
+        "gender": "",
+        "campus": "6963229b956a71e58145a7df",
+        "isActive": true,
+        "managedCampuses": [
+          "6963229b956a71e58145a7df",
+          "6963229b956a71e58145a7e1",
+          "6963229b956a71e58145a7e2",
+          "6963229b956a71e58145a7e3",
+          "6963229b956a71e58145a7e4",
+          "6963229b956a71e58145a7e6",
+          "6963229b956a71e58145a7e0",
+          "6963229b956a71e58145a7e5"
+        ],
+        "createdAt": "2026-01-11T04:10:03.552Z",
+        "updatedAt": "2026-01-11T15:04:57.821Z",
+        "__v": 2,
+        "lastLogin": "2026-01-11T15:04:57.820Z"
+      },
+      {
+        "studentProfile": {
+          "softSkills": {
+            "communication": 0,
+            "collaboration": 0,
+            "creativity": 0,
+            "criticalThinking": 0,
+            "problemSolving": 0,
+            "adaptability": 0,
+            "timeManagement": 0,
+            "leadership": 0,
+            "teamwork": 0,
+            "emotionalIntelligence": 0
+          },
+          "profileStatus": "draft",
+          "attendancePercentage": null,
+          "openForRoles": [],
+          "higherEducation": [],
+          "courses": [],
+          "technicalSkills": [],
+          "skills": [],
+          "languages": []
+        },
+        "_id": "6963229b956a71e58145a7fc",
+        "email": "poc.dharamshala@placement.edu",
+        "password": "[HASHED]",
+        "role": "campus_poc",
+        "firstName": "Dharamshala",
+        "lastName": "POC",
+        "phone": "9876543213",
+        "gender": "",
+        "campus": "6963229b956a71e58145a7e2",
+        "isActive": true,
+        "managedCampuses": [],
+        "createdAt": "2026-01-11T04:10:03.625Z",
+        "updatedAt": "2026-01-11T12:38:56.122Z",
+        "__v": 1,
+        "lastLogin": "2026-01-11T12:38:56.121Z"
+      },
+      {
+        "studentProfile": {
+          "tenthGrade": {
+            "passingYear": 2022,
+            "state": "Arunachal Pradesh",
+            "board": "CBSE",
+            "percentage": 99
+          },
+          "twelfthGrade": {
+            "passingYear": 2023,
+            "state": "Assam",
+            "board": "CBSE",
+            "percentage": 99
+          },
+          "hometown": {
+            "pincode": "313001",
+            "village": "Balicha",
+            "district": "Udaipur",
+            "state": "Rajasthan"
+          },
+          "englishProficiency": {
+            "speaking": "B2",
+            "writing": "B2"
+          },
+          "softSkills": {
+            "communication": 1,
+            "collaboration": 1,
+            "creativity": 1,
+            "criticalThinking": 1,
+            "problemSolving": 1,
+            "adaptability": 1,
+            "timeManagement": 1,
+            "leadership": 1,
+            "teamwork": 0,
+            "emotionalIntelligence": 0
+          },
+          "skills": [
+            {
+              "skill": "6963229b956a71e58145a7e8",
+              "status": "approved",
+              "approvedBy": "6963229b956a71e58145a7fa",
+              "_id": "6963229b956a71e58145a7ff"
+            },
+            {
+              "skill": "6963229b956a71e58145a7ea",
+              "status": "approved",
+              "approvedBy": "6963229b956a71e58145a7fa",
+              "_id": "6963229b956a71e58145a800"
+            },
+            {
+              "skill": "6963229b956a71e58145a7eb",
+              "status": "approved",
+              "_id": "6963229b956a71e58145a801",
+              "approvedAt": "2026-01-11T04:27:15.021Z",
+              "approvedBy": "6963229b956a71e58145a7fa"
+            }
+          ],
+          "linkedIn": "https://linkedin.com/in/johndoe",
+          "about": "Passionate about web development",
+          "profileStatus": "approved",
+          "attendancePercentage": null,
+          "higherEducation": [],
+          "courses": [],
+          "openForRoles": [
+            "General Marketing",
+            "Intern - BE",
+            "Intern - Full Stack",
+            "CRM",
+            "Low Code-No Code Developer",
+            "Business Developer",
+            "Frontend Developer",
+            "Data Analysis",
+            "Backend Developer",
+            "Social Media Associate",
+            "Digital Marketing"
+          ],
+          "technicalSkills": [
+            {
+              "skillName": "React & Frontend Frameworks",
+              "selfRating": 1,
+              "addedAt": "2026-01-11T04:12:44.554Z",
+              "_id": "6963234db88f80690eb422c7"
+            },
+            {
+              "skillName": "Data Structures & Algorithms",
+              "selfRating": 1,
+              "addedAt": "2026-01-11T04:12:45.464Z",
+              "_id": "6963234db88f80690eb422c8"
+            },
+            {
+              "skillName": "Python Fundamentals",
+              "selfRating": 1,
+              "addedAt": "2026-01-11T04:12:46.822Z",
+              "_id": "6963234db88f80690eb422c9"
+            },
+            {
+              "skillName": "Advanced JavaScript",
+              "selfRating": 1,
+              "addedAt": "2026-01-11T04:12:47.441Z",
+              "_id": "6963234db88f80690eb422ca"
+            },
+            {
+              "skillName": "Web Fundamentals",
+              "selfRating": 1,
+              "addedAt": "2026-01-11T04:12:48.029Z",
+              "_id": "6963234db88f80690eb422cb"
+            },
+            {
+              "skillName": "Programming Foundations",
+              "selfRating": 1,
+              "addedAt": "2026-01-11T04:12:48.998Z",
+              "_id": "6963234db88f80690eb422cc"
+            },
+            {
+              "skillName": "Problem Solving & Flowcharts",
+              "selfRating": 1,
+              "addedAt": "2026-01-11T04:12:49.718Z",
+              "_id": "6963234db88f80690eb422cd"
+            },
+            {
+              "skillName": "JavaScript Fundamentals",
+              "selfRating": 1,
+              "addedAt": "2026-01-11T04:12:50.527Z",
+              "_id": "6963234db88f80690eb422ce"
+            },
+            {
+              "skillName": "DOM & Browser APIs",
+              "selfRating": 1,
+              "addedAt": "2026-01-11T04:12:51.130Z",
+              "_id": "6963234db88f80690eb422cf"
+            },
+            {
+              "skillName": "CRM",
+              "selfRating": 1,
+              "addedAt": "2026-01-11T04:12:52.468Z",
+              "_id": "6963234db88f80690eb422d0"
+            }
+          ],
+          "currentModule": "Data Structures & Algorithms",
+          "currentSchool": "School of Programming",
+          "customModuleDescription": "",
+          "github": "",
+          "portfolio": "",
+          "joiningDate": "2025-09-11T00:00:00.000Z",
+          "lastSubmittedAt": "2026-01-11T06:54:10.105Z",
+          "revisionNotes": "",
+          "approvedAt": "2026-01-11T06:54:48.428Z",
+          "approvedBy": "6963229b956a71e58145a7fa",
+          "languages": [],
+          "resume": "uploads/resumes/resume-1768114447498-911532948.pdf"
+        },
+        "_id": "6963229b956a71e58145a7fe",
+        "email": "john.doe@student.edu",
+        "password": "[HASHED]",
+        "role": "student",
+        "firstName": "John",
+        "lastName": "Doe",
+        "phone": "9876543220",
+        "gender": "",
+        "campus": "6963229b956a71e58145a7df",
+        "isActive": true,
+        "managedCampuses": [],
+        "__v": 3,
+        "createdAt": "2026-01-11T04:10:03.779Z",
+        "updatedAt": "2026-01-12T03:16:31.460Z",
+        "placementCycle": "6963229b956a71e58145a81f",
+        "placementCycleAssignedAt": "2026-01-11T04:10:03.796Z",
+        "placementCycleAssignedBy": "6963229b956a71e58145a7f6",
+        "lastLogin": "2026-01-12T03:16:31.458Z"
+      },
+      {
+        "studentProfile": {
+          "softSkills": {
+            "communication": 0,
+            "collaboration": 0,
+            "creativity": 0,
+            "criticalThinking": 0,
+            "problemSolving": 0,
+            "adaptability": 0,
+            "timeManagement": 0,
+            "leadership": 0,
+            "teamwork": 0,
+            "emotionalIntelligence": 0
+          },
+          "skills": [
+            {
+              "skill": "6963229b956a71e58145a7e9",
+              "status": "approved",
+              "approvedBy": "6963229b956a71e58145a7fa",
+              "_id": "6963229b956a71e58145a803"
+            },
+            {
+              "skill": "6963229b956a71e58145a7f4",
+              "status": "approved",
+              "approvedBy": "6963229b956a71e58145a7fa",
+              "_id": "6963229b956a71e58145a804"
+            }
+          ],
+          "about": "Data science enthusiast",
+          "profileStatus": "draft",
+          "attendancePercentage": null,
+          "higherEducation": [],
+          "courses": [],
+          "openForRoles": [],
+          "technicalSkills": [],
+          "languages": []
+        },
+        "_id": "6963229b956a71e58145a802",
+        "email": "jane.smith@student.edu",
+        "password": "[HASHED]",
+        "role": "student",
+        "firstName": "Jane",
+        "lastName": "Smith",
+        "phone": "9876543221",
+        "gender": "",
+        "campus": "6963229b956a71e58145a7df",
+        "isActive": true,
+        "managedCampuses": [],
+        "__v": 1,
+        "createdAt": "2026-01-11T04:10:03.779Z",
+        "updatedAt": "2026-01-12T03:12:01.139Z",
+        "placementCycle": "6963229b956a71e58145a81f",
+        "placementCycleAssignedAt": "2026-01-11T04:10:03.796Z",
+        "placementCycleAssignedBy": "6963229b956a71e58145a7f6",
+        "lastLogin": "2026-01-12T03:12:01.138Z"
+      },
+      {
+        "studentProfile": {
+          "softSkills": {
+            "communication": 0,
+            "collaboration": 0,
+            "creativity": 0,
+            "criticalThinking": 0,
+            "problemSolving": 0,
+            "adaptability": 0,
+            "timeManagement": 0,
+            "leadership": 0,
+            "teamwork": 0,
+            "emotionalIntelligence": 0
+          },
+          "skills": [
+            {
+              "skill": "6963229b956a71e58145a7ee",
+              "status": "approved",
+              "approvedBy": "6963229b956a71e58145a7fc",
+              "_id": "6963229b956a71e58145a806"
+            },
+            {
+              "skill": "6963229b956a71e58145a7ec",
+              "status": "approved",
+              "_id": "6963229b956a71e58145a807",
+              "approvedAt": "2026-01-11T04:29:30.249Z",
+              "approvedBy": "6963229b956a71e58145a7fa"
+            }
+          ],
+          "about": "Java developer",
+          "profileStatus": "draft",
+          "attendancePercentage": null,
+          "higherEducation": [],
+          "courses": [],
+          "openForRoles": [],
+          "technicalSkills": [],
+          "languages": []
+        },
+        "_id": "6963229b956a71e58145a805",
+        "email": "mike.wilson@student.edu",
+        "password": "[HASHED]",
+        "role": "student",
+        "firstName": "Mike",
+        "lastName": "Wilson",
+        "phone": "9876543222",
+        "gender": "",
+        "campus": "6963229b956a71e58145a7e0",
+        "isActive": true,
+        "managedCampuses": [],
+        "__v": 0,
+        "createdAt": "2026-01-11T04:10:03.779Z",
+        "updatedAt": "2026-01-11T04:29:30.250Z",
+        "placementCycle": "6963229b956a71e58145a820",
+        "placementCycleAssignedAt": "2026-01-11T04:10:03.801Z",
+        "placementCycleAssignedBy": "6963229b956a71e58145a7f6"
+      },
+      {
+        "studentProfile": {
+          "softSkills": {
+            "communication": 0,
+            "collaboration": 0,
+            "creativity": 0,
+            "criticalThinking": 0,
+            "problemSolving": 0,
+            "adaptability": 0,
+            "timeManagement": 0,
+            "leadership": 0,
+            "teamwork": 0,
+            "emotionalIntelligence": 0
+          },
+          "skills": [],
+          "about": "Aspiring chef with passion for Indian cuisine",
+          "profileStatus": "draft",
+          "attendancePercentage": null,
+          "higherEducation": [],
+          "courses": [],
+          "openForRoles": [],
+          "technicalSkills": [],
+          "languages": []
+        },
+        "_id": "6963229b956a71e58145a808",
+        "email": "priya.sharma@student.edu",
+        "password": "[HASHED]",
+        "role": "student",
+        "firstName": "Priya",
+        "lastName": "Sharma",
+        "phone": "9876543223",
+        "gender": "",
+        "campus": "6963229b956a71e58145a7df",
+        "isActive": true,
+        "managedCampuses": [],
+        "__v": 0,
+        "createdAt": "2026-01-11T04:10:03.779Z",
+        "updatedAt": "2026-01-11T04:10:03.801Z",
+        "placementCycle": "6963229b956a71e58145a820",
+        "placementCycleAssignedAt": "2026-01-11T04:10:03.801Z",
+        "placementCycleAssignedBy": "6963229b956a71e58145a7f6"
+      }
+    ],
+    "placementCycles": [
+      {
+        "_id": "6963229b956a71e58145a81c",
+        "name": "October 2025",
+        "month": 10,
+        "year": 2025,
+        "status": "completed",
+        "description": "October 2025 placements",
+        "targetPlacements": 100,
+        "isActive": true,
+        "createdBy": "6963229b956a71e58145a7f6",
+        "__v": 0,
+        "createdAt": "2026-01-11T04:10:03.794Z",
+        "updatedAt": "2026-01-11T04:10:03.794Z",
+        "formattedName": "October 2025",
+        "id": "6963229b956a71e58145a81c"
+      },
+      {
+        "_id": "6963229b956a71e58145a81d",
+        "name": "November 2025",
+        "month": 11,
+        "year": 2025,
+        "status": "completed",
+        "description": "November 2025 placements",
+        "targetPlacements": 100,
+        "isActive": true,
+        "createdBy": "6963229b956a71e58145a7f6",
+        "__v": 0,
+        "createdAt": "2026-01-11T04:10:03.794Z",
+        "updatedAt": "2026-01-11T04:10:03.794Z",
+        "formattedName": "November 2025",
+        "id": "6963229b956a71e58145a81d"
+      },
+      {
+        "_id": "6963229b956a71e58145a81e",
+        "name": "December 2025",
+        "month": 12,
+        "year": 2025,
+        "status": "completed",
+        "description": "December 2025 placements",
+        "targetPlacements": 100,
+        "isActive": true,
+        "createdBy": "6963229b956a71e58145a7f6",
+        "__v": 0,
+        "createdAt": "2026-01-11T04:10:03.794Z",
+        "updatedAt": "2026-01-11T04:10:03.794Z",
+        "formattedName": "December 2025",
+        "id": "6963229b956a71e58145a81e"
+      },
+      {
+        "_id": "6963229b956a71e58145a81f",
+        "name": "January 2026",
+        "month": 1,
+        "year": 2026,
+        "status": "active",
+        "description": "Current active placement cycle",
+        "targetPlacements": 150,
+        "isActive": true,
+        "createdBy": "6963229b956a71e58145a7f6",
+        "__v": 0,
+        "createdAt": "2026-01-11T04:10:03.794Z",
+        "updatedAt": "2026-01-11T04:10:03.794Z",
+        "formattedName": "January 2026",
+        "id": "6963229b956a71e58145a81f"
+      },
+      {
+        "_id": "6963229b956a71e58145a820",
+        "name": "February 2026",
+        "month": 2,
+        "year": 2026,
+        "status": "active",
+        "description": "February 2026 placements",
+        "targetPlacements": 120,
+        "isActive": true,
+        "createdBy": "6963229b956a71e58145a7f6",
+        "__v": 0,
+        "createdAt": "2026-01-11T04:10:03.794Z",
+        "updatedAt": "2026-01-11T04:10:03.794Z",
+        "formattedName": "February 2026",
+        "id": "6963229b956a71e58145a820"
+      },
+      {
+        "_id": "6963229b956a71e58145a821",
+        "name": "March 2026",
+        "month": 3,
+        "year": 2026,
+        "status": "active",
+        "description": "March 2026 placements",
+        "targetPlacements": 100,
+        "isActive": true,
+        "createdBy": "6963229b956a71e58145a7f6",
+        "__v": 0,
+        "createdAt": "2026-01-11T04:10:03.794Z",
+        "updatedAt": "2026-01-11T04:10:03.794Z",
+        "formattedName": "March 2026",
+        "id": "6963229b956a71e58145a821"
+      }
+    ],
+    "jobs": [
+      {
+        "company": {
+          "name": "TechCorp India",
+          "website": "https://techcorp.com",
+          "description": "Leading technology company"
+        },
+        "salary": {
+          "min": 600000,
+          "max": 1000000,
+          "currency": "INR"
+        },
+        "eligibility": {
+          "tenthGrade": {
+            "required": false,
+            "minPercentage": null
+          },
+          "twelfthGrade": {
+            "required": false,
+            "minPercentage": null
+          },
+          "higherEducation": {
+            "required": false,
+            "level": "",
+            "acceptedDegrees": []
+          },
+          "campuses": [
+            "6963229b956a71e58145a7df",
+            "6963229b956a71e58145a7e0"
+          ],
+          "minCgpa": 7,
+          "departments": [
+            "Computer Science",
+            "Information Technology"
+          ],
+          "batches": [
+            "2024",
+            "2025"
+          ],
+          "openForAll": true,
+          "schools": [],
+          "minModule": null,
+          "certifications": [],
+          "englishWriting": "",
+          "englishSpeaking": "",
+          "shortlistDeadline": null,
+          "femaleOnly": false,
+          "minMonthsAtNavgurukul": null,
+          "minAttendance": null
+        },
+        "_id": "6963229b956a71e58145a80a",
+        "title": "Software Engineer",
+        "description": "We are looking for talented software engineers to join our team.",
+        "requirements": [
+          "BS in Computer Science",
+          "0-2 years experience",
+          "Strong programming skills"
+        ],
+        "responsibilities": [
+          "Develop web applications",
+          "Write clean code",
+          "Collaborate with team"
+        ],
+        "location": "Bangalore",
+        "jobType": "full_time",
+        "duration": null,
+        "requiredSkills": [
+          {
+            "skill": "6963229b956a71e58145a7e8",
+            "required": true,
+            "proficiencyLevel": 1,
+            "_id": "6963229b956a71e58145a80b"
+          },
+          {
+            "skill": "6963229b956a71e58145a7ea",
+            "required": true,
+            "proficiencyLevel": 1,
+            "_id": "6963229b956a71e58145a80c"
+          },
+          {
+            "skill": "6963229b956a71e58145a7eb",
+            "required": false,
+            "proficiencyLevel": 1,
+            "_id": "6963229b956a71e58145a80d"
+          }
+        ],
+        "applicationDeadline": "2026-03-01T00:00:00.000Z",
+        "maxPositions": 10,
+        "status": "pending_approval",
+        "expectedUpdateDate": null,
+        "expectedUpdateNote": "",
+        "interviewRounds": [
+          {
+            "name": "Online Aptitude Test",
+            "type": "aptitude",
+            "_id": "6963229b956a71e58145a80e"
+          },
+          {
+            "name": "Technical Interview",
+            "type": "technical",
+            "_id": "6963229b956a71e58145a80f"
+          },
+          {
+            "name": "HR Interview",
+            "type": "hr",
+            "_id": "6963229b956a71e58145a810"
+          }
+        ],
+        "createdBy": "6963229b956a71e58145a7f8",
+        "placementsCount": 0,
+        "customRequirements": [],
+        "statusHistory": [
+          {
+            "status": "pending_approval",
+            "changedAt": "2026-01-11T06:04:36.156Z",
+            "changedBy": "6963229b956a71e58145a7f8",
+            "notes": "",
+            "_id": "69633d74487639de0c92cacd"
+          }
+        ],
+        "timeline": [],
+        "questions": [],
+        "__v": 1,
+        "createdAt": "2026-01-11T04:10:03.789Z",
+        "updatedAt": "2026-01-11T06:04:36.158Z"
+      },
+      {
+        "company": {
+          "name": "DataMinds Analytics",
+          "website": "https://dataminds.com",
+          "description": "Analytics and AI company"
+        },
+        "salary": {
+          "min": 800000,
+          "max": 1400000,
+          "currency": "INR"
+        },
+        "eligibility": {
+          "tenthGrade": {
+            "required": false,
+            "minPercentage": null
+          },
+          "twelfthGrade": {
+            "required": false,
+            "minPercentage": null
+          },
+          "higherEducation": {
+            "required": false,
+            "level": "",
+            "acceptedDegrees": []
+          },
+          "minCgpa": 8,
+          "departments": [
+            "Computer Science",
+            "Information Technology",
+            "Mathematics"
+          ],
+          "batches": [
+            "2024"
+          ],
+          "openForAll": true,
+          "schools": [],
+          "campuses": [],
+          "minModule": null,
+          "certifications": [],
+          "englishWriting": "",
+          "englishSpeaking": "",
+          "shortlistDeadline": null,
+          "femaleOnly": false,
+          "minMonthsAtNavgurukul": null,
+          "minAttendance": null
+        },
+        "_id": "6963229b956a71e58145a811",
+        "title": "Data Scientist",
+        "description": "Join our data science team to work on cutting-edge ML projects.",
+        "requirements": [
+          "BS/MS in Computer Science or related field",
+          "Experience with Python",
+          "Knowledge of ML algorithms"
+        ],
+        "responsibilities": [
+          "Build ML models",
+          "Analyze data",
+          "Present insights"
+        ],
+        "location": "Mumbai",
+        "jobType": "full_time",
+        "duration": null,
+        "requiredSkills": [
+          {
+            "skill": "6963229b956a71e58145a7e9",
+            "required": true,
+            "proficiencyLevel": 1,
+            "_id": "6963229b956a71e58145a812"
+          },
+          {
+            "skill": "6963229b956a71e58145a7f4",
+            "required": true,
+            "proficiencyLevel": 1,
+            "_id": "6963229b956a71e58145a813"
+          }
+        ],
+        "applicationDeadline": "2026-02-15T00:00:00.000Z",
+        "maxPositions": 5,
+        "status": "pending_approval",
+        "expectedUpdateDate": null,
+        "expectedUpdateNote": "",
+        "interviewRounds": [
+          {
+            "name": "Coding Test",
+            "type": "coding",
+            "_id": "6963229b956a71e58145a814"
+          },
+          {
+            "name": "ML Case Study",
+            "type": "technical",
+            "_id": "6963229b956a71e58145a815"
+          },
+          {
+            "name": "Final Interview",
+            "type": "hr",
+            "_id": "6963229b956a71e58145a816"
+          }
+        ],
+        "createdBy": "6963229b956a71e58145a7f8",
+        "placementsCount": 0,
+        "customRequirements": [],
+        "statusHistory": [
+          {
+            "status": "pending_approval",
+            "changedAt": "2026-01-11T06:04:33.675Z",
+            "changedBy": "6963229b956a71e58145a7f8",
+            "notes": "",
+            "_id": "69633d71487639de0c92cabf"
+          }
+        ],
+        "timeline": [],
+        "questions": [],
+        "__v": 1,
+        "createdAt": "2026-01-11T04:10:03.789Z",
+        "updatedAt": "2026-01-11T06:04:33.689Z"
+      },
+      {
+        "company": {
+          "name": "Enterprise Solutions Ltd",
+          "website": "https://enterprise.com",
+          "description": "Enterprise software company"
+        },
+        "salary": {
+          "min": 25000,
+          "max": 35000,
+          "currency": "INR"
+        },
+        "eligibility": {
+          "tenthGrade": {
+            "required": false,
+            "minPercentage": null
+          },
+          "twelfthGrade": {
+            "required": false,
+            "minPercentage": null
+          },
+          "higherEducation": {
+            "required": false,
+            "level": "",
+            "acceptedDegrees": []
+          },
+          "campuses": [
+            "6963229b956a71e58145a7e0",
+            "6963229b956a71e58145a7e1"
+          ],
+          "minCgpa": 6.5,
+          "departments": [
+            "Computer Science",
+            "Information Technology"
+          ],
+          "batches": [
+            "2025",
+            "2026"
+          ],
+          "openForAll": true,
+          "schools": [],
+          "minModule": null,
+          "certifications": [],
+          "englishWriting": "",
+          "englishSpeaking": "",
+          "shortlistDeadline": null,
+          "femaleOnly": false,
+          "minMonthsAtNavgurukul": null,
+          "minAttendance": null
+        },
+        "_id": "6963229b956a71e58145a817",
+        "title": "Java Developer Intern",
+        "description": "6-month internship opportunity for Java developers.",
+        "requirements": [
+          "Currently pursuing BS in CS/IT",
+          "Basic Java knowledge"
+        ],
+        "responsibilities": [
+          "Assist in development",
+          "Learn enterprise practices",
+          "Write unit tests"
+        ],
+        "location": "Delhi",
+        "jobType": "internship",
+        "duration": null,
+        "requiredSkills": [
+          {
+            "skill": "6963229b956a71e58145a7ee",
+            "required": true,
+            "proficiencyLevel": 1,
+            "_id": "6963229b956a71e58145a818"
+          },
+          {
+            "skill": "6963229b956a71e58145a7ec",
+            "required": false,
+            "proficiencyLevel": 1,
+            "_id": "6963229b956a71e58145a819"
+          }
+        ],
+        "applicationDeadline": "2026-01-31T00:00:00.000Z",
+        "maxPositions": 15,
+        "status": "pending_approval",
+        "expectedUpdateDate": null,
+        "expectedUpdateNote": "",
+        "interviewRounds": [
+          {
+            "name": "Technical Interview",
+            "type": "technical",
+            "_id": "6963229b956a71e58145a81a"
+          }
+        ],
+        "createdBy": "6963229b956a71e58145a7f8",
+        "placementsCount": 0,
+        "customRequirements": [],
+        "statusHistory": [
+          {
+            "status": "pending_approval",
+            "changedAt": "2026-01-11T06:04:38.615Z",
+            "changedBy": "6963229b956a71e58145a7f8",
+            "notes": "",
+            "_id": "69633d76487639de0c92cad9"
+          }
+        ],
+        "timeline": [],
+        "questions": [],
+        "__v": 1,
+        "createdAt": "2026-01-11T04:10:03.789Z",
+        "updatedAt": "2026-01-11T06:04:38.616Z"
+      },
+      {
+        "company": {
+          "name": "abc",
+          "website": "https://www.google.com",
+          "description": ""
+        },
+        "salary": {
+          "min": 10000,
+          "currency": "INR"
+        },
+        "eligibility": {
+          "tenthGrade": {
+            "required": false,
+            "minPercentage": null
+          },
+          "twelfthGrade": {
+            "required": false,
+            "minPercentage": null
+          },
+          "higherEducation": {
+            "required": false,
+            "acceptedDegrees": [],
+            "level": ""
+          },
+          "openForAll": true,
+          "schools": [],
+          "campuses": [],
+          "minModule": null,
+          "certifications": [],
+          "englishWriting": "A2",
+          "englishSpeaking": "A2",
+          "shortlistDeadline": "2026-01-24T11:07:00.000Z",
+          "femaleOnly": false,
+          "minMonthsAtNavgurukul": null,
+          "minAttendance": null,
+          "minCgpa": null,
+          "batches": [],
+          "departments": []
+        },
+        "_id": "6963262e22a39877118d654f",
+        "title": "NG LSA",
+        "description": "123",
+        "requirements": [
+          "should know how to drive scooter",
+          "should have phoe"
+        ],
+        "responsibilities": [],
+        "location": "banlglore",
+        "jobType": "full_time",
+        "duration": null,
+        "requiredSkills": [],
+        "customRequirements": [
+          {
+            "requirement": "should have abcd",
+            "isMandatory": true,
+            "_id": "69633e3e487639de0c92ccd6"
+          }
+        ],
+        "applicationDeadline": "2026-01-12T00:00:00.000Z",
+        "maxPositions": 1,
+        "status": "application_stage",
+        "expectedUpdateDate": null,
+        "expectedUpdateNote": "",
+        "interviewRounds": [],
+        "createdBy": "6963229b956a71e58145a7f8",
+        "placementsCount": 0,
+        "statusHistory": [
+          {
+            "status": "application_stage",
+            "changedAt": "2026-01-11T06:08:21.802Z",
+            "changedBy": "6963229b956a71e58145a7f8",
+            "notes": "",
+            "_id": "69633e55487639de0c92cded"
+          }
+        ],
+        "timeline": [],
+        "questions": [
+          {
+            "question": "what will be in interview ?",
+            "answer": "",
+            "askedBy": "6963229b956a71e58145a7fe",
+            "askedAt": "2026-01-11T04:25:55.997Z",
+            "isPublic": true,
+            "_id": "6963265322a39877118d6766"
+          },
+          {
+            "question": "what will be in interview ?",
+            "answer": "",
+            "askedBy": "6963229b956a71e58145a7fe",
+            "askedAt": "2026-01-11T04:26:01.502Z",
+            "isPublic": true,
+            "_id": "6963265922a39877118d6789"
+          },
+          {
+            "question": "i have a question",
+            "answer": "",
+            "askedBy": "6963229b956a71e58145a7fe",
+            "askedAt": "2026-01-11T06:56:22.049Z",
+            "isPublic": true,
+            "_id": "69634996d2e1dd187d0d70e1"
+          }
+        ],
+        "createdAt": "2026-01-11T04:25:18.558Z",
+        "updatedAt": "2026-01-11T06:56:22.051Z",
+        "__v": 7
+      }
+    ],
+    "applications": [
+      {
+        "specialRecommendation": {
+          "isRecommended": true,
+          "recommendedBy": "6963229b956a71e58145a7fa",
+          "reason": "yes go ahead",
+          "recommendedAt": "2026-01-11T04:27:07.482Z"
+        },
+        "_id": "6963266522a39877118d67ad",
+        "student": "6963229b956a71e58145a7fe",
+        "job": "6963262e22a39877118d654f",
+        "status": "applied",
+        "currentRound": 0,
+        "coverLetter": "i am good fit cz of this reason ",
+        "customResponses": [],
+        "roundResults": [],
+        "createdAt": "2026-01-11T04:26:13.618Z",
+        "updatedAt": "2026-01-11T04:27:07.483Z",
+        "__v": 0
+      }
+    ],
+    "jobReadinessConfigs": [
+      {
+        "_id": "6963485f9e466bd62ad9e3b0",
+        "school": "School of Programming",
+        "campus": null,
+        "criteria": [
+          {
+            "criteriaId": "tessstttt_1768143924463",
+            "name": "tessstttt",
+            "description": "tefeknkbn ohi",
+            "type": "answer",
+            "pocCommentRequired": true,
+            "pocCommentTemplate": "",
+            "pocRatingRequired": true,
+            "pocRatingScale": 4,
+            "category": "preparation",
+            "isActive": true,
+            "isMandatory": true,
+            "numericTarget": null,
+            "weight": 1,
+            "_id": "6963bc34faec5879f5d796b0"
+          }
+        ],
+        "isActive": true,
+        "createdBy": "6963229b956a71e58145a7f6",
+        "createdAt": "2026-01-11T06:51:11.450Z",
+        "updatedAt": "2026-01-11T15:05:24.487Z",
+        "__v": 8,
+        "updatedBy": "6963229b956a71e58145a7fa"
+      },
+      {
+        "_id": "6963485f9e466bd62ad9e3bf",
+        "school": "School of Business",
+        "campus": null,
+        "criteria": [
+          {
+            "type": "answer",
+            "pocCommentRequired": false,
+            "pocRatingRequired": false,
+            "pocRatingScale": 4,
+            "criteriaId": "profile_complete",
+            "name": "Profile Completed",
+            "description": "All mandatory profile fields are filled",
+            "category": "profile",
+            "isActive": true,
+            "isMandatory": true,
+            "numericTarget": null,
+            "weight": 1,
+            "_id": "6963485f9e466bd62ad9e3c0"
+          },
+          {
+            "type": "answer",
+            "pocCommentRequired": false,
+            "pocRatingRequired": false,
+            "pocRatingScale": 4,
+            "criteriaId": "resume_uploaded",
+            "name": "Resume Uploaded",
+            "description": "Latest resume is uploaded and approved",
+            "category": "profile",
+            "isActive": true,
+            "isMandatory": true,
+            "numericTarget": null,
+            "weight": 1,
+            "_id": "6963485f9e466bd62ad9e3c1"
+          },
+          {
+            "type": "answer",
+            "pocCommentRequired": false,
+            "pocRatingRequired": false,
+            "pocRatingScale": 4,
+            "criteriaId": "english_b1",
+            "name": "English B1 Level",
+            "description": "English proficiency at least B1 (Speaking & Writing)",
+            "category": "skills",
+            "isActive": true,
+            "isMandatory": true,
+            "numericTarget": null,
+            "weight": 1,
+            "_id": "6963485f9e466bd62ad9e3c2"
+          },
+          {
+            "type": "answer",
+            "pocCommentRequired": false,
+            "pocRatingRequired": false,
+            "pocRatingScale": 4,
+            "criteriaId": "interview_practice",
+            "name": "Interview Practice Sessions",
+            "description": "Completed minimum required mock interview sessions",
+            "category": "preparation",
+            "isActive": true,
+            "isMandatory": true,
+            "numericTarget": null,
+            "weight": 1,
+            "_id": "6963485f9e466bd62ad9e3c3"
+          },
+          {
+            "type": "answer",
+            "pocCommentRequired": false,
+            "pocRatingRequired": false,
+            "pocRatingScale": 4,
+            "criteriaId": "dsa_problems",
+            "name": "DSA Problems Solved",
+            "description": "Solved minimum required DSA problems",
+            "category": "technical",
+            "isActive": true,
+            "isMandatory": true,
+            "numericTarget": null,
+            "weight": 1,
+            "_id": "6963485f9e466bd62ad9e3c4"
+          },
+          {
+            "type": "answer",
+            "pocCommentRequired": false,
+            "pocRatingRequired": false,
+            "pocRatingScale": 4,
+            "criteriaId": "projects_completed",
+            "name": "Projects Completed",
+            "description": "Completed minimum required projects with documentation",
+            "category": "technical",
+            "isActive": true,
+            "isMandatory": true,
+            "numericTarget": null,
+            "weight": 1,
+            "_id": "6963485f9e466bd62ad9e3c5"
+          },
+          {
+            "type": "answer",
+            "pocCommentRequired": false,
+            "pocRatingRequired": false,
+            "pocRatingScale": 4,
+            "criteriaId": "github_active",
+            "name": "GitHub Profile Active",
+            "description": "GitHub profile linked and has recent contributions",
+            "category": "profile",
+            "isActive": true,
+            "isMandatory": true,
+            "numericTarget": null,
+            "weight": 1,
+            "_id": "6963485f9e466bd62ad9e3c6"
+          },
+          {
+            "type": "answer",
+            "pocCommentRequired": false,
+            "pocRatingRequired": false,
+            "pocRatingScale": 4,
+            "criteriaId": "soft_skills_assessment",
+            "name": "Soft Skills Assessment",
+            "description": "Completed soft skills assessment with minimum score",
+            "category": "skills",
+            "isActive": true,
+            "isMandatory": true,
+            "numericTarget": null,
+            "weight": 1,
+            "_id": "6963485f9e466bd62ad9e3c7"
+          },
+          {
+            "type": "answer",
+            "pocCommentRequired": false,
+            "pocRatingRequired": false,
+            "pocRatingScale": 4,
+            "criteriaId": "attendance_requirement",
+            "name": "Attendance Requirement",
+            "description": "Meeting minimum attendance percentage",
+            "category": "academic",
+            "isActive": true,
+            "isMandatory": true,
+            "numericTarget": null,
+            "weight": 1,
+            "_id": "6963485f9e466bd62ad9e3c8"
+          }
+        ],
+        "isActive": true,
+        "createdBy": "6963229b956a71e58145a7f6",
+        "createdAt": "2026-01-11T06:51:11.463Z",
+        "updatedAt": "2026-01-11T06:51:11.463Z",
+        "__v": 0
+      },
+      {
+        "_id": "6963485f9e466bd62ad9e3cb",
+        "school": "School of Finance",
+        "campus": null,
+        "criteria": [
+          {
+            "type": "answer",
+            "pocCommentRequired": false,
+            "pocRatingRequired": false,
+            "pocRatingScale": 4,
+            "criteriaId": "profile_complete",
+            "name": "Profile Completed",
+            "description": "All mandatory profile fields are filled",
+            "category": "profile",
+            "isActive": true,
+            "isMandatory": true,
+            "numericTarget": null,
+            "weight": 1,
+            "_id": "6963485f9e466bd62ad9e3cc"
+          },
+          {
+            "type": "answer",
+            "pocCommentRequired": false,
+            "pocRatingRequired": false,
+            "pocRatingScale": 4,
+            "criteriaId": "resume_uploaded",
+            "name": "Resume Uploaded",
+            "description": "Latest resume is uploaded and approved",
+            "category": "profile",
+            "isActive": true,
+            "isMandatory": true,
+            "numericTarget": null,
+            "weight": 1,
+            "_id": "6963485f9e466bd62ad9e3cd"
+          },
+          {
+            "type": "answer",
+            "pocCommentRequired": false,
+            "pocRatingRequired": false,
+            "pocRatingScale": 4,
+            "criteriaId": "english_b1",
+            "name": "English B1 Level",
+            "description": "English proficiency at least B1 (Speaking & Writing)",
+            "category": "skills",
+            "isActive": true,
+            "isMandatory": true,
+            "numericTarget": null,
+            "weight": 1,
+            "_id": "6963485f9e466bd62ad9e3ce"
+          },
+          {
+            "type": "answer",
+            "pocCommentRequired": false,
+            "pocRatingRequired": false,
+            "pocRatingScale": 4,
+            "criteriaId": "interview_practice",
+            "name": "Interview Practice Sessions",
+            "description": "Completed minimum required mock interview sessions",
+            "category": "preparation",
+            "isActive": true,
+            "isMandatory": true,
+            "numericTarget": null,
+            "weight": 1,
+            "_id": "6963485f9e466bd62ad9e3cf"
+          },
+          {
+            "type": "answer",
+            "pocCommentRequired": false,
+            "pocRatingRequired": false,
+            "pocRatingScale": 4,
+            "criteriaId": "dsa_problems",
+            "name": "DSA Problems Solved",
+            "description": "Solved minimum required DSA problems",
+            "category": "technical",
+            "isActive": true,
+            "isMandatory": true,
+            "numericTarget": null,
+            "weight": 1,
+            "_id": "6963485f9e466bd62ad9e3d0"
+          },
+          {
+            "type": "answer",
+            "pocCommentRequired": false,
+            "pocRatingRequired": false,
+            "pocRatingScale": 4,
+            "criteriaId": "projects_completed",
+            "name": "Projects Completed",
+            "description": "Completed minimum required projects with documentation",
+            "category": "technical",
+            "isActive": true,
+            "isMandatory": true,
+            "numericTarget": null,
+            "weight": 1,
+            "_id": "6963485f9e466bd62ad9e3d1"
+          },
+          {
+            "type": "answer",
+            "pocCommentRequired": false,
+            "pocRatingRequired": false,
+            "pocRatingScale": 4,
+            "criteriaId": "github_active",
+            "name": "GitHub Profile Active",
+            "description": "GitHub profile linked and has recent contributions",
+            "category": "profile",
+            "isActive": true,
+            "isMandatory": true,
+            "numericTarget": null,
+            "weight": 1,
+            "_id": "6963485f9e466bd62ad9e3d2"
+          },
+          {
+            "type": "answer",
+            "pocCommentRequired": false,
+            "pocRatingRequired": false,
+            "pocRatingScale": 4,
+            "criteriaId": "soft_skills_assessment",
+            "name": "Soft Skills Assessment",
+            "description": "Completed soft skills assessment with minimum score",
+            "category": "skills",
+            "isActive": true,
+            "isMandatory": true,
+            "numericTarget": null,
+            "weight": 1,
+            "_id": "6963485f9e466bd62ad9e3d3"
+          },
+          {
+            "type": "answer",
+            "pocCommentRequired": false,
+            "pocRatingRequired": false,
+            "pocRatingScale": 4,
+            "criteriaId": "attendance_requirement",
+            "name": "Attendance Requirement",
+            "description": "Meeting minimum attendance percentage",
+            "category": "academic",
+            "isActive": true,
+            "isMandatory": true,
+            "numericTarget": null,
+            "weight": 1,
+            "_id": "6963485f9e466bd62ad9e3d4"
+          }
+        ],
+        "isActive": true,
+        "createdBy": "6963229b956a71e58145a7f6",
+        "createdAt": "2026-01-11T06:51:11.468Z",
+        "updatedAt": "2026-01-11T06:51:11.468Z",
+        "__v": 0
+      },
+      {
+        "_id": "6963485f9e466bd62ad9e3d7",
+        "school": "School of Education",
+        "campus": null,
+        "criteria": [
+          {
+            "type": "answer",
+            "pocCommentRequired": false,
+            "pocRatingRequired": false,
+            "pocRatingScale": 4,
+            "criteriaId": "profile_complete",
+            "name": "Profile Completed",
+            "description": "All mandatory profile fields are filled",
+            "category": "profile",
+            "isActive": true,
+            "isMandatory": true,
+            "numericTarget": null,
+            "weight": 1,
+            "_id": "6963485f9e466bd62ad9e3d8"
+          },
+          {
+            "type": "answer",
+            "pocCommentRequired": false,
+            "pocRatingRequired": false,
+            "pocRatingScale": 4,
+            "criteriaId": "resume_uploaded",
+            "name": "Resume Uploaded",
+            "description": "Latest resume is uploaded and approved",
+            "category": "profile",
+            "isActive": true,
+            "isMandatory": true,
+            "numericTarget": null,
+            "weight": 1,
+            "_id": "6963485f9e466bd62ad9e3d9"
+          },
+          {
+            "type": "answer",
+            "pocCommentRequired": false,
+            "pocRatingRequired": false,
+            "pocRatingScale": 4,
+            "criteriaId": "english_b1",
+            "name": "English B1 Level",
+            "description": "English proficiency at least B1 (Speaking & Writing)",
+            "category": "skills",
+            "isActive": true,
+            "isMandatory": true,
+            "numericTarget": null,
+            "weight": 1,
+            "_id": "6963485f9e466bd62ad9e3da"
+          },
+          {
+            "type": "answer",
+            "pocCommentRequired": false,
+            "pocRatingRequired": false,
+            "pocRatingScale": 4,
+            "criteriaId": "interview_practice",
+            "name": "Interview Practice Sessions",
+            "description": "Completed minimum required mock interview sessions",
+            "category": "preparation",
+            "isActive": true,
+            "isMandatory": true,
+            "numericTarget": null,
+            "weight": 1,
+            "_id": "6963485f9e466bd62ad9e3db"
+          },
+          {
+            "type": "answer",
+            "pocCommentRequired": false,
+            "pocRatingRequired": false,
+            "pocRatingScale": 4,
+            "criteriaId": "dsa_problems",
+            "name": "DSA Problems Solved",
+            "description": "Solved minimum required DSA problems",
+            "category": "technical",
+            "isActive": true,
+            "isMandatory": true,
+            "numericTarget": null,
+            "weight": 1,
+            "_id": "6963485f9e466bd62ad9e3dc"
+          },
+          {
+            "type": "answer",
+            "pocCommentRequired": false,
+            "pocRatingRequired": false,
+            "pocRatingScale": 4,
+            "criteriaId": "projects_completed",
+            "name": "Projects Completed",
+            "description": "Completed minimum required projects with documentation",
+            "category": "technical",
+            "isActive": true,
+            "isMandatory": true,
+            "numericTarget": null,
+            "weight": 1,
+            "_id": "6963485f9e466bd62ad9e3dd"
+          },
+          {
+            "type": "answer",
+            "pocCommentRequired": false,
+            "pocRatingRequired": false,
+            "pocRatingScale": 4,
+            "criteriaId": "github_active",
+            "name": "GitHub Profile Active",
+            "description": "GitHub profile linked and has recent contributions",
+            "category": "profile",
+            "isActive": true,
+            "isMandatory": true,
+            "numericTarget": null,
+            "weight": 1,
+            "_id": "6963485f9e466bd62ad9e3de"
+          },
+          {
+            "type": "answer",
+            "pocCommentRequired": false,
+            "pocRatingRequired": false,
+            "pocRatingScale": 4,
+            "criteriaId": "soft_skills_assessment",
+            "name": "Soft Skills Assessment",
+            "description": "Completed soft skills assessment with minimum score",
+            "category": "skills",
+            "isActive": true,
+            "isMandatory": true,
+            "numericTarget": null,
+            "weight": 1,
+            "_id": "6963485f9e466bd62ad9e3df"
+          },
+          {
+            "type": "answer",
+            "pocCommentRequired": false,
+            "pocRatingRequired": false,
+            "pocRatingScale": 4,
+            "criteriaId": "attendance_requirement",
+            "name": "Attendance Requirement",
+            "description": "Meeting minimum attendance percentage",
+            "category": "academic",
+            "isActive": true,
+            "isMandatory": true,
+            "numericTarget": null,
+            "weight": 1,
+            "_id": "6963485f9e466bd62ad9e3e0"
+          }
+        ],
+        "isActive": true,
+        "createdBy": "6963229b956a71e58145a7f6",
+        "createdAt": "2026-01-11T06:51:11.473Z",
+        "updatedAt": "2026-01-11T06:51:11.473Z",
+        "__v": 0
+      },
+      {
+        "_id": "6963485f9e466bd62ad9e3e3",
+        "school": "School of Second Chance",
+        "campus": null,
+        "criteria": [
+          {
+            "type": "answer",
+            "pocCommentRequired": false,
+            "pocRatingRequired": false,
+            "pocRatingScale": 4,
+            "criteriaId": "profile_complete",
+            "name": "Profile Completed",
+            "description": "All mandatory profile fields are filled",
+            "category": "profile",
+            "isActive": true,
+            "isMandatory": true,
+            "numericTarget": null,
+            "weight": 1,
+            "_id": "6963485f9e466bd62ad9e3e4"
+          },
+          {
+            "type": "answer",
+            "pocCommentRequired": false,
+            "pocRatingRequired": false,
+            "pocRatingScale": 4,
+            "criteriaId": "resume_uploaded",
+            "name": "Resume Uploaded",
+            "description": "Latest resume is uploaded and approved",
+            "category": "profile",
+            "isActive": true,
+            "isMandatory": true,
+            "numericTarget": null,
+            "weight": 1,
+            "_id": "6963485f9e466bd62ad9e3e5"
+          },
+          {
+            "type": "answer",
+            "pocCommentRequired": false,
+            "pocRatingRequired": false,
+            "pocRatingScale": 4,
+            "criteriaId": "english_b1",
+            "name": "English B1 Level",
+            "description": "English proficiency at least B1 (Speaking & Writing)",
+            "category": "skills",
+            "isActive": true,
+            "isMandatory": true,
+            "numericTarget": null,
+            "weight": 1,
+            "_id": "6963485f9e466bd62ad9e3e6"
+          },
+          {
+            "type": "answer",
+            "pocCommentRequired": false,
+            "pocRatingRequired": false,
+            "pocRatingScale": 4,
+            "criteriaId": "interview_practice",
+            "name": "Interview Practice Sessions",
+            "description": "Completed minimum required mock interview sessions",
+            "category": "preparation",
+            "isActive": true,
+            "isMandatory": true,
+            "numericTarget": null,
+            "weight": 1,
+            "_id": "6963485f9e466bd62ad9e3e7"
+          },
+          {
+            "type": "answer",
+            "pocCommentRequired": false,
+            "pocRatingRequired": false,
+            "pocRatingScale": 4,
+            "criteriaId": "dsa_problems",
+            "name": "DSA Problems Solved",
+            "description": "Solved minimum required DSA problems",
+            "category": "technical",
+            "isActive": true,
+            "isMandatory": true,
+            "numericTarget": null,
+            "weight": 1,
+            "_id": "6963485f9e466bd62ad9e3e8"
+          },
+          {
+            "type": "answer",
+            "pocCommentRequired": false,
+            "pocRatingRequired": false,
+            "pocRatingScale": 4,
+            "criteriaId": "projects_completed",
+            "name": "Projects Completed",
+            "description": "Completed minimum required projects with documentation",
+            "category": "technical",
+            "isActive": true,
+            "isMandatory": true,
+            "numericTarget": null,
+            "weight": 1,
+            "_id": "6963485f9e466bd62ad9e3e9"
+          },
+          {
+            "type": "answer",
+            "pocCommentRequired": false,
+            "pocRatingRequired": false,
+            "pocRatingScale": 4,
+            "criteriaId": "github_active",
+            "name": "GitHub Profile Active",
+            "description": "GitHub profile linked and has recent contributions",
+            "category": "profile",
+            "isActive": true,
+            "isMandatory": true,
+            "numericTarget": null,
+            "weight": 1,
+            "_id": "6963485f9e466bd62ad9e3ea"
+          },
+          {
+            "type": "answer",
+            "pocCommentRequired": false,
+            "pocRatingRequired": false,
+            "pocRatingScale": 4,
+            "criteriaId": "soft_skills_assessment",
+            "name": "Soft Skills Assessment",
+            "description": "Completed soft skills assessment with minimum score",
+            "category": "skills",
+            "isActive": true,
+            "isMandatory": true,
+            "numericTarget": null,
+            "weight": 1,
+            "_id": "6963485f9e466bd62ad9e3eb"
+          },
+          {
+            "type": "answer",
+            "pocCommentRequired": false,
+            "pocRatingRequired": false,
+            "pocRatingScale": 4,
+            "criteriaId": "attendance_requirement",
+            "name": "Attendance Requirement",
+            "description": "Meeting minimum attendance percentage",
+            "category": "academic",
+            "isActive": true,
+            "isMandatory": true,
+            "numericTarget": null,
+            "weight": 1,
+            "_id": "6963485f9e466bd62ad9e3ec"
+          }
+        ],
+        "isActive": true,
+        "createdBy": "6963229b956a71e58145a7f6",
+        "createdAt": "2026-01-11T06:51:11.478Z",
+        "updatedAt": "2026-01-11T06:51:11.478Z",
+        "__v": 0
+      }
+    ],
+    "studentJobReadiness": [
+      {
+        "_id": "69633c7c487639de0c92c5c2",
+        "student": "6963229b956a71e58145a7fe",
+        "school": "School of Programming",
+        "campus": "6963229b956a71e58145a7df",
+        "criteriaStatus": [
+          {
+            "criteriaId": "qwejkb_1768143369196",
+            "status": "not_started",
+            "completedAt": null,
+            "updatedAt": "2026-01-11T15:04:50.907Z",
+            "_id": "6963bc12faec5879f5d79612"
+          },
+          {
+            "criteriaId": "tessstttt_1768143924463",
+            "status": "not_started",
+            "completedAt": null,
+            "updatedAt": "2026-01-11T15:14:31.901Z",
+            "_id": "6963be570fd2e96bc7448ecf"
+          }
+        ],
+        "readinessPercentage": 0,
+        "isJobReady": false,
+        "approvedAsJobReady": false,
+        "createdAt": "2026-01-11T06:00:28.397Z",
+        "updatedAt": "2026-01-11T15:14:31.904Z",
+        "__v": 2
+      }
+    ],
+    "notifications": [
+      {
+        "relatedEntity": {
+          "type": "skill",
+          "id": "69625e3875b42e946810acd1"
+        },
+        "_id": "6962a12ae9c5459ea28e78df",
+        "recipient": "69625e3975b42e946810ace4",
+        "type": "skill_approved",
+        "title": "Skill Approved",
+        "message": "Your skill \"Node.js\" has been approved.",
+        "link": "/profile",
+        "isRead": false,
+        "createdAt": "2026-01-10T18:57:46.970Z",
+        "updatedAt": "2026-01-10T18:57:46.970Z",
+        "__v": 0
+      },
+      {
+        "relatedEntity": {
+          "type": "skill",
+          "id": "69625e3875b42e946810acd1"
+        },
+        "_id": "6962a12ce9c5459ea28e78ee",
+        "recipient": "69625e3975b42e946810ace4",
+        "type": "skill_approved",
+        "title": "Skill Approved",
+        "message": "Your skill \"Node.js\" has been approved.",
+        "link": "/profile",
+        "isRead": false,
+        "createdAt": "2026-01-10T18:57:48.706Z",
+        "updatedAt": "2026-01-10T18:57:48.706Z",
+        "__v": 0
+      },
+      {
+        "relatedEntity": {
+          "type": "job",
+          "id": "69631c77a05c02d642765246"
+        },
+        "_id": "69631c77a05c02d642765255",
+        "recipient": "69625e3975b42e946810ace4",
+        "type": "new_job_posting",
+        "title": "New Job Opportunity",
+        "message": "NG is hiring for NG LSA. Apply now!",
+        "link": "/jobs/69631c77a05c02d642765246",
+        "isRead": false,
+        "__v": 0,
+        "createdAt": "2026-01-11T03:43:51.917Z",
+        "updatedAt": "2026-01-11T03:43:51.917Z"
+      },
+      {
+        "relatedEntity": {
+          "type": "job",
+          "id": "69631c77a05c02d642765246"
+        },
+        "_id": "69631c77a05c02d642765256",
+        "recipient": "69625e3975b42e946810ace8",
+        "type": "new_job_posting",
+        "title": "New Job Opportunity",
+        "message": "NG is hiring for NG LSA. Apply now!",
+        "link": "/jobs/69631c77a05c02d642765246",
+        "isRead": false,
+        "__v": 0,
+        "createdAt": "2026-01-11T03:43:51.918Z",
+        "updatedAt": "2026-01-11T03:43:51.918Z"
+      },
+      {
+        "relatedEntity": {
+          "type": "job",
+          "id": "69631c77a05c02d642765246"
+        },
+        "_id": "69631c77a05c02d642765257",
+        "recipient": "69625e3975b42e946810aceb",
+        "type": "new_job_posting",
+        "title": "New Job Opportunity",
+        "message": "NG is hiring for NG LSA. Apply now!",
+        "link": "/jobs/69631c77a05c02d642765246",
+        "isRead": false,
+        "__v": 0,
+        "createdAt": "2026-01-11T03:43:51.918Z",
+        "updatedAt": "2026-01-11T03:43:51.918Z"
+      },
+      {
+        "relatedEntity": {
+          "type": "job",
+          "id": "69631c77a05c02d642765246"
+        },
+        "_id": "69631c77a05c02d642765258",
+        "recipient": "69625e3975b42e946810acee",
+        "type": "new_job_posting",
+        "title": "New Job Opportunity",
+        "message": "NG is hiring for NG LSA. Apply now!",
+        "link": "/jobs/69631c77a05c02d642765246",
+        "isRead": false,
+        "__v": 0,
+        "createdAt": "2026-01-11T03:43:51.918Z",
+        "updatedAt": "2026-01-11T03:43:51.918Z"
+      },
+      {
+        "relatedEntity": {
+          "type": "user",
+          "id": "6963229b956a71e58145a7fe"
+        },
+        "_id": "69632368b88f80690eb423da",
+        "recipient": "6963229b956a71e58145a7fa",
+        "type": "profile_approval_needed",
+        "title": "Profile Approval Needed",
+        "message": "John Doe has submitted their profile for approval.",
+        "link": "/students/6963229b956a71e58145a7fe",
+        "isRead": true,
+        "createdAt": "2026-01-11T04:13:28.071Z",
+        "updatedAt": "2026-01-11T04:13:56.959Z",
+        "__v": 0,
+        "readAt": "2026-01-11T04:13:56.959Z"
+      },
+      {
+        "relatedEntity": {
+          "type": "user",
+          "id": "6963229b956a71e58145a7fe"
+        },
+        "_id": "696325ac22a39877118d6186",
+        "recipient": "6963229b956a71e58145a7fe",
+        "type": "profile_approved",
+        "title": "Profile Approved",
+        "message": "Your profile has been approved by Campus POC.",
+        "link": "/profile",
+        "isRead": true,
+        "createdAt": "2026-01-11T04:23:08.687Z",
+        "updatedAt": "2026-01-11T04:24:00.572Z",
+        "__v": 0,
+        "readAt": "2026-01-11T04:24:00.571Z"
+      },
+      {
+        "relatedEntity": {
+          "type": "job",
+          "id": "6963262e22a39877118d654f"
+        },
+        "_id": "6963262e22a39877118d6563",
+        "recipient": "6963229b956a71e58145a7fe",
+        "type": "new_job_posting",
+        "title": "New Job Opportunity",
+        "message": "abc is hiring for NG LSA. Apply now!",
+        "link": "/jobs/6963262e22a39877118d654f",
+        "isRead": true,
+        "__v": 0,
+        "createdAt": "2026-01-11T04:25:18.568Z",
+        "updatedAt": "2026-01-11T04:25:38.586Z",
+        "readAt": "2026-01-11T04:25:38.586Z"
+      },
+      {
+        "relatedEntity": {
+          "type": "job",
+          "id": "6963262e22a39877118d654f"
+        },
+        "_id": "6963262e22a39877118d6564",
+        "recipient": "6963229b956a71e58145a802",
+        "type": "new_job_posting",
+        "title": "New Job Opportunity",
+        "message": "abc is hiring for NG LSA. Apply now!",
+        "link": "/jobs/6963262e22a39877118d654f",
+        "isRead": false,
+        "__v": 0,
+        "createdAt": "2026-01-11T04:25:18.569Z",
+        "updatedAt": "2026-01-11T04:25:18.569Z"
+      },
+      {
+        "relatedEntity": {
+          "type": "job",
+          "id": "6963262e22a39877118d654f"
+        },
+        "_id": "6963262e22a39877118d6565",
+        "recipient": "6963229b956a71e58145a805",
+        "type": "new_job_posting",
+        "title": "New Job Opportunity",
+        "message": "abc is hiring for NG LSA. Apply now!",
+        "link": "/jobs/6963262e22a39877118d654f",
+        "isRead": false,
+        "__v": 0,
+        "createdAt": "2026-01-11T04:25:18.569Z",
+        "updatedAt": "2026-01-11T04:25:18.569Z"
+      },
+      {
+        "relatedEntity": {
+          "type": "job",
+          "id": "6963262e22a39877118d654f"
+        },
+        "_id": "6963262e22a39877118d6566",
+        "recipient": "6963229b956a71e58145a808",
+        "type": "new_job_posting",
+        "title": "New Job Opportunity",
+        "message": "abc is hiring for NG LSA. Apply now!",
+        "link": "/jobs/6963262e22a39877118d654f",
+        "isRead": false,
+        "__v": 0,
+        "createdAt": "2026-01-11T04:25:18.569Z",
+        "updatedAt": "2026-01-11T04:25:18.569Z"
+      },
+      {
+        "relatedEntity": {
+          "type": "application",
+          "id": "6963266522a39877118d67ad"
+        },
+        "_id": "6963266522a39877118d67b0",
+        "recipient": "6963229b956a71e58145a7f8",
+        "type": "application_update",
+        "title": "New Application",
+        "message": "John Doe has applied for NG LSA at abc",
+        "link": "/applications/6963266522a39877118d67ad",
+        "isRead": true,
+        "__v": 0,
+        "createdAt": "2026-01-11T04:26:13.625Z",
+        "updatedAt": "2026-01-11T06:55:45.310Z",
+        "readAt": "2026-01-11T06:55:45.309Z"
+      },
+      {
+        "relatedEntity": {
+          "type": "application",
+          "id": "6963266522a39877118d67ad"
+        },
+        "_id": "6963269b22a39877118d6b9b",
+        "recipient": "6963229b956a71e58145a7f8",
+        "type": "recommendation_received",
+        "title": "Special Recommendation",
+        "message": "John Doe has received a special recommendation for NG LSA",
+        "link": "/applications/6963266522a39877118d67ad",
+        "isRead": true,
+        "__v": 0,
+        "createdAt": "2026-01-11T04:27:07.492Z",
+        "updatedAt": "2026-01-11T06:55:44.361Z",
+        "readAt": "2026-01-11T06:55:44.361Z"
+      },
+      {
+        "relatedEntity": {
+          "type": "skill",
+          "id": "6963229b956a71e58145a7eb"
+        },
+        "_id": "696326a322a39877118d6c03",
+        "recipient": "6963229b956a71e58145a7fe",
+        "type": "skill_approved",
+        "title": "Skill Approved",
+        "message": "Your skill \"Node.js\" has been approved.",
+        "link": "/profile",
+        "isRead": true,
+        "createdAt": "2026-01-11T04:27:15.033Z",
+        "updatedAt": "2026-01-11T06:03:37.964Z",
+        "__v": 0,
+        "readAt": "2026-01-11T06:03:37.962Z"
+      },
+      {
+        "relatedEntity": {
+          "type": "skill",
+          "id": "6963229b956a71e58145a7ec"
+        },
+        "_id": "6963272a22a39877118d6e1a",
+        "recipient": "6963229b956a71e58145a805",
+        "type": "skill_approved",
+        "title": "Skill Approved",
+        "message": "Your skill \"SQL\" has been approved.",
+        "link": "/profile",
+        "isRead": false,
+        "createdAt": "2026-01-11T04:29:30.255Z",
+        "updatedAt": "2026-01-11T04:29:30.255Z",
+        "__v": 0
+      },
+      {
+        "relatedEntity": {
+          "type": "job",
+          "id": "6963262e22a39877118d654f"
+        },
+        "_id": "69633e3e487639de0c92ccec",
+        "recipient": "6963229b956a71e58145a7fe",
+        "type": "new_job_posting",
+        "title": "New Job Opportunity",
+        "message": "abc is hiring for NG LSA. Apply now!",
+        "link": "/jobs/6963262e22a39877118d654f",
+        "isRead": true,
+        "__v": 0,
+        "createdAt": "2026-01-11T06:07:58.322Z",
+        "updatedAt": "2026-01-11T06:51:37.325Z",
+        "readAt": "2026-01-11T06:51:37.314Z"
+      },
+      {
+        "relatedEntity": {
+          "type": "job",
+          "id": "6963262e22a39877118d654f"
+        },
+        "_id": "69633e3e487639de0c92cced",
+        "recipient": "6963229b956a71e58145a802",
+        "type": "new_job_posting",
+        "title": "New Job Opportunity",
+        "message": "abc is hiring for NG LSA. Apply now!",
+        "link": "/jobs/6963262e22a39877118d654f",
+        "isRead": false,
+        "__v": 0,
+        "createdAt": "2026-01-11T06:07:58.322Z",
+        "updatedAt": "2026-01-11T06:07:58.322Z"
+      },
+      {
+        "relatedEntity": {
+          "type": "job",
+          "id": "6963262e22a39877118d654f"
+        },
+        "_id": "69633e3e487639de0c92ccee",
+        "recipient": "6963229b956a71e58145a805",
+        "type": "new_job_posting",
+        "title": "New Job Opportunity",
+        "message": "abc is hiring for NG LSA. Apply now!",
+        "link": "/jobs/6963262e22a39877118d654f",
+        "isRead": false,
+        "__v": 0,
+        "createdAt": "2026-01-11T06:07:58.323Z",
+        "updatedAt": "2026-01-11T06:07:58.323Z"
+      },
+      {
+        "relatedEntity": {
+          "type": "job",
+          "id": "6963262e22a39877118d654f"
+        },
+        "_id": "69633e3e487639de0c92ccef",
+        "recipient": "6963229b956a71e58145a808",
+        "type": "new_job_posting",
+        "title": "New Job Opportunity",
+        "message": "abc is hiring for NG LSA. Apply now!",
+        "link": "/jobs/6963262e22a39877118d654f",
+        "isRead": false,
+        "__v": 0,
+        "createdAt": "2026-01-11T06:07:58.323Z",
+        "updatedAt": "2026-01-11T06:07:58.323Z"
+      },
+      {
+        "relatedEntity": {
+          "type": "job",
+          "id": "6963262e22a39877118d654f"
+        },
+        "_id": "69633e55487639de0c92ce02",
+        "recipient": "6963229b956a71e58145a7fe",
+        "type": "new_job_posting",
+        "title": "New Job Opportunity",
+        "message": "abc is hiring for NG LSA. Apply now!",
+        "link": "/jobs/6963262e22a39877118d654f",
+        "isRead": true,
+        "__v": 0,
+        "createdAt": "2026-01-11T06:08:21.820Z",
+        "updatedAt": "2026-01-11T06:13:14.684Z",
+        "readAt": "2026-01-11T06:13:14.684Z"
+      },
+      {
+        "relatedEntity": {
+          "type": "job",
+          "id": "6963262e22a39877118d654f"
+        },
+        "_id": "69633e55487639de0c92ce03",
+        "recipient": "6963229b956a71e58145a802",
+        "type": "new_job_posting",
+        "title": "New Job Opportunity",
+        "message": "abc is hiring for NG LSA. Apply now!",
+        "link": "/jobs/6963262e22a39877118d654f",
+        "isRead": false,
+        "__v": 0,
+        "createdAt": "2026-01-11T06:08:21.820Z",
+        "updatedAt": "2026-01-11T06:08:21.820Z"
+      },
+      {
+        "relatedEntity": {
+          "type": "job",
+          "id": "6963262e22a39877118d654f"
+        },
+        "_id": "69633e55487639de0c92ce04",
+        "recipient": "6963229b956a71e58145a805",
+        "type": "new_job_posting",
+        "title": "New Job Opportunity",
+        "message": "abc is hiring for NG LSA. Apply now!",
+        "link": "/jobs/6963262e22a39877118d654f",
+        "isRead": false,
+        "__v": 0,
+        "createdAt": "2026-01-11T06:08:21.821Z",
+        "updatedAt": "2026-01-11T06:08:21.821Z"
+      },
+      {
+        "relatedEntity": {
+          "type": "job",
+          "id": "6963262e22a39877118d654f"
+        },
+        "_id": "69633e55487639de0c92ce05",
+        "recipient": "6963229b956a71e58145a808",
+        "type": "new_job_posting",
+        "title": "New Job Opportunity",
+        "message": "abc is hiring for NG LSA. Apply now!",
+        "link": "/jobs/6963262e22a39877118d654f",
+        "isRead": false,
+        "__v": 0,
+        "createdAt": "2026-01-11T06:08:21.821Z",
+        "updatedAt": "2026-01-11T06:08:21.821Z"
+      },
+      {
+        "relatedEntity": {
+          "type": "user",
+          "id": "6963229b956a71e58145a7fe"
+        },
+        "_id": "69634912d2e1dd187d0d6a95",
+        "recipient": "6963229b956a71e58145a7fa",
+        "type": "profile_approval_needed",
+        "title": "Profile Approval Needed",
+        "message": "John Doe has submitted their profile for approval.",
+        "link": "/students/6963229b956a71e58145a7fe",
+        "isRead": true,
+        "createdAt": "2026-01-11T06:54:10.114Z",
+        "updatedAt": "2026-01-11T06:54:27.941Z",
+        "__v": 0,
+        "readAt": "2026-01-11T06:54:27.940Z"
+      },
+      {
+        "relatedEntity": {
+          "type": "user",
+          "id": "6963229b956a71e58145a7fe"
+        },
+        "_id": "69634938d2e1dd187d0d6b5c",
+        "recipient": "6963229b956a71e58145a7fe",
+        "type": "profile_approved",
+        "title": "Profile Approved",
+        "message": "Your profile has been approved by Campus POC.",
+        "link": "/profile",
+        "isRead": true,
+        "createdAt": "2026-01-11T06:54:48.432Z",
+        "updatedAt": "2026-01-11T06:56:45.866Z",
+        "__v": 0,
+        "readAt": "2026-01-11T06:56:45.866Z"
+      }
+    ]
+  },
+  "statistics": {
+    "totalUsers": 8,
+    "usersByRole": {
+      "students": 4,
+      "coordinators": 1,
+      "campusPocs": 2,
+      "managers": 1
+    },
+    "totalCampuses": 8,
+    "totalSkills": 13,
+    "totalJobs": 4,
+    "totalApplications": 1,
+    "jobReadinessConfigs": 5
+  }
+}

@@ -2,13 +2,15 @@ const express = require('express');
 const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const Skill = require('../models/Skill');
+const User = require('../models/User');
 const { auth, authorize } = require('../middleware/auth');
+const Settings = require('../models/Settings');
 
-// Get all skills
+// Get all skills with optional filters
 router.get('/', auth, async (req, res) => {
   try {
-    const { category, search, active = 'true' } = req.query;
-    let query = {};
+    const { category, search, active = 'true', school, common } = req.query;
+    const query = {};
 
     if (active === 'true') {
       query.isActive = true;
@@ -20,6 +22,16 @@ router.get('/', auth, async (req, res) => {
 
     if (search) {
       query.name = { $regex: search, $options: 'i' };
+    }
+
+    // Filter by common
+    if (common === 'true') {
+      query.isCommon = true;
+    }
+
+    // Filter by school (skills tagged for a specific school)
+    if (school) {
+      query.schools = school; // matches membership in array
     }
 
     const skills = await Skill.find(query)
@@ -70,7 +82,7 @@ router.get('/:id', auth, async (req, res) => {
 });
 
 // Create skill (Coordinators only)
-router.post('/', auth, authorize('coordinator', 'manager'), [
+router.post('/', auth, authorize('coordinator', 'manager', 'campus_poc'), [
   body('name').trim().notEmpty(),
   body('category').isIn(['technical', 'soft_skill', 'language', 'certification', 'domain', 'other'])
 ], async (req, res) => {
@@ -80,7 +92,10 @@ router.post('/', auth, authorize('coordinator', 'manager'), [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { name, category, description } = req.body;
+    const { name, category, description, isCommon = false, schools = [] } = req.body;
+
+    const settings = await Settings.getSettings();
+    const allowedSchools = Object.keys(Object.fromEntries(settings.schoolModules || new Map()));
 
     // Check if skill already exists
     const existingSkill = await Skill.findOne({ name: { $regex: new RegExp(`^${name}$`, 'i') } });
@@ -92,6 +107,8 @@ router.post('/', auth, authorize('coordinator', 'manager'), [
       name,
       category,
       description,
+      isCommon: Boolean(isCommon),
+      schools: Array.isArray(schools) ? schools.filter(s => allowedSchools.includes(s)) : [],
       createdBy: req.userId
     });
 
@@ -105,7 +122,7 @@ router.post('/', auth, authorize('coordinator', 'manager'), [
 });
 
 // Update skill
-router.put('/:id', auth, authorize('coordinator', 'manager'), async (req, res) => {
+router.put('/:id', auth, authorize('coordinator', 'manager', 'campus_poc'), async (req, res) => {
   try {
     const skill = await Skill.findById(req.params.id);
     
@@ -113,14 +130,32 @@ router.put('/:id', auth, authorize('coordinator', 'manager'), async (req, res) =
       return res.status(404).json({ message: 'Skill not found' });
     }
 
-    const { name, category, description, isActive } = req.body;
+    const { name, category, description, isActive, isCommon, schools } = req.body;
+    const settings = await Settings.getSettings();
+    const allowedSchools = Object.keys(Object.fromEntries(settings.schoolModules || new Map()));
 
     if (name) skill.name = name;
     if (category) skill.category = category;
     if (description !== undefined) skill.description = description;
     if (isActive !== undefined) skill.isActive = isActive;
+    if (isCommon !== undefined) skill.isCommon = Boolean(isCommon);
+    if (schools !== undefined) {
+      const normalized = Array.isArray(schools) ? schools.filter(s => allowedSchools.includes(s)) : [];
+      skill.schools = normalized;
+    }
 
     await skill.save();
+
+    // Back-propagate skill name changes to student profiles that reference this skill
+    try {
+      await User.updateMany(
+        { 'studentProfile.technicalSkills.skillId': skill._id },
+        { $set: { 'studentProfile.technicalSkills.$[elem].skillName': skill.name } },
+        { arrayFilters: [{ 'elem.skillId': skill._id }] }
+      );
+    } catch (err) {
+      console.warn('Failed to back-propagate skill name to users:', err.message);
+    }
 
     res.json({ message: 'Skill updated successfully', skill });
   } catch (error) {

@@ -4,16 +4,18 @@ import { LoadingSpinner, EmptyState, Modal, ConfirmDialog } from '../../componen
 import { Search, Plus, Edit2, Trash2, Tag, Layers, Globe, School } from 'lucide-react';
 import toast from 'react-hot-toast';
 
-const Skills = () => {
+const POCSkills = () => {
   const [skills, setSkills] = useState([]);
   const [categories, setCategories] = useState([]);
   const [categoryOptions, setCategoryOptions] = useState([]);
+  const [schools, setSchools] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedSkill, setSelectedSkill] = useState(null);
+  const [newSchool, setNewSchool] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     category: '',
@@ -21,10 +23,6 @@ const Skills = () => {
     isCommon: false,
     schools: []
   });
-  const [schools, setSchools] = useState([]);
-  const [newSchool, setNewSchool] = useState('');
-
-  const allowedSchools = schools;
 
   useEffect(() => {
     fetchSkills();
@@ -32,33 +30,12 @@ const Skills = () => {
     fetchSchools();
   }, []);
 
-  const fetchCategoryOptions = async () => {
-    try {
-      const res = await skillAPI.getCategories();
-      setCategoryOptions(res.data || []);
-    } catch (e) {
-      // non-blocking; keep UI usable
-    }
-  };
-
-  const fetchSchools = async () => {
-    try {
-      const res = await settingsAPI.getSettings();
-      const list = res.data?.data?.schools || Object.keys(res.data?.data?.schoolModules || {});
-      setSchools(list);
-    } catch (e) {
-      // non-blocking; keep UI usable
-    }
-  };
-
   const fetchSkills = async () => {
     try {
       setLoading(true);
       const response = await skillAPI.getSkills();
       const skillsData = response.data || [];
       setSkills(skillsData);
-      
-      // Extract unique categories
       const uniqueCategories = [...new Set(skillsData.map(s => s.category).filter(Boolean))];
       setCategories(uniqueCategories);
     } catch (error) {
@@ -66,6 +43,21 @@ const Skills = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchCategoryOptions = async () => {
+    try {
+      const res = await skillAPI.getCategories();
+      setCategoryOptions(res.data || []);
+    } catch (e) {}
+  };
+
+  const fetchSchools = async () => {
+    try {
+      const res = await settingsAPI.getSettings();
+      const list = res.data?.data?.schools || Object.keys(res.data?.data?.schoolModules || {});
+      setSchools(list);
+    } catch (e) {}
   };
 
   const handleSubmit = async (e) => {
@@ -80,7 +72,7 @@ const Skills = () => {
       }
       setShowModal(false);
       resetForm();
-      // Refresh schools and skills to ensure UI reflects any school/category changes
+      // Refresh schools first (in case skill was moved to a different school)
       await fetchSchools();
       await fetchSkills();
     } catch (error) {
@@ -133,37 +125,32 @@ const Skills = () => {
   });
 
   const filteredCommonSkills = filteredSkills.filter(s => s.isCommon);
-  const filteredSchoolSkills = allowedSchools.reduce((acc, school) => {
+  const filteredSchoolSkills = schools.reduce((acc, school) => {
     acc[school] = filteredSkills.filter(s => Array.isArray(s.schools) && s.schools.includes(school) && !s.isCommon);
     return acc;
   }, {});
 
-  // Group skills by category
-  const groupedSkills = filteredSkills.reduce((acc, skill) => {
-    const category = skill.category || 'Uncategorized';
-    if (!acc[category]) acc[category] = [];
-    acc[category].push(skill);
-    return acc;
-  }, {});
-
-  const categoryColors = {
-    'Programming Languages': 'bg-blue-100 text-blue-800 border-blue-200',
-    'Frameworks': 'bg-purple-100 text-purple-800 border-purple-200',
-    'Databases': 'bg-green-100 text-green-800 border-green-200',
-    'Cloud & DevOps': 'bg-orange-100 text-orange-800 border-orange-200',
-    'Soft Skills': 'bg-pink-100 text-pink-800 border-pink-200',
-    'Tools': 'bg-yellow-100 text-yellow-800 border-yellow-200',
-    'default': 'bg-gray-100 text-gray-800 border-gray-200'
+  const handleAddSchool = async () => {
+    const name = newSchool.trim();
+    if (!name) return;
+    try {
+      await settingsAPI.addSchool(name);
+      toast.success('School added');
+      setNewSchool('');
+      await fetchSchools();
++      // Refresh skills in case UI grouping depends on updated schools
++      await fetchSkills();
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Error adding school');
+    }
   };
-
-  const getCategoryColor = (category) => categoryColors[category] || categoryColors['default'];
 
   return (
     <div className="space-y-6 animate-fadeIn">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Skill Management</h1>
-          <p className="text-gray-600">Manage skill categories and definitions</p>
+          <h1 className="text-2xl font-bold text-gray-900">Skill Management (Campus POC)</h1>
+          <p className="text-gray-600">Manage common and school-wise skills</p>
         </div>
         <div className="flex items-center gap-2">
           <input
@@ -173,66 +160,13 @@ const Skills = () => {
             onChange={(e) => setNewSchool(e.target.value)}
             className="w-48"
           />
-          <button
-            onClick={async () => {
-              const name = newSchool.trim();
-              if (!name) return;
-              try {
-                await settingsAPI.addSchool(name);
-                toast.success('School added');
-                setNewSchool('');
-                await fetchSchools();
-                await fetchSkills();
-              } catch (e) {
-                toast.error(e.response?.data?.message || 'Error adding school');
-              }
-            }}
-            className="btn btn-secondary"
-            title="Add school"
-          >
+          <button onClick={handleAddSchool} className="btn btn-secondary" title="Add school">
             Add School
           </button>
           <button onClick={openCreateModal} className="btn btn-primary flex items-center gap-2" title="Add skill">
             <Plus className="w-4 h-4" />
             Add Skill
           </button>
-        </div>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="card">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-primary-100 rounded-lg">
-              <Tag className="w-6 h-6 text-primary-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{skills.length}</p>
-              <p className="text-sm text-gray-500">Total Skills</p>
-            </div>
-          </div>
-        </div>
-        <div className="card">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-secondary-100 rounded-lg">
-              <Layers className="w-6 h-6 text-secondary-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{categories.length}</p>
-              <p className="text-sm text-gray-500">Categories</p>
-            </div>
-          </div>
-        </div>
-        <div className="card">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-accent-100 rounded-lg">
-              <Tag className="w-6 h-6 text-accent-600" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{skills.filter(s => s.isCommon).length}</p>
-              <p className="text-sm text-gray-500">Common Skills</p>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -284,7 +218,7 @@ const Skills = () => {
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
                   <button
                     onClick={() => openEditModal(skill)}
-                    className="p-1 hover:bg-white/50 rounded"
+                    className="p-1.5 hover:bg-white/50 rounded"
                     title="Edit"
                   >
                     <Edit2 className="w-3.5 h-3.5" />
@@ -294,7 +228,7 @@ const Skills = () => {
                       setSelectedSkill(skill);
                       setShowDeleteDialog(true);
                     }}
-                    className="p-1 hover:bg-white/50 rounded text-red-600"
+                    className="p-1.5 hover:bg-white/50 rounded text-red-600"
                     title="Delete"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
@@ -313,7 +247,7 @@ const Skills = () => {
           <h2 className="text-lg font-semibold text-gray-900">School-wise Skills</h2>
         </div>
         <div className="space-y-4">
-          {allowedSchools.map((school) => (
+          {schools.map((school) => (
             <div key={school}>
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-sm font-medium text-gray-700">{school}</span>
@@ -331,7 +265,7 @@ const Skills = () => {
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
                       <button
                         onClick={() => openEditModal(skill)}
-                        className="p-1 hover:bg-white/50 rounded"
+                        className="p-1.5 hover:bg-white/50 rounded"
                         title="Edit"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
@@ -341,7 +275,7 @@ const Skills = () => {
                           setSelectedSkill(skill);
                           setShowDeleteDialog(true);
                         }}
-                        className="p-1 hover:bg-white/50 rounded text-red-600"
+                        className="p-1.5 hover:bg-white/50 rounded text-red-600"
                         title="Delete"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -354,63 +288,6 @@ const Skills = () => {
           ))}
         </div>
       </div>
-
-      {/* Skills List by Category */}
-      {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <LoadingSpinner size="lg" />
-        </div>
-      ) : Object.keys(groupedSkills).length === 0 ? (
-        <EmptyState
-          icon={Tag}
-          title="No skills found"
-          description="Start by adding some skills to the system"
-          action={{ label: 'Add Skill', onClick: openCreateModal }}
-        />
-      ) : (
-        <div className="space-y-6">
-          {Object.entries(groupedSkills).map(([category, categorySkills]) => (
-            <div key={category} className="card">
-              <div className="flex items-center gap-2 mb-4">
-                <Layers className="w-5 h-5 text-gray-500" />
-                <h2 className="text-lg font-semibold text-gray-900">{category}</h2>
-                <span className="px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-full">
-                  {categorySkills.length} skills
-                </span>
-              </div>
-              <div className="flex flex-wrap gap-3">
-                {categorySkills.map((skill) => (
-                  <div
-                    key={skill._id}
-                    className={`group relative px-4 py-2 rounded-lg border ${getCategoryColor(category)} flex items-center gap-3`}
-                  >
-                    <span className="font-medium">{skill.name}</span>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
-                      <button
-                        onClick={() => openEditModal(skill)}
-                        className="p-1 hover:bg-white/50 rounded"
-                        title="Edit"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          setSelectedSkill(skill);
-                          setShowDeleteDialog(true);
-                        }}
-                        className="p-1 hover:bg-white/50 rounded text-red-600"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* Add/Edit Modal */}
       <Modal
@@ -471,22 +348,11 @@ const Skills = () => {
               }}
               className="w-full"
             >
-              {allowedSchools.map(school => (
+              {schools.map(school => (
                 <option key={school} value={school}>{school}</option>
               ))}
             </select>
             <p className="text-xs text-gray-500 mt-1">Hold Cmd/Ctrl to select multiple schools</p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Description
-            </label>
-            <textarea
-              rows={3}
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Brief description of the skill"
-            />
           </div>
           <div className="flex justify-end gap-3 pt-4">
             <button
@@ -523,5 +389,5 @@ const Skills = () => {
   );
 };
 
-export const CoordinatorSkills = Skills;
-export default Skills;
+export const POCSkillsComponent = POCSkills;
+export default POCSkills;

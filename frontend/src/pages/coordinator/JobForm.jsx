@@ -18,6 +18,7 @@ const JobForm = () => {
   const [campuses, setCampuses] = useState([]);
   const [jdUrl, setJdUrl] = useState('');
   const [aiParseInfo, setAiParseInfo] = useState(null);
+  const [parsedSuggestion, setParsedSuggestion] = useState(null); // holds parsed JD data for preview
   const [formData, setFormData] = useState({
     title: '',
     company: { name: '', website: '', description: '' },
@@ -54,7 +55,7 @@ const JobForm = () => {
     },
     applicationDeadline: '',
     maxPositions: 1,
-    status: 'draft',
+    status: 'application_stage',
     interviewRounds: [{ name: '', type: 'technical', description: '' }]
   });
 
@@ -260,12 +261,15 @@ const JobForm = () => {
     try {
       const response = await jobAPI.parseJDFromUrl(jdUrl);
       if (response.data.success) {
-        applyParsedData(response.data.data);
+        // show preview instead of directly applying
+        setParsedSuggestion(response.data.data);
         setAiParseInfo({
           type: response.data.data.parsedWith,
-          message: response.data.message
+          message: response.data.message,
+          aiStatus: response.data.aiStatus || null,
+          aiError: response.data.aiError || null
         });
-        toast.success(response.data.message);
+        toast.success('Parsed job description. Preview and apply to the form below.');
       }
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to parse JD from URL');
@@ -290,12 +294,15 @@ const JobForm = () => {
     try {
       const response = await jobAPI.parseJDFromPDF(file);
       if (response.data.success) {
-        applyParsedData(response.data.data);
+        // show preview instead of directly applying
+        setParsedSuggestion(response.data.data);
         setAiParseInfo({
           type: response.data.data.parsedWith,
-          message: response.data.message
+          message: response.data.message,
+          aiStatus: response.data.aiStatus || null,
+          aiError: response.data.aiError || null
         });
-        toast.success(response.data.message);
+        toast.success('Parsed job description. Preview and apply to the form below.');
       }
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to parse PDF');
@@ -616,6 +623,7 @@ const JobForm = () => {
                     )}
                   </button>
                 </div>
+                <p className="text-xs text-purple-600 mt-2">If using a Google Drive/Docs link, ensure the file is shared as "Anyone with the link can view" (public) for automatic extraction.</p>
               </div>
 
               {/* PDF Upload */}
@@ -665,15 +673,153 @@ const JobForm = () => {
                 <AlertCircle className={`w-5 h-5 shrink-0 ${
                   aiParseInfo.type === 'ai' ? 'text-green-600' : 'text-yellow-600'
                 }`} />
-                <div className="text-sm">
+                <div className="text-sm flex-1">
                   <p className={aiParseInfo.type === 'ai' ? 'text-green-700' : 'text-yellow-700'}>
                     {aiParseInfo.message}
                   </p>
-                  {aiParseInfo.type === 'fallback' && (
-                    <p className="text-yellow-600 mt-1">
-                      💡 Tip: Add your Google AI API key in Manager Settings for better results.
-                    </p>
+                  {/* AI status badge */}
+                  {aiParseInfo.aiStatus && (
+                    <div className="mt-2 text-xs">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`inline-block px-2 py-0.5 rounded text-xs ${
+                          aiParseInfo.aiStatus.configured && aiParseInfo.aiStatus.working ? 'bg-green-100 text-green-800' : aiParseInfo.aiStatus.configured && !aiParseInfo.aiStatus.working ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
+                        }`}>
+                          {aiParseInfo.aiStatus.configured ? (aiParseInfo.aiStatus.working ? 'AI Operational' : 'AI Unavailable') : 'AI Not Configured'}
+                        </span>
+                        {aiParseInfo.aiStatus.totalKeys > 0 && (
+                          <span className="text-xs text-gray-600">
+                            {aiParseInfo.aiStatus.totalKeys} key{aiParseInfo.aiStatus.totalKeys > 1 ? 's' : ''} available
+                            {aiParseInfo.aiStatus.userKeys > 0 && ` (${aiParseInfo.aiStatus.userKeys} yours)`}
+                          </span>
+                        )}
+                        {aiParseInfo.aiStatus.message && (
+                          <span className="text-xs text-gray-700">{aiParseInfo.aiStatus.message}</span>
+                        )}
+                      </div>
+
+                      {/* Quota-specific hint */}
+                      {aiParseInfo.aiErrorCode === 'QUOTA_EXCEEDED' && (
+                        <div className="mt-2 p-2 bg-yellow-100 border border-yellow-200 rounded text-xs text-yellow-800">
+                          <strong>⚠️ Quota Exceeded:</strong> Your Google AI quota has been reached. 
+                          {aiParseInfo.aiStatus.totalKeys > 1 ? ' All available keys have been tried.' : ' Add more API keys to increase capacity.'}
+                          <br />
+                          <a href="https://ai.google.dev/gemini-api/docs/rate-limits" target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">Learn more about quotas</a>
+                        </div>
+                      )}
+
+                      {/* Config missing hint */}
+                      {!aiParseInfo.aiStatus.configured && (
+                        <div className="mt-1 text-xs text-yellow-700">💡 Tip: Add your Google AI API key in your profile settings for improved parsing.</div>
+                      )}
+
+                      {/* Show AI error if present */}
+                      {aiParseInfo.aiError && aiParseInfo.aiErrorCode !== 'QUOTA_EXCEEDED' && (
+                        <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs">
+                          <div className="text-red-600 font-medium">Error Code: {aiParseInfo.aiErrorCode}</div>
+                          <div className="text-red-700 mt-1">{aiParseInfo.aiError}</div>
+                        </div>
+                      )}
+                    </div>
                   )}
+                  
+                  {/* Action buttons when AI failed */}
+                  {aiParseInfo.type === 'fallback' && parsedSuggestion && (
+                    <div className="mt-3 flex gap-2">
+                      <button
+                        onClick={async () => {
+                          // Retry AI parse with same source
+                          setParsing(true);
+                          setAiParseInfo(null);
+                          if (jdUrl.trim()) {
+                            await handleParseFromUrl();
+                          } else if (fileInputRef.current?.files?.[0]) {
+                            const fakeEvent = { target: { files: [fileInputRef.current.files[0]] } };
+                            await handleParseFromPDF(fakeEvent);
+                          }
+                        }}
+                        className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center gap-1"
+                      >
+                        <Sparkles className="w-3 h-3" />
+                        Retry AI Parse
+                      </button>
+                      <button
+                        onClick={() => { applyParsedData(parsedSuggestion); setParsedSuggestion(null); setAiParseInfo(null); toast.success('Applied fallback extraction'); }}
+                        className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700"
+                      >
+                        Use Fallback Result
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Parsed suggestion preview */}
+            {parsedSuggestion && (
+              <div className="mt-4 p-4 border rounded-lg bg-white">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold">Parsed Job Suggestion</h3>
+                    <p className="text-xs text-gray-500">Review the parsed data and apply to the form if correct.</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => { applyParsedData(parsedSuggestion); setParsedSuggestion(null); toast.success('Applied parsed data to form'); }}
+                      className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700"
+                    >
+                      Apply to form
+                    </button>
+                    <button
+                      onClick={() => { applyParsedData(parsedSuggestion); setParsedSuggestion(null); setTimeout(() => { document.getElementById('jobTitleInput')?.focus(); }, 50); }}
+                      className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                    >
+                      Apply & Edit
+                    </button>
+                    <button
+                      onClick={() => { setParsedSuggestion(null); toast('Discarded parsed suggestion'); }}
+                      className="px-3 py-1 text-sm bg-red-50 text-red-600 rounded hover:bg-red-100"
+                    >
+                      Discard
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <div className="text-xs text-gray-500">Title</div>
+                    <div className="text-sm font-medium text-gray-900">{parsedSuggestion.title || '—'}</div>
+
+                    <div className="text-xs text-gray-500 mt-2">Company</div>
+                    <div className="text-sm font-medium text-gray-900">{parsedSuggestion.company?.name || '—'}</div>
+                    {parsedSuggestion.company?.website && (
+                      <div className="text-xs text-blue-600 truncate">{parsedSuggestion.company.website}</div>
+                    )}
+
+                    <div className="text-xs text-gray-500 mt-2">Location</div>
+                    <div className="text-sm">{parsedSuggestion.location || '—'}</div>
+
+                    <div className="text-xs text-gray-500 mt-2">Job Type</div>
+                    <div className="text-sm">{parsedSuggestion.jobType || 'full_time'}</div>
+
+                    <div className="text-xs text-gray-500 mt-2">Salary</div>
+                    <div className="text-sm">{parsedSuggestion.salary?.min ? `${parsedSuggestion.salary.min}-${parsedSuggestion.salary.max || ''} ${parsedSuggestion.salary.currency || 'INR'}` : '—'}</div>
+                  </div>
+
+                  <div>
+                    <div className="text-xs text-gray-500">Description</div>
+                    <div className="text-sm text-gray-800 max-h-36 overflow-auto">{parsedSuggestion.description || '—'}</div>
+
+                    <div className="text-xs text-gray-500 mt-2">Suggested Skills</div>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      {(parsedSuggestion.suggestedSkills || []).slice(0, 12).map((s, i) => (
+                        <span key={i} className="text-xs px-2 py-1 bg-gray-100 rounded text-gray-700">{s}</span>
+                      ))}
+                    </div>
+
+                    {parsedSuggestion.matchedSkillIds?.length > 0 && (
+                      <div className="mt-2 text-xs text-green-700">Matched skills found in system ({parsedSuggestion.matchedSkillIds.length})</div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -687,6 +833,7 @@ const JobForm = () => {
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">Job Title *</label>
               <input
+                id="jobTitleInput"
                 type="text"
                 value={formData.title}
                 onChange={(e) => setFormData({ ...formData, title: e.target.value })}
@@ -1630,9 +1777,13 @@ const JobForm = () => {
                 onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                 className="w-48"
               >
-                <option value="draft">Draft</option>
-                <option value="active">Active</option>
-                <option value="closed">Closed</option>
+                <option value="draft">Draft (Not visible to students)</option>
+                <option value="application_stage">Open for Applications (Visible to students)</option>
+                <option value="hr_shortlisting">HR Shortlisting (Visible to students)</option>
+                <option value="interviewing">Interviewing (Visible to students)</option>
+                <option value="on_hold">On Hold (Visible but paused)</option>
+                <option value="closed">Closed (Visible but closed)</option>
+                <option value="filled">Position Filled</option>
               </select>
             </div>
             <div className="flex gap-3">

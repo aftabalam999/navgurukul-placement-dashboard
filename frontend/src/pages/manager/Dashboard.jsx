@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { statsAPI } from '../../services/api';
 import { StatsCard, LoadingSpinner } from '../../components/common/UIComponents';
+import UserApprovals from '../../components/manager/UserApprovals';
 import { 
   Users, Briefcase, Building2, Award, TrendingUp, 
   CheckCircle, Clock, BarChart3, PieChart, Download, UserCog
@@ -234,6 +235,9 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* User Approvals Section */}
+      <UserApprovals />
 
       {/* Coordinator Performance Stats */}
       <div className="card">

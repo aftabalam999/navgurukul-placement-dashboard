@@ -1,19 +1,52 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const pdfParse = require('pdf-parse');
+const pdfParseModule = require('pdf-parse');
+const pdfParse = pdfParseModule && (pdfParseModule.default || pdfParseModule);
 const cheerio = require('cheerio');
 const axios = require('axios');
 
 class AIService {
-  constructor(apiKey) {
-    this.apiKey = apiKey;
-    this.genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
+  constructor(apiKeys) {
+    // Support both single key (string) and multiple keys (array)
+    if (typeof apiKeys === 'string') {
+      this.apiKeys = apiKeys ? [apiKeys] : [];
+    } else if (Array.isArray(apiKeys)) {
+      this.apiKeys = apiKeys.filter(k => k);
+    } else {
+      this.apiKeys = [];
+    }
+    this.currentKeyIndex = 0;
+    this.apiKey = this.apiKeys[0] || null;
+    this.genAI = this.apiKey ? new GoogleGenerativeAI(this.apiKey) : null;
+  }
+
+  // Rotate to next available API key
+  rotateKey() {
+    if (this.apiKeys.length <= 1) return false;
+    
+    this.currentKeyIndex = (this.currentKeyIndex + 1) % this.apiKeys.length;
+    this.apiKey = this.apiKeys[this.currentKeyIndex];
+    this.genAI = this.apiKey ? new GoogleGenerativeAI(this.apiKey) : null;
+    console.log(`Rotated to API key #${this.currentKeyIndex + 1}`);
+    return true;
   }
 
   // Extract text from PDF buffer
   async extractTextFromPDF(buffer) {
     try {
-      const data = await pdfParse(buffer);
-      return data.text;
+      if (!pdfParse) {
+        throw new Error('PDF parsing library not available');
+      }
+      // Support new pdf-parse API (PDFParse class) and old function API
+      if (typeof pdfParse === 'function') {
+        const data = await pdfParse(buffer);
+        return data.text;
+      }
+      if (pdfParse.PDFParse) {
+        const parser = new pdfParse.PDFParse({ data: buffer });
+        const result = await parser.getText();
+        return result.text;
+      }
+      throw new Error('Unsupported pdf-parse API');
     } catch (error) {
       console.error('PDF extraction error:', error);
       throw new Error('Failed to extract text from PDF');
@@ -53,8 +86,15 @@ class AIService {
     }
 
     // Convert to direct download URL
-    const downloadUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
-    
+    // Support both Drive file links and Google Docs/export links
+    let downloadUrl;
+    if (url.includes('docs.google.com')) {
+      // Export Google Docs to PDF
+      downloadUrl = `https://docs.google.com/document/d/${fileId}/export?format=pdf`;
+    } else {
+      downloadUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
+    }
+
     try {
       const response = await axios.get(downloadUrl, {
         responseType: 'arraybuffer',
@@ -184,26 +224,119 @@ class AIService {
     }
   }
 
+  // Code-based fallback extraction to conserve AI quota
+  async parseJobDescriptionWithCode(text) {
+    try {
+      const result = {
+        title: '',
+        company: { name: '', website: '', description: '' },
+        description: '',
+        requirements: [],
+        responsibilities: [],
+        location: '',
+        jobType: 'full_time',
+        duration: '',
+        salary: { min: null, max: null, currency: 'INR' },
+        suggestedSkills: [],
+        experienceLevel: 'entry',
+        maxPositions: 1
+      };
+
+      // Extract job title (usually first meaningful line)
+      const titleMatch = text.match(/(?:job\s+)?title[:\s]+([^\n]+)/i) || text.match(/^([^\n]{10,100})/);
+      if (titleMatch) result.title = titleMatch[1].trim().substring(0, 100);
+
+      // Extract location
+      const locationMatch = text.match(/(?:location|based\s+in|office)[:\s]+([^,\n]+)/i);
+      if (locationMatch) result.location = locationMatch[1].trim();
+
+      // Extract salary
+      const salaryMatch = text.match(/(?:salary|compensation|ctc|lpa)[:\s]*(?:inr\s*)?([0-9.]+)\s*(?:l|lakh|k)?[-–]?\s*([0-9.]+)?/i);
+      if (salaryMatch) {
+        let min = parseFloat(salaryMatch[1]);
+        let max = salaryMatch[2] ? parseFloat(salaryMatch[2]) : min;
+        // Convert to annual if in lakhs
+        if (min < 100) { min *= 100000; max *= 100000; }
+        result.salary = { min: Math.round(min), max: Math.round(max), currency: 'INR' };
+      }
+
+      // Detect job type
+      if (/intern|internship/i.test(text)) result.jobType = 'internship';
+      else if (/part.?time|freelance/i.test(text)) result.jobType = 'part_time';
+      else if (/contract/i.test(text)) result.jobType = 'contract';
+
+      // Extract internship duration
+      if (result.jobType === 'internship') {
+        const durationMatch = text.match(/(?:duration|period)[:\s]*([0-9]+)\s*(?:months?|weeks?)/i);
+        if (durationMatch) result.duration = `${durationMatch[1]} months`;
+      }
+
+      // Extract experience level
+      if (/senior|lead|principal|10\+|expert/i.test(text)) result.experienceLevel = 'senior';
+      else if (/mid|3-7|5-7|mid.level/i.test(text)) result.experienceLevel = 'mid';
+      else if (/junior|1-3|fresher|entry/i.test(text)) result.experienceLevel = 'entry';
+
+      // Extract requirements (look for bullet points or numbered lists)
+      const reqMatch = text.match(/(?:requirements|qualifications|required)[:\s]*\n([\s\S]*?)(?:\n\n|responsibilities|About|$)/i);
+      if (reqMatch) {
+        const reqs = reqMatch[1].split('\n').filter(r => r.trim());
+        result.requirements = reqs.slice(0, 10).map(r => r.replace(/^[-•*\d.]+\s*/, '').trim()).filter(r => r.length > 5);
+      }
+
+      // Extract skills from text (common tech stack)
+      const skillPatterns = [
+        /(?:java|python|javascript|typescript|c\+\+|c#|go|rust|kotlin|scala|php|ruby)/gi,
+        /(?:react|angular|vue|node|express|django|flask|spring)/gi,
+        /(?:sql|mongodb|postgresql|mysql|redis|elasticsearch)/gi,
+        /(?:aws|azure|gcp|docker|kubernetes|jenkins)/gi,
+        /(?:html|css|rest|graphql|microservices|agile)/gi
+      ];
+      
+      const foundSkills = new Set();
+      skillPatterns.forEach(pattern => {
+        const matches = text.match(pattern);
+        if (matches) {
+          matches.forEach(m => foundSkills.add(m.toLowerCase()));
+        }
+      });
+      result.suggestedSkills = Array.from(foundSkills).slice(0, 15);
+
+      // Extract short description
+      const descMatch = text.match(/(?:about|description|overview)[:\s]*([^\n]+)/i);
+      if (descMatch) result.description = descMatch[1].trim().substring(0, 500);
+
+      return result;
+    } catch (error) {
+      console.log('Code-based parsing fallback failed:', error.message);
+      return null;
+    }
+  }
+
   // Parse JD using Google Gemini AI
   async parseJobDescription(text, existingSkills = []) {
     if (!this.genAI) {
       throw new Error('AI service not configured. Please add your Google AI API key in Settings.');
     }
 
-    // Use gemini-2.0-flash-exp or gemini-pro as fallback (gemini-1.5-flash deprecated)
-    let model;
-    try {
-      model = this.genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
-    } catch (e) {
-      // Fallback to gemini-pro if 2.0 not available
-      model = this.genAI.getGenerativeModel({ model: 'gemini-pro' });
-    }
+    const maxRetries = this.apiKeys.length;
+    let lastError = null;
 
-    const skillsList = existingSkills.length > 0 
-      ? `Available skills in our system: ${existingSkills.join(', ')}`
-      : '';
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        // Use gemini-2.0-flash-exp or gemini-pro as fallback (gemini-1.5-flash deprecated)
+        let model;
+        try {
+          model = this.genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+        } catch (e) {
+          // Fallback to gemini-pro if 2.0 not available
+          model = this.genAI.getGenerativeModel({ model: 'gemini-pro' });
+        }
 
-    const prompt = `
+        const skillsList = existingSkills.length > 0 
+          ? `Available skills in our system: ${existingSkills.join(', ')}`
+          : '';
+
+        const prompt = `
 You are an expert HR assistant. Parse the following job description and extract structured information.
 
 ${skillsList}
@@ -245,56 +378,112 @@ Rules:
 5. Return ONLY the JSON object, nothing else.
 `;
 
-    try {
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      let responseText = response.text();
-      
-      // Clean up response - remove markdown code blocks if present
-      responseText = responseText
-        .replace(/```json\n?/g, '')
-        .replace(/```\n?/g, '')
-        .trim();
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        let responseText = response.text();
+        
+        // Clean up response - remove markdown code blocks if present
+        responseText = responseText
+          .replace(/```json\n?/g, '')
+          .replace(/```\n?/g, '')
+          .trim();
 
-      const parsed = JSON.parse(responseText);
-      
-      // Validate and clean the response
-      return {
-        title: parsed.title || '',
-        company: {
-          name: parsed.company?.name || '',
-          website: parsed.company?.website || '',
-          description: parsed.company?.description || ''
-        },
-        description: parsed.description || '',
-        requirements: Array.isArray(parsed.requirements) ? parsed.requirements.filter(r => r) : [],
-        responsibilities: Array.isArray(parsed.responsibilities) ? parsed.responsibilities.filter(r => r) : [],
-        location: parsed.location || '',
-        jobType: ['full_time', 'part_time', 'internship', 'contract'].includes(parsed.jobType) 
-          ? parsed.jobType 
-          : 'full_time',
-        duration: parsed.duration || '',
-        salary: {
-          min: typeof parsed.salary?.min === 'number' ? parsed.salary.min : null,
-          max: typeof parsed.salary?.max === 'number' ? parsed.salary.max : null,
-          currency: parsed.salary?.currency || 'INR'
-        },
-        suggestedSkills: Array.isArray(parsed.suggestedSkills) ? parsed.suggestedSkills : [],
-        experienceLevel: parsed.experienceLevel || 'entry',
-        maxPositions: typeof parsed.maxPositions === 'number' ? parsed.maxPositions : 1
-      };
+        const parsed = JSON.parse(responseText);
+        
+        // Validate and clean the response
+        return {
+          title: parsed.title || '',
+          company: {
+            name: parsed.company?.name || '',
+            website: parsed.company?.website || '',
+            description: parsed.company?.description || ''
+          },
+          description: parsed.description || '',
+          requirements: Array.isArray(parsed.requirements) ? parsed.requirements.filter(r => r) : [],
+          responsibilities: Array.isArray(parsed.responsibilities) ? parsed.responsibilities.filter(r => r) : [],
+          location: parsed.location || '',
+          jobType: ['full_time', 'part_time', 'internship', 'contract'].includes(parsed.jobType) 
+            ? parsed.jobType 
+            : 'full_time',
+          duration: parsed.duration || '',
+          salary: {
+            min: typeof parsed.salary?.min === 'number' ? parsed.salary.min : null,
+            max: typeof parsed.salary?.max === 'number' ? parsed.salary.max : null,
+            currency: parsed.salary?.currency || 'INR'
+          },
+          suggestedSkills: Array.isArray(parsed.suggestedSkills) ? parsed.suggestedSkills : [],
+          experienceLevel: parsed.experienceLevel || 'entry',
+          maxPositions: typeof parsed.maxPositions === 'number' ? parsed.maxPositions : 1
+        };
+
+      } catch (error) {
+        console.error(`AI parsing error (attempt ${attempt + 1}/${maxRetries}):`, error);
+
+        // Map common errors to codes and clearer messages
+        const message = error?.message || String(error);
+        let code = 'AI_PARSE_FAILED';
+        let shouldRetry = false;
+
+        if (/quota|quota exceeded|limit/i.test(message)) {
+          code = 'QUOTA_EXCEEDED';
+          shouldRetry = true;
+        } else if (/rate limit|429/i.test(message)) {
+          code = 'RATE_LIMITED';
+          shouldRetry = true;
+        } else if (/billing|payment/i.test(message)) {
+          code = 'BILLING_ISSUE';
+          shouldRetry = true;
+        } else if (/invalid|key|credential/i.test(message)) {
+          code = 'INVALID_API_KEY';
+          shouldRetry = true;
+        } else if (/permission|not authorized|403/i.test(message)) {
+          code = 'FORBIDDEN';
+          shouldRetry = true;
+        } else if (/timeout|timed out/i.test(message)) {
+          code = 'TIMEOUT';
+          shouldRetry = false; // Don't rotate on timeout
+        } else if (error instanceof SyntaxError) {
+          code = 'INVALID_RESPONSE';
+          shouldRetry = false;
+        }
+
+        // Store error with code for potential retry or final throw
+        lastError = error;
+        lastError.code = code;
+
+        // If this is a quota/rate limit/auth error and we have more keys, try next key
+        if (shouldRetry && attempt < maxRetries - 1 && this.rotateKey()) {
+          console.log(`Retrying with next API key...`);
+          continue;
+        }
+
+        // No more keys to try or not a retryable error
+        const err = new Error(`AI parse failed: ${message}`);
+        err.code = code;
+        err.originalError = error;
+        throw err;
+      }
+    }
+
+    // If we get here, all keys failed
+    const err = new Error(`AI parse failed after trying ${maxRetries} key(s): ${lastError?.message || 'Unknown error'}`);
+    err.code = lastError?.code || 'AI_PARSE_FAILED';
+    err.originalError = lastError;
+    throw err;
+  }
+
+  // Health check for AI service
+  async getStatus() {
+    if (!this.apiKey || !this.genAI) {
+      return { configured: false, enabled: false, working: false, message: 'AI key not configured' };
+    }
+
+    try {
+      // A lightweight check: try to get model instance (does not consume tokens)
+      this.genAI.getGenerativeModel({ model: 'gemini-2.0-flash-exp' });
+      return { configured: true, enabled: true, working: true };
     } catch (error) {
-      console.error('AI parsing error:', error);
-      
-      if (error.message?.includes('API key')) {
-        throw new Error('Invalid API key. Please check your Google AI API key in Settings.');
-      }
-      
-      if (error instanceof SyntaxError) {
-        throw new Error('AI returned invalid response. Please try again.');
-      }
-      
-      throw new Error('Failed to parse job description with AI. Please try again or fill manually.');
+      return { configured: true, enabled: true, working: false, message: error.message || 'AI model unavailable' };
     }
   }
 

@@ -34,7 +34,10 @@ const Settings = () => {
     fetchPlacementCycles();
     fetchCampuses();
     fetchAiConfig();
+    fetchAiStatus();
   }, []);
+
+  const [aiStatus, setAiStatus] = useState(null);  // runtime status (working/quota/etc)
 
   const fetchAiConfig = async () => {
     try {
@@ -42,6 +45,15 @@ const Settings = () => {
       setAiConfig(response.data.data);
     } catch (err) {
       console.error('Error fetching AI config:', err);
+    }
+  };
+
+  const fetchAiStatus = async () => {
+    try {
+      const response = await settingsAPI.getAIStatus();
+      setAiStatus(response.data.data);
+    } catch (err) {
+      console.error('Error fetching AI status:', err);
     }
   };
 
@@ -54,7 +66,8 @@ const Settings = () => {
       });
       setSuccess('AI configuration saved successfully');
       setNewApiKey('');
-      fetchAiConfig();
+      await fetchAiConfig();
+      await fetchAiStatus();
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to save AI configuration');
@@ -68,6 +81,7 @@ const Settings = () => {
       await settingsAPI.updateAIConfig({ enabled: !aiConfig.enabled });
       setAiConfig(prev => ({ ...prev, enabled: !prev.enabled }));
       setSuccess(aiConfig.enabled ? 'AI disabled' : 'AI enabled');
+      await fetchAiStatus();
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError('Failed to update AI status');
@@ -801,6 +815,34 @@ const Settings = () => {
                   />
                 </button>
               </div>
+            </div>
+
+            {/* AI Runtime Status (operational / quota / errors) */}
+            <div className="mt-4 p-4 bg-white border rounded-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-medium">AI Runtime Status</div>
+                  <div className="text-xs text-gray-600 mt-1">
+                    {aiStatus ? (
+                      aiStatus.configured ? (
+                        aiStatus.working ? 'Operational' : `Configured but not operational: ${aiStatus.message || 'unknown'}`
+                      ) : 'Not configured'
+                    ) : 'Unknown - click Refresh to check'}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={fetchAiStatus}
+                    className="px-3 py-1 rounded bg-gray-100 text-sm"
+                  >
+                    Refresh
+                  </button>
+                </div>
+              </div>
+              {aiStatus?.message && (
+                <div className="text-xs text-yellow-700 mt-2">Details: {aiStatus.message}</div>
+              )}
             </div>
 
             {/* API Key Input */}

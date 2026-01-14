@@ -83,6 +83,7 @@ const POCSkillApprovals = () => {
                 <button
                   onClick={() => handleBulkApprove(student._id, student.pendingSkills)}
                   className="btn btn-success text-sm"
+                  title="Approve all pending skills"
                 >
                   Approve All ({student.pendingSkills?.length})
                 </button>
@@ -111,16 +112,16 @@ const POCSkillApprovals = () => {
                         <button
                           onClick={() => handleApproval(student._id, skillItem.skill?._id, 'rejected')}
                           disabled={isProcessing}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50"
-                          title="Reject"
+                          className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50"
+                          title="Reject skill"
                         >
                           <XCircle className="w-5 h-5" />
                         </button>
                         <button
                           onClick={() => handleApproval(student._id, skillItem.skill?._id, 'approved')}
                           disabled={isProcessing}
-                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg disabled:opacity-50"
-                          title="Approve"
+                            className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg disabled:opacity-50"
+                            title="Approve skill"
                         >
                           <CheckCircle className="w-5 h-5" />
                         </button>

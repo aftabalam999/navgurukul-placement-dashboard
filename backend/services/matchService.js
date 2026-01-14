@@ -68,14 +68,52 @@ function calculateSkillMatch(student, job) {
   }
 
   const studentSkills = student.studentProfile?.technicalSkills || [];
-  const studentSkillMap = new Map(
-    studentSkills.map(s => [s.skillName?.toLowerCase(), s.selfRating || 0])
-  );
+  const studentSoftSkills = student.studentProfile?.softSkills || {};
+  
+  // Create map of student skills by name (case-insensitive) and by skill ID
+  const studentSkillByName = new Map();
+  const studentSkillById = new Map();
+  
+  // Add technical skills
+  studentSkills.forEach(s => {
+    const skillNameLower = (s.skillName || '').toLowerCase();
+    const skillId = s.skillId?.toString() || '';
+    
+    if (skillNameLower) {
+      studentSkillByName.set(skillNameLower, s.selfRating || 0);
+    }
+    if (skillId) {
+      studentSkillById.set(skillId, s.selfRating || 0);
+    }
+  });
 
-  // Also check legacy skills (approved ones)
+  // Add soft skills (from softSkills object)
+  // Soft skills are stored as: { communication: 3, collaboration: 2, ... }
+  Object.entries(studentSoftSkills).forEach(([skillKey, level]) => {
+    if (skillKey && typeof level === 'number') {
+      studentSkillByName.set(skillKey.toLowerCase(), level);
+    }
+  });
+
+  // Also check legacy skills (approved ones) - populate the maps
   const approvedSkills = (student.studentProfile?.skills || [])
     .filter(s => s.status === 'approved')
     .map(s => s.skill);
+
+  approvedSkills.forEach(skill => {
+    if (skill) {
+      const skillId = skill._id?.toString() || skill.toString();
+      const skillName = skill.name?.toLowerCase() || '';
+      
+      // Only set to 1 if not already in map (self-rated skills take precedence)
+      if (skillId && !studentSkillById.has(skillId)) {
+        studentSkillById.set(skillId, 1); // Has the skill, assume beginner
+      }
+      if (skillName && !studentSkillByName.has(skillName)) {
+        studentSkillByName.set(skillName, 1);
+      }
+    }
+  });
 
   let matchedCount = 0;
   let totalWeight = 0;
@@ -84,17 +122,21 @@ function calculateSkillMatch(student, job) {
 
   for (const reqSkill of requiredSkills) {
     const skillId = reqSkill.skill?._id?.toString() || reqSkill.skill?.toString();
-    const skillName = reqSkill.skill?.name?.toLowerCase() || '';
+    const skillName = (reqSkill.skill?.name || '').toLowerCase();
     const requiredLevel = reqSkill.proficiencyLevel || 1;
     const weight = reqSkill.required ? 2 : 1; // Required skills have double weight
     totalWeight += weight;
 
-    // Check if student has this skill
-    let studentLevel = studentSkillMap.get(skillName) || 0;
+    // Check if student has this skill - try ID first (most reliable), then name
+    let studentLevel = 0;
     
-    // Check in approved skills
-    if (studentLevel === 0 && approvedSkills.some(s => s?.toString() === skillId)) {
-      studentLevel = 1; // Has the skill but no self-rating, assume beginner
+    if (skillId) {
+      studentLevel = studentSkillById.get(skillId) || 0;
+    }
+    
+    // If not found by ID, try by name
+    if (studentLevel === 0 && skillName) {
+      studentLevel = studentSkillByName.get(skillName) || 0;
     }
 
     const meets = studentLevel >= requiredLevel;
@@ -402,13 +444,22 @@ function calculateRequirementsMatch(student, job, studentResponses = {}) {
 function generateSummary(breakdown, overallPercentage) {
   const messages = [];
 
-  // Skills summary
+  // Skills summary - show specific missing skills
   if (breakdown.skills.required > 0) {
     if (breakdown.skills.matched === breakdown.skills.required) {
       messages.push(`✅ All ${breakdown.skills.required} required skills matched`);
     } else {
+      const missingSkills = breakdown.skills.details
+        .filter(s => !s.meets)
+        .map(s => `${s.skillName} (need ${s.requiredLevelLabel})`)
+        .slice(0, 3); // Show up to 3
+      
       const missing = breakdown.skills.required - breakdown.skills.matched;
-      messages.push(`⚠️ ${missing} of ${breakdown.skills.required} skills need improvement`);
+      if (missingSkills.length > 0) {
+        messages.push(`⚠️ ${missing} skill${missing > 1 ? 's' : ''} need improvement: ${missingSkills.join(', ')}${breakdown.skills.details.filter(s => !s.meets).length > 3 ? '...' : ''}`);
+      } else {
+        messages.push(`⚠️ ${missing} of ${breakdown.skills.required} skills need improvement`);
+      }
     }
   }
 

@@ -4,6 +4,117 @@ const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const { auth } = require('../middleware/auth');
+const passport = require('../config/passport');
+
+// Google OAuth routes
+router.get('/google', 
+  passport.authenticate('google', { scope: ['profile', 'email'] })
+);
+
+router.get('/google/callback',
+  passport.authenticate('google', { session: false }),
+  async (req, res) => {
+    try {
+      const user = req.user;
+      
+      // Check if user needs approval
+      if (user.needsApproval && !user.isActive) {
+        return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/auth/pending-approval?email=${encodeURIComponent(user.email)}`);
+      }
+      
+      // Check if user is inactive (needs manager approval)
+      if (!user.isActive) {
+        return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/auth/account-inactive`);
+      }
+      
+      // Generate JWT token
+      const token = jwt.sign(
+        { 
+          userId: user._id, 
+          email: user.email, 
+          role: user.role 
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: '7d' }
+      );
+      
+      // Redirect to frontend with token
+      const redirectUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/auth/callback?token=${token}`;
+      res.redirect(redirectUrl);
+      
+    } catch (error) {
+      console.error('Google callback error:', error);
+      res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/auth/login?error=authentication_failed`);
+    }
+  }
+);
+
+// Manager approval endpoint
+router.post('/approve-user', auth, async (req, res) => {
+  try {
+    const { userId, approvedRole } = req.body;
+    
+    // Check if current user is manager
+    if (req.user.role !== 'manager') {
+      return res.status(403).json({ message: 'Only managers can approve users' });
+    }
+    
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    // Update user status
+    user.isActive = true;
+    if (approvedRole && ['student', 'coordinator', 'campus-poc', 'manager'].includes(approvedRole)) {
+      user.role = approvedRole;
+    }
+    await user.save();
+    
+    // Create notification for approved user
+    const Notification = require('../models/Notification');
+    await Notification.create({
+      user: user._id,
+      type: 'account_approved',
+      title: 'Account Approved',
+      message: `Your account has been approved with ${user.role} role. You can now access the platform.`,
+    });
+    
+    res.json({ 
+      message: 'User approved successfully', 
+      user: {
+        id: user._id,
+        email: user.email,
+        role: user.role,
+        isActive: user.isActive
+      }
+    });
+    
+  } catch (error) {
+    console.error('User approval error:', error);
+    res.status(500).json({ message: 'Server error during user approval' });
+  }
+});
+
+// Get pending approvals (for manager)
+router.get('/pending-approvals', auth, async (req, res) => {
+  try {
+    if (req.user.role !== 'manager') {
+      return res.status(403).json({ message: 'Only managers can view pending approvals' });
+    }
+    
+    const pendingUsers = await User.find({ 
+      isActive: false,
+      authProvider: 'google'
+    }).select('firstName lastName email role createdAt');
+    
+    res.json(pendingUsers);
+    
+  } catch (error) {
+    console.error('Fetch pending approvals error:', error);
+    res.status(500).json({ message: 'Server error fetching pending approvals' });
+  }
+});
 
 // Validation rules
 const registerValidation = [

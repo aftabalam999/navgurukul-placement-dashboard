@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { jobReadinessAPI } from '../../services/api';
 import { Link } from 'react-router-dom';
-import { jobAPI, settingsAPI, applicationAPI } from '../../services/api';
+import { jobAPI, settingsAPI, applicationAPI, userAPI } from '../../services/api';
 import { LoadingSpinner, StatusBadge, Pagination, EmptyState, ConfirmModal } from '../../components/common/UIComponents';
 import { Briefcase, Plus, Search, Edit, Trash2, MapPin, Calendar, Users, GraduationCap, Clock, LayoutGrid, List, Download, Settings, X } from 'lucide-react';
 import { format } from 'date-fns';
@@ -23,6 +23,11 @@ const CoordinatorJobs = () => {
   const [exportData, setExportData] = useState({ fields: [], allSelected: true });
   const [availableFields, setAvailableFields] = useState([]);
   const [exporting, setExporting] = useState(false);
+  const [exportFormat, setExportFormat] = useState('csv');
+  const [exportLayout, setExportLayout] = useState('resume'); // 'resume' or 'table'
+  const [presets, setPresets] = useState([]);
+  const [presetName, setPresetName] = useState('');
+  const [selectedPresetId, setSelectedPresetId] = useState(null);
 
   useEffect(() => {
     fetchPipelineStages();
@@ -127,7 +132,61 @@ const CoordinatorJobs = () => {
 
   const openExportModal = (jobId, jobTitle) => {
     setExportModal({ show: true, jobId, jobTitle });
+    setExportFormat('pdf');
+    setExportLayout('resume');
+    setSelectedPresetId(null);
+    fetchPresets();
   };
+
+  // Preset helpers
+  const fetchPresets = async () => {
+    try {
+      const res = await userAPI.getExportPresets();
+      setPresets(res.data.presets || []);
+    } catch (err) {
+      console.error('Error fetching presets:', err);
+    }
+  };
+
+  const applyPreset = (preset) => {
+    setExportData({ fields: preset.fields, allSelected: false });
+    setExportFormat(preset.format || 'pdf');
+    setExportLayout(preset.layout || 'resume');
+    setSelectedPresetId(preset._id);
+  };
+
+  const savePreset = async () => {
+    if (!presetName) {
+      const name = window.prompt('Preset name (short)');
+      if (!name) return;
+      setPresetName(name);
+    }
+
+    try {
+      const payload = { name: presetName || window.prompt('Preset name') || 'My Preset', fields: exportData.fields, format: exportFormat, layout: exportLayout };
+      const res = await userAPI.createExportPreset(payload);
+      setPresets(res.data.presets || []);
+      setPresetName('');
+      toast.success('Preset saved');
+    } catch (err) {
+      console.error('Error saving preset:', err);
+      toast.error(err?.response?.data?.message || 'Error saving preset');
+    }
+  };
+
+  const deletePreset = async (presetId) => {
+    if (!window.confirm('Delete this preset?')) return;
+    try {
+      const res = await userAPI.deleteExportPreset(presetId);
+      setPresets(res.data.presets || []);
+      if (selectedPresetId === presetId) setSelectedPresetId(null);
+      toast.success('Preset deleted');
+    } catch (err) {
+      console.error('Error deleting preset:', err);
+      toast.error('Error deleting preset');
+    }
+  };
+
 
   const closeExportModal = () => {
     setExportModal({ show: false, jobId: null, jobTitle: '' });
@@ -166,20 +225,26 @@ const CoordinatorJobs = () => {
     setExporting(true);
     try {
       const response = await jobAPI.exportJobApplications(exportModal.jobId, {
-        fields: exportData.fields
+        fields: exportData.fields,
+        format: exportFormat,
+        layout: exportLayout
       });
       
       // Create download link
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      link.setAttribute('download', `${exportModal.jobTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_applications.csv`);
+      
+      const fileExtension = exportFormat === 'pdf' ? 'pdf' : 'csv';
+      const fileName = `${exportModal.jobTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_applications.${fileExtension}`;
+      
+      link.setAttribute('download', fileName);
       document.body.appendChild(link);
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
       
-      toast.success('Export completed successfully!');
+      toast.success(`Export completed successfully as ${exportFormat.toUpperCase()}!`);
       closeExportModal();
     } catch (error) {
       console.error('Export error:', error);
@@ -344,10 +409,11 @@ const CoordinatorJobs = () => {
                     </select>
                     <button
                       onClick={() => openExportModal(job._id, job.title)}
-                      className="p-2 hover:bg-green-50 rounded-lg text-green-600"
-                      title="Export Applications"
+                      className="flex items-center gap-2 px-3 py-2 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg transition-colors border border-green-200"
+                      title="Export Applications (CSV/PDF)"
                     >
-                      <Download className="w-5 h-5" />
+                      <Download className="w-4 h-4" />
+                      <span className="text-sm font-medium">Export</span>
                     </button>
                     <Link
                       to={`/coordinator/jobs/${job._id}/edit`}
@@ -423,13 +489,19 @@ const CoordinatorJobs = () => {
       {/* Export Modal */}
       {exportModal.show && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
+          <div className="bg-white rounded-lg max-w-5xl w-full max-h-[90vh] overflow-hidden">
             {/* Header */}
-            <div className="px-6 py-4 border-b border-gray-200">
+            <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Export Applications</h3>
-                  <p className="text-sm text-gray-500 mt-1">{exportModal.jobTitle}</p>
+                  <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                    <Download className="w-6 h-6 text-blue-600" />
+                    Export Applications
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    <span className="font-medium">{exportModal.jobTitle}</span> - 
+                    Select fields and format to export
+                  </p>
                 </div>
                 <button
                   onClick={closeExportModal}
@@ -441,46 +513,159 @@ const CoordinatorJobs = () => {
             </div>
 
             {/* Content */}
-            <div className="px-6 py-4 max-h-[60vh] overflow-y-auto">
-              <div className="mb-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="text-md font-medium text-gray-900">Select Fields to Export</h4>
-                  <div className="flex items-center gap-2">
+            <div className="flex h-[70vh]">
+              {/* Left Panel - Format Selection */}
+              <div className="w-64 bg-gray-50 border-r border-gray-200 p-4">
+                <h4 className="text-sm font-semibold text-gray-900 mb-3">Export Format</h4>
+                <div className="space-y-2">
+                  <label className="flex items-center p-3 bg-white border rounded-lg cursor-pointer hover:bg-gray-50">
+                    <input
+                      type="radio"
+                      name="exportFormat"
+                      value="csv"
+                      checked={exportFormat === 'csv'}
+                      onChange={(e) => setExportFormat(e.target.value)}
+                      className="mr-3"
+                    />
+                    <div>
+                      <div className="font-medium text-sm">CSV Spreadsheet</div>
+                      <div className="text-xs text-gray-500">Excel compatible format</div>
+                    </div>
+                  </label>
+                  <label className="flex items-center p-3 bg-white border rounded-lg cursor-pointer hover:bg-gray-50">
+                    <input
+                      type="radio"
+                      name="exportFormat"
+                      value="pdf"
+                      checked={exportFormat === 'pdf'}
+                      onChange={(e) => setExportFormat(e.target.value)}
+                      className="mr-3"
+                    />
+                    <div>
+                      <div className="font-medium text-sm">PDF Report</div>
+                      <div className="text-xs text-gray-500">Formal document with company branding</div>
+                    </div>
+                  </label>
+                </div>
+
+                {/* Presets */}
+                <div className="mt-4">
+                  <h4 className="text-sm font-semibold text-gray-900 mb-2">Presets</h4>
+                  <div className="flex gap-2">
+                    <select
+                      value={selectedPresetId || ''}
+                      onChange={(e) => {
+                        const p = presets.find(pp => pp._id === e.target.value);
+                        if (p) applyPreset(p);
+                        setSelectedPresetId(e.target.value || null);
+                      }}
+                      className="flex-1 p-2 border rounded bg-white text-sm"
+                    >
+                      <option value="">-- Select Preset --</option>
+                      {presets.map(p => (
+                        <option key={p._id} value={p._id}>{p.name}</option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={savePreset}
+                      className="px-3 py-2 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700"
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={() => selectedPresetId && deletePreset(selectedPresetId)}
+                      disabled={!selectedPresetId}
+                      className="px-3 py-2 bg-red-50 text-red-600 rounded text-sm hover:bg-red-100 disabled:opacity-50"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+
+                {/* PDF Layout */}
+                {exportFormat === 'pdf' && (
+                  <div className="mt-4">
+                    <h4 className="text-sm font-semibold text-gray-900 mb-2">PDF Layout</h4>
+                    <label className="flex items-center gap-3 p-2 bg-white border rounded cursor-pointer">
+                      <input
+                        type="radio"
+                        name="exportLayout"
+                        value="resume"
+                        checked={exportLayout === 'resume'}
+                        onChange={(e) => setExportLayout(e.target.value)}
+                        className="mr-3"
+                      />
+                      <div>
+                        <div className="font-medium text-sm">Resume-style (2 per page)</div>
+                        <div className="text-xs text-gray-500">Polished resume cards, 2 students per page</div>
+                      </div>
+                    </label>
+                    <label className="flex items-center gap-3 p-2 bg-white border rounded cursor-pointer mt-2">
+                      <input
+                        type="radio"
+                        name="exportLayout"
+                        value="table"
+                        checked={exportLayout === 'table'}
+                        onChange={(e) => setExportLayout(e.target.value)}
+                        className="mr-3"
+                      />
+                      <div>
+                        <div className="font-medium text-sm">Compact Table</div>
+                        <div className="text-xs text-gray-500">Dense one-row-per-student table</div>
+                      </div>
+                    </label>
+                  </div>
+                )}
+                
+                <div className="mt-6">
+                  <h4 className="text-sm font-semibold text-gray-900 mb-3">Quick Selection</h4>
+                  <div className="space-y-2">
                     <button
                       onClick={() => {
-                        // Quick select: Essential fields only
                         const essentialFields = ['studentName', 'email', 'phone', 'campus', 'currentSchool', 'currentModule', 'attendance', 'status', 'appliedDate', 'profileStatus'];
                         setExportData({
                           fields: essentialFields.filter(f => availableFields.some(af => af.key === f)),
                           allSelected: false
                         });
                       }}
-                      className="text-xs px-2 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+                      className="w-full text-left px-3 py-2 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
                     >
-                      Essential Only
+                      🎯 Essential Only
                     </button>
                     <button
                       onClick={() => {
-                        // Quick select: Profile + Skills
                         const profileFields = availableFields.filter(f => 
-                          ['Student Info', 'Campus Info', 'Navgurukul Education', 'Academic Background', 'Skills', 'Soft Skills', 'Language Skills', 'Profile Links'].includes(f.category)
+                          ['Student Info', 'Campus Info', 'Navgurukul Education', 'Academic Background', 'Skills', 'Soft Skills'].includes(f.category)
                         ).map(f => f.key);
                         setExportData({
                           fields: profileFields,
                           allSelected: false
                         });
                       }}
-                      className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors"
+                      className="w-full text-left px-3 py-2 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors"
                     >
-                      Profile + Skills
+                      👤 Profile + Skills
                     </button>
                     <button
                       onClick={handleSelectAll}
-                      className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                      className="w-full text-left px-3 py-2 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
                     >
-                      {exportData.allSelected ? 'Deselect All' : 'Select All'}
+                      {exportData.allSelected ? '✖️ Deselect All' : '✅ Select All'}
                     </button>
                   </div>
+                </div>
+              </div>
+
+              {/* Right Panel - Field Selection */}
+              <div className="flex-1 px-6 py-4 overflow-y-auto">
+                <div className="mb-4">
+                  <h4 className="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                    <Users className="w-5 h-5" />
+                    Select Fields to Export
+                  </h4>
+                  <p className="text-sm text-gray-600">
+                    Choose which student information fields to include in your export.
+                  </p>
                 </div>
                 
                 {/* Fields grouped by category */}
@@ -535,38 +720,52 @@ const CoordinatorJobs = () => {
                     <strong>{exportData.fields.length}</strong> field{exportData.fields.length !== 1 ? 's' : ''} selected for export
                   </p>
                   <p className="text-xs text-blue-600">
-                    Export will include comprehensive student data including profile details, academic background, 
-                    skills assessment, job readiness criteria, and application information in CSV format.
+                    {exportFormat === 'pdf' 
+                      ? 'PDF export will include formal layout with company branding and structured presentation.'
+                      : 'CSV export will include comprehensive student data in spreadsheet format, compatible with Excel.'
+                    }
                   </p>
                 </div>
               )}
             </div>
 
             {/* Footer */}
-            <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-end gap-3">
-              <button
-                onClick={closeExportModal}
-                className="px-4 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleExport}
-                disabled={exportData.fields.length === 0 || exporting}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-              >
-                {exporting ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Exporting...
-                  </>
-                ) : (
-                  <>
-                    <Download className="w-4 h-4" />
-                    Export as CSV
-                  </>
-                )}
-              </button>
+            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-600">
+                  <span className="font-medium">{exportData.fields.length}</span> fields selected
+                  {exportFormat === 'pdf' && (
+                    <span className="ml-4 text-blue-600 font-medium">
+                      📄 PDF will include company branding and formal layout
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={closeExportModal}
+                    className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleExport}
+                    disabled={exportData.fields.length === 0 || exporting}
+                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                  >
+                    {exporting ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        Exporting...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="w-4 h-4" />
+                        Export as {exportFormat.toUpperCase()}
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

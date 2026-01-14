@@ -32,7 +32,10 @@ const auth = async (req, res, next) => {
 // Role-based access control
 const authorize = (...roles) => {
   return (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
+    const userRole = String(req.user?.role || '').trim().toLowerCase();
+    const allowed = roles.map(r => String(r).trim().toLowerCase());
+    if (!allowed.includes(userRole)) {
+      console.warn(`Authorization denied for user ${req.userId} (role=${req.user?.role}). Allowed roles: ${roles.join(', ')}`);
       return res.status(403).json({ 
         message: 'Access denied. You do not have permission to perform this action.' 
       });

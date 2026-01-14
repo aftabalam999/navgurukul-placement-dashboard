@@ -3,6 +3,8 @@ const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const path = require('path');
+const session = require('express-session');
+const passport = require('./config/passport');
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -18,6 +20,7 @@ const campusRoutes = require('./routes/campuses');
 const selfApplicationRoutes = require('./routes/selfApplications');
 const jobReadinessRoutes = require('./routes/jobReadiness');
 const bulkUploadRoutes = require('./routes/bulkUpload');
+const utilsRoutes = require('./routes/utils');
 
 const app = express();
 
@@ -47,6 +50,21 @@ app.use(cors({
 // Handle preflight requests
 app.options('*', cors());
 
+// Session configuration for Passport
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'your-secret-key',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { 
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 24 * 60 * 60 * 1000 // 24 hours
+  }
+}));
+
+// Initialize Passport
+app.use(passport.initialize());
+app.use(passport.session());
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -70,6 +88,7 @@ app.use('/api/campuses', campusRoutes);
 app.use('/api/self-applications', selfApplicationRoutes);
 app.use('/api/job-readiness', jobReadinessRoutes);
 app.use('/api/bulk-upload', bulkUploadRoutes);
+app.use('/api/utils', utilsRoutes);
 
 // Health check with detailed status
 app.get('/api/health', async (req, res) => {
@@ -148,8 +167,36 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = process.env.PORT || 5001;
-app.listen(PORT, () => {
+
+// Start server and attach helpful error handling
+const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+});
+
+server.on('error', (err) => {
+  if (err && err.code === 'EADDRINUSE') {
+    console.error(`Failed to start server: port ${PORT} is already in use (EADDRINUSE).`);
+    console.error('Troubleshooting tips:');
+    console.error(`  - Find the process using the port: lsof -ti TCP:${PORT} -sTCP:LISTEN`);
+    console.error('  - Kill it: kill <PID> (or `lsof -ti TCP:5001 -sTCP:LISTEN | xargs kill -9`)');
+    console.error('  - Or change the PORT env var to use a different port: PORT=5002 npm run dev');
+    // In dev we prefer to exit and let the process manager (nodemon) restart
+    process.exit(1);
+  }
+  console.error('Server error:', err);
+  process.exit(1);
+});
+
+// Global handlers for unexpected errors to give clearer messages during development
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  // Recommended: dump and exit to allow process managers to restart
+  setTimeout(() => process.exit(1), 1000);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+  setTimeout(() => process.exit(1), 1000);
 });
 
 module.exports = app;

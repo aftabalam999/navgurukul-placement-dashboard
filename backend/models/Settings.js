@@ -57,7 +57,14 @@ const settingsSchema = new mongoose.Schema({
   },
   // AI Integration Settings
   aiConfig: {
-    googleApiKey: { type: String, default: '' }, // Google AI Studio API key
+    googleApiKeys: [{ 
+      key: { type: String, required: true },
+      label: { type: String, default: '' }, // Optional label like "Primary", "Backup", etc.
+      addedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      addedAt: { type: Date, default: Date.now },
+      lastUsed: { type: Date },
+      isActive: { type: Boolean, default: true }
+    }],
     enabled: { type: Boolean, default: true }
   },
   // Last updated by

@@ -11,8 +11,20 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: true,
+    required: function() {
+      return !this.googleId; // Password not required if using Google OAuth
+    },
     minlength: 6
+  },
+  // Google OAuth fields
+  googleId: {
+    type: String,
+    sparse: true // Allow multiple null values
+  },
+  authProvider: {
+    type: String,
+    enum: ['local', 'google'],
+    default: 'local'
   },
   role: {
     type: String,
@@ -45,6 +57,21 @@ const userSchema = new mongoose.Schema({
   avatar: {
     type: String
   },
+  // AI API Keys (for coordinators to add their own keys)
+  aiApiKeys: [{
+    key: { type: String, required: true },
+    label: { type: String, default: '' },
+    addedAt: { type: Date, default: Date.now },
+    isActive: { type: Boolean, default: true }
+  }],
+  // User-specific export presets (max 2)
+  exportPresets: [{
+    name: String,
+    fields: [String],
+    format: { type: String, enum: ['csv', 'pdf'], default: 'pdf' },
+    layout: { type: String, enum: ['resume', 'table'], default: 'resume' },
+    createdAt: { type: Date, default: Date.now }
+  }],
   isActive: {
     type: Boolean,
     default: true
@@ -86,7 +113,8 @@ const userSchema = new mongoose.Schema({
     // Current Navgurukul Education
     currentSchool: {
       type: String,
-      enum: ['', 'School of Programming', 'School of Business', 'School of Finance', 'School of Education', 'School of Second Chance']
+      trim: true,
+      default: ''
     },
     joiningDate: Date,
     dateOfJoining: Date, // Official joining date for calculating months at Navgurukul
@@ -163,6 +191,10 @@ const userSchema = new mongoose.Schema({
     
     // Technical Skills with self-assessment rubric
     technicalSkills: [{
+      skillId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Skill'
+      },
       skillName: String,
       selfRating: {
         type: Number,
@@ -252,6 +284,7 @@ const userSchema = new mongoose.Schema({
     }],
     
     resume: String,
+    resumeLink: String,
     linkedIn: String,
     github: String,
     portfolio: String,

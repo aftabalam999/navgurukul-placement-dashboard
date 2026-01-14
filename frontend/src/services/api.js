@@ -76,7 +76,16 @@ export const userAPI = {
     return api.put('/users/profile', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
-  }
+  },
+  // Export presets (personal)
+  getExportPresets: () => api.get('/users/me/export-presets'),
+  createExportPreset: (data) => api.post('/users/me/export-presets', data),
+  deleteExportPreset: (id) => api.delete(`/users/me/export-presets/${id}`),
+  // AI API Keys (personal for coordinators/managers)
+  getAIKeys: () => api.get('/users/me/ai-keys'),
+  addAIKey: (data) => api.post('/users/me/ai-keys', data),
+  updateAIKey: (keyId, data) => api.patch(`/users/me/ai-keys/${keyId}`, data),
+  deleteAIKey: (keyId) => api.delete(`/users/me/ai-keys/${keyId}`)
 };
 
 // Settings APIs
@@ -88,6 +97,7 @@ export const settingsAPI = {
   removeItem: (key, item) => api.post(`/settings/${key}/remove`, { item }),
   initSettings: () => api.post('/settings/init'),
   addCourseSkill: (skill) => api.post('/settings/course-skills', { skill }),
+  addSchool: (school) => api.post('/settings/schools', { school }),
   // Pipeline stages
   getPipelineStages: () => api.get('/settings/pipeline-stages'),
   createPipelineStage: (stage) => api.post('/settings/pipeline-stages', stage),
@@ -96,7 +106,8 @@ export const settingsAPI = {
   reorderPipelineStages: (stageIds) => api.put('/settings/pipeline-stages-order', { stageIds }),
   // AI config
   getAIConfig: () => api.get('/settings/ai-config'),
-  updateAIConfig: (config) => api.put('/settings/ai-config', config)
+  updateAIConfig: (config) => api.put('/settings/ai-config', config),
+  getAIStatus: () => api.get('/settings/ai-status')
 };
 
 // Job APIs
@@ -212,6 +223,11 @@ export const campusAPI = {
   createCampus: (data) => api.post('/campuses', data),
   updateCampus: (id, data) => api.put(`/campuses/${id}`, data),
   deleteCampus: (id) => api.delete(`/campuses/${id}`)
+};
+
+// Utilities
+export const utilsAPI = {
+  checkUrl: (url) => api.post('/utils/check-url', { url })
 };
 
 // Self Application APIs (for external jobs)

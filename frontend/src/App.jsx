@@ -7,6 +7,9 @@ import DashboardLayout from './layouts/DashboardLayout';
 // Auth Pages
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
+import AuthCallback from './pages/auth/AuthCallback';
+import PendingApproval from './pages/auth/PendingApproval';
+import AccountInactive from './pages/auth/AccountInactive';
 
 // Student Pages
 import StudentDashboard from './pages/student/Dashboard';
@@ -27,6 +30,7 @@ import POCJobReadinessReview from './pages/campus-poc/JobReadinessReview';
 import JobReadinessCriteriaConfig from './pages/campus-poc/JobReadinessCriteriaConfig';
 import POCSelfApplicationsReview from './pages/campus-poc/SelfApplicationsReview';
 import POCInterestRequestsReview from './pages/campus-poc/InterestRequestsReview';
+import POCSkills from './pages/campus-poc/Skills';
 
 // Coordinator Pages
 import CoordinatorDashboard from './pages/coordinator/Dashboard';
@@ -34,6 +38,7 @@ import CoordinatorJobs from './pages/coordinator/Jobs';
 import JobForm from './pages/coordinator/JobForm';
 import CoordinatorApplications from './pages/coordinator/Applications';
 import CoordinatorSkills from './pages/coordinator/Skills';
+import CoordinatorSettings from './pages/coordinator/Settings';
 
 // Manager Pages
 import ManagerDashboard from './pages/manager/Dashboard';
@@ -93,6 +98,9 @@ function App() {
       {/* Public Routes */}
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
       <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
+      <Route path="/auth/callback" element={<AuthCallback />} />
+      <Route path="/auth/pending-approval" element={<PendingApproval />} />
+      <Route path="/auth/account-inactive" element={<AccountInactive />} />
 
       {/* Student Routes */}
       <Route path="/student" element={
@@ -126,6 +134,7 @@ function App() {
         <Route path="job-readiness-criteria" element={<JobReadinessCriteriaConfig />} />
         <Route path="self-applications" element={<POCSelfApplicationsReview />} />
         <Route path="interest-requests" element={<POCInterestRequestsReview />} />
+        <Route path="skills" element={<POCSkills />} />
         <Route path="notifications" element={<Notifications />} />
       </Route>
 
@@ -141,6 +150,7 @@ function App() {
         <Route path="jobs/:id/edit" element={<JobForm />} />
         <Route path="applications" element={<CoordinatorApplications />} />
         <Route path="skills" element={<CoordinatorSkills />} />
+        <Route path="settings" element={<CoordinatorSettings />} />
         <Route path="notifications" element={<Notifications />} />
       </Route>
 

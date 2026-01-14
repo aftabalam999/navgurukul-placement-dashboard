@@ -36,9 +36,20 @@ router.post('/parse-jd', auth, authorize('coordinator', 'manager'), upload.singl
       return res.status(400).json({ message: 'Please provide either a PDF file or a URL' });
     }
 
-    // Get AI config from settings
+    // Get AI config from settings (global keys)
     const settings = await Settings.getSettings();
-    const apiKey = settings.aiConfig?.googleApiKey;
+    const globalKeys = (settings.aiConfig?.googleApiKeys || [])
+      .filter(k => k.isActive)
+      .map(k => k.key);
+
+    // Get user's personal AI keys (for coordinators)
+    const user = await User.findById(req.userId);
+    const userKeys = (user?.aiApiKeys || [])
+      .filter(k => k.isActive)
+      .map(k => k.key);
+
+    // Combine all keys: user keys first (higher priority), then global keys
+    const allKeys = [...userKeys, ...globalKeys].filter(k => k);
 
     // Get existing skills for better matching
     let existingSkills = [];
@@ -50,7 +61,7 @@ router.post('/parse-jd', auth, authorize('coordinator', 'manager'), upload.singl
       console.warn('Could not fetch skills:', skillError.message);
     }
 
-    const aiService = new AIService(apiKey);
+    const aiService = new AIService(allKeys);
     let text = '';
 
     // Extract text from PDF or URL
@@ -75,23 +86,40 @@ router.post('/parse-jd', auth, authorize('coordinator', 'manager'), upload.singl
 
     let parsedData;
     
-    // Try AI parsing first, fallback to regex
-    if (apiKey && settings.aiConfig?.enabled !== false) {
+    // Step 1: Try code-based extraction first (conserves AI quota)
+    console.log('Attempting code-based JD parsing...');
+    parsedData = await aiService.parseJobDescriptionWithCode(text);
+    let parsedWith = 'code';
+    
+    // Step 2: If code-based gave minimal results and AI is available, try AI
+    if (allKeys.length > 0 && settings.aiConfig?.enabled !== false && 
+        (!parsedData || !parsedData.title || parsedData.suggestedSkills.length < 3)) {
+      console.log('Code extraction had limited results, attempting AI parsing...');
       try {
-        parsedData = await aiService.parseJobDescription(text, skillNames);
-        parsedData.parsedWith = 'ai';
+        const aiResult = await aiService.parseJobDescription(text, skillNames);
+        // Merge AI results into code results, AI fills gaps
+        parsedData = {
+          ...parsedData,
+          ...aiResult,
+          suggestedSkills: [...new Set([...(parsedData?.suggestedSkills || []), ...aiResult.suggestedSkills])],
+          requirements: aiResult.requirements.length > (parsedData?.requirements.length || 0) ? aiResult.requirements : parsedData?.requirements
+        };
+        parsedWith = 'ai';
       } catch (aiError) {
-        console.error('AI parsing failed, using fallback:', aiError.message);
-        parsedData = aiService.parseJobDescriptionFallback(text);
-        parsedData.parsedWith = 'fallback';
-        parsedData.aiError = aiError.message;
+        console.error('AI parsing failed, continuing with code extraction:', aiError.message);
+        // Keep code-based results
+        parsedData.aiError = aiError.message || 'AI parse failed';
+        parsedData.aiErrorCode = aiError.code || aiError.originalError?.code || null;
       }
-    } else {
-      // No API key - use fallback
-      parsedData = aiService.parseJobDescriptionFallback(text);
-      parsedData.parsedWith = 'fallback';
-      parsedData.aiError = 'AI not configured. Using basic extraction.';
     }
+    
+    if (!parsedData) {
+      // Final fallback to regex extraction
+      parsedData = aiService.parseJobDescriptionFallback(text);
+      parsedWith = 'fallback';
+    }
+    
+    parsedData.parsedWith = parsedWith;
 
     // Match suggested skills with existing skills in database
     if (parsedData.suggestedSkills?.length > 0 && existingSkills.length > 0) {
@@ -104,12 +132,38 @@ router.post('/parse-jd', auth, authorize('coordinator', 'manager'), upload.singl
       parsedData.matchedSkillIds = matchedSkills.map(s => s._id);
     }
 
+    // Ask AI service for a more precise status
+    let aiStatus = { 
+      configured: allKeys.length > 0, 
+      enabled: settings.aiConfig?.enabled !== false, 
+      working: false,
+      totalKeys: allKeys.length,
+      userKeys: userKeys.length,
+      globalKeys: globalKeys.length
+    };
+    try {
+      const svcStatus = await aiService.getStatus();
+      aiStatus = { ...aiStatus, ...svcStatus };
+      if (parsedData.aiError) {
+        aiStatus.working = false;
+        aiStatus.message = parsedData.aiError;
+      }
+    } catch (statusErr) {
+      aiStatus.working = false;
+      aiStatus.message = statusErr.message;
+    }
+
+    const responseMessage = parsedData.parsedWith === 'ai'
+      ? 'Job description parsed successfully with AI'
+      : (aiStatus.configured ? 'AI parsing attempted but failed; falling back to basic extraction.' : 'Parsed with basic extraction. Add Google AI API key in Settings for better results.');
+
     res.json({
       success: true,
       data: parsedData,
-      message: parsedData.parsedWith === 'ai' 
-        ? 'Job description parsed successfully with AI' 
-        : 'Parsed with basic extraction. Add Google AI API key in Settings for better results.'
+      message: responseMessage,
+      aiStatus,
+      aiError: parsedData.aiError || null,
+      aiErrorCode: parsedData.aiErrorCode || null
     });
 
   } catch (error) {
@@ -131,10 +185,18 @@ router.get('/', auth, async (req, res) => {
 
     let query = {};
 
-    // Students only see active/application_stage jobs
+    // Students only see jobs in student-visible pipeline stages
     if (req.user.role === 'student') {
-      // Support both legacy 'active' status and new pipeline stages
-      query.status = { $in: ['active', 'application_stage', 'hr_shortlisting', 'interviewing'] };
+      // Get pipeline settings to check which stages are visible to students
+      const settings = await Settings.getSettings();
+      const visibleStages = settings.jobPipelineStages
+        .filter(stage => stage.visibleToStudents)
+        .map(stage => stage.id);
+      
+      // Include legacy 'active' status for backward compatibility
+      const studentVisibleStatuses = [...visibleStages, 'active'];
+      
+      query.status = { $in: studentVisibleStatuses };
       query.applicationDeadline = { $gte: new Date() };
       
       // Filter by student's campus
@@ -201,10 +263,18 @@ router.get('/matching', auth, authorize('student'), async (req, res) => {
       .populate('studentProfile.skills.skill')
       .populate('campus');
 
-    // Get all active jobs that meet basic criteria
-    // Support both legacy 'active' status and new pipeline stages
+    // Get pipeline settings to determine which jobs are visible to students
+    const settings = await Settings.getSettings();
+    const visibleStages = settings.jobPipelineStages
+      .filter(stage => stage.visibleToStudents)
+      .map(stage => stage.id);
+    
+    // Include legacy 'active' status for backward compatibility
+    const studentVisibleStatuses = [...visibleStages, 'active'];
+
+    // Get all jobs visible to students that meet basic criteria
     const jobs = await Job.find({
-      status: { $in: ['active', 'application_stage', 'hr_shortlisting', 'interviewing'] },
+      status: { $in: studentVisibleStatuses },
       applicationDeadline: { $gte: new Date() },
       $or: [
         { 'eligibility.campuses': { $size: 0 } },
@@ -312,8 +382,13 @@ router.post('/', auth, authorize('coordinator', 'manager'), [
     const job = new Job(jobData);
     await job.save();
 
-    // Notify eligible students if job is active
-    if (job.status === 'active') {
+    // Check if job status is visible to students (active or student-visible pipeline stage)
+    const settings = await Settings.getSettings();
+    const isVisibleToStudents = job.status === 'active' || 
+      settings.jobPipelineStages.find(s => s.id === job.status)?.visibleToStudents;
+
+    // Notify eligible students if job is visible
+    if (isVisibleToStudents) {
       const eligibleStudents = await User.find({
         role: 'student',
         isActive: true,
@@ -350,12 +425,18 @@ router.put('/:id', auth, authorize('coordinator', 'manager'), async (req, res) =
       return res.status(404).json({ message: 'Job not found' });
     }
 
-    const wasNotActive = job.status !== 'active';
+    const settings = await Settings.getSettings();
+    const wasVisible = job.status === 'active' || 
+      settings.jobPipelineStages.find(s => s.id === job.status)?.visibleToStudents;
+    
     Object.assign(job, req.body);
     await job.save();
 
-    // If job just became active, notify students
-    if (wasNotActive && job.status === 'active') {
+    const isNowVisible = job.status === 'active' || 
+      settings.jobPipelineStages.find(s => s.id === job.status)?.visibleToStudents;
+
+    // If job just became visible to students, notify them
+    if (!wasVisible && isNowVisible) {
       const eligibleStudents = await User.find({
         role: 'student',
         isActive: true
@@ -977,7 +1058,7 @@ router.post('/:id/export', auth, authorize('coordinator', 'manager'), async (req
     const { id } = req.params;
     const { fields, format = 'csv' } = req.body;
     const Application = require('../models/Application');
-    const JobReadiness = require('../models/JobReadiness');
+    const { JobReadinessConfig, StudentJobReadiness } = require('../models/JobReadiness');
 
     // Check if job exists
     const job = await Job.findById(id);
@@ -1000,7 +1081,7 @@ router.post('/:id/export', auth, authorize('coordinator', 'manager'), async (req
 
     // Get job readiness data for students
     const studentIds = applications.map(app => app.student._id);
-    const jobReadinessData = await JobReadiness.find({
+    const jobReadinessData = await StudentJobReadiness.find({
       student: { $in: studentIds }
     }).populate('student', 'firstName lastName');
 
@@ -1138,7 +1219,154 @@ router.post('/:id/export', auth, authorize('coordinator', 'manager'), async (req
 
     // Use selected fields or all fields
     const selectedFields = fields?.length > 0 ? fields : Object.keys(fieldMap);
+    const layout = req.body.layout || 'resume'; // 'resume' or 'table'
     
+    // Handle different export formats
+    if (format === 'pdf') {
+      // Generate PDF export
+      const PDFDocument = require('pdfkit');
+      const doc = new PDFDocument({ 
+        margin: 50,
+        size: 'A4',
+        info: {
+          Title: `Job Applications Report - ${job.title}`,
+          Author: 'NavGurukul Placement Dashboard',
+          Subject: `Applications for ${job.title} at ${job.company.name}`,
+          Creator: 'NavGurukul Placement System'
+        }
+      });
+      
+      // Set response headers for PDF
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${job.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_applications_report.pdf"`);
+      
+      doc.pipe(res);
+      
+      // Add NavGurukul Header
+      doc.fontSize(24).fillColor('#1e40af').text('NavGurukul', 50, 50);
+      doc.fontSize(10).fillColor('#64748b').text('Placement Dashboard', 50, 78);
+      
+      // Add title
+      doc.fontSize(18).fillColor('#000').text('Job Applications Report', 50, 110, { align: 'center' });
+      
+      // Add separator line
+      doc.moveTo(50, 140).lineTo(545, 140).strokeColor('#e5e7eb').stroke();
+      
+      // Add job details in a structured format
+      let yPosition = 160;
+      doc.fontSize(14).fillColor('#1f2937');
+      
+      // Job Information Section
+      doc.text('Job Information', 50, yPosition, { underline: true });
+      yPosition += 25;
+      
+      const jobInfo = [
+        ['Position:', job.title],
+        ['Company:', job.company.name],
+        ['Location:', job.location],
+        ['Job Type:', job.jobType.replace('_', ' ').toUpperCase()],
+        ['Total Applications:', applications.length.toString()],
+        ['Report Generated:', new Date().toLocaleDateString('en-IN', { 
+          year: 'numeric', month: 'long', day: 'numeric' 
+        })]
+      ];
+      
+      jobInfo.forEach(([label, value]) => {
+        doc.fontSize(10).fillColor('#6b7280').text(label, 50, yPosition, { continued: true, width: 120 });
+        doc.fillColor('#000').text(value, 170, yPosition);
+        yPosition += 18;
+      });
+      
+      yPosition += 20;
+      
+      // Applications Section - supports resume or table layout
+      if (applications.length === 0) {
+        doc.fontSize(12).fillColor('#ef4444').text('No applications found for this job.', 50, yPosition);
+      } else {
+        // Top-level heading only on first page
+        doc.fontSize(14).fillColor('#1f2937').text('Student Applications', 50, yPosition, { underline: true });
+        yPosition += 30;
+
+        if (layout === 'resume') {
+          const { drawResumeCard } = require('../utils/pdfHelpers');
+
+          const cardsPerPage = 2;
+          const pagePaddingTop = yPosition; // starting y for first card on each page
+          const availableHeight = doc.page.height - pagePaddingTop - 120; // leave space for footer
+          const cardHeight = Math.floor((availableHeight - 10) / cardsPerPage);
+          const cardWidth = 495; // 595 A4 width - margins 50*2 = 495
+          const totalPages = Math.ceil(applications.length / cardsPerPage);
+          let currentPage = 0;
+
+          applications.forEach((app, index) => {
+            const isFirstOnPage = (index % cardsPerPage) === 0;
+            if (isFirstOnPage && index !== 0) {
+              doc.addPage();
+              currentPage += 1;
+              // small header on new pages
+              doc.fontSize(12).fillColor('#0b4cff').text(`${job.title} — Applications (Page ${currentPage + 1} of ${totalPages})`, 50, 50);
+            }
+
+            const startY = isFirstOnPage ? pagePaddingTop : pagePaddingTop + cardHeight + 10;
+
+            drawResumeCard(doc, app, 50, startY, cardWidth, cardHeight);
+
+            // If last card on page or last overall, add footer
+            const isLastOnPage = ((index % cardsPerPage) === (cardsPerPage - 1)) || (index === applications.length - 1);
+            if (isLastOnPage) {
+              const footerY = doc.page.height - 60;
+              doc.fontSize(8).fillColor('#9ca3af')
+                 .text('Generated by NavGurukul Placement Dashboard', 50, footerY)
+                 .text(new Date().toISOString().split('T')[0], 450, footerY);
+            }
+          });
+        } else {
+          // Compact table layout - one row per student, auto-paginate
+          const headersRow = selectedFields.map(f => f.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()).trim());
+          const colWidth = Math.floor((495 - 20) / headersRow.length);
+          let tableY = yPosition;
+
+          // Draw table header
+          doc.fontSize(9).fillColor('#475569');
+          headersRow.forEach((h, i) => {
+            doc.text(h, 50 + i * colWidth, tableY, { width: colWidth, ellipsis: true });
+          });
+          tableY += 18;
+
+          applications.forEach((app, idx) => {
+            // New page if needed
+            if (tableY > doc.page.height - 120) {
+              doc.addPage();
+              tableY = 60;
+            }
+
+            selectedFields.forEach((field, i) => {
+              const value = fieldMap[field] ? fieldMap[field](app) : '';
+              doc.fontSize(9).fillColor('#0f172a').text(String(value).slice(0, 80), 50 + i * colWidth, tableY, { width: colWidth, ellipsis: true });
+            });
+            tableY += 16;
+
+            // Footer per page when needed
+            if (tableY > doc.page.height - 120 || idx === applications.length - 1) {
+              const footerY = doc.page.height - 60;
+              doc.fontSize(8).fillColor('#9ca3af')
+                 .text('Generated by NavGurukul Placement Dashboard', 50, footerY)
+                 .text(new Date().toISOString().split('T')[0], 450, footerY);
+            }
+          });
+        }
+      }
+      
+      // Add footer
+      doc.fontSize(8).fillColor('#9ca3af')
+         .text('Generated by NavGurukul Placement Dashboard', 50, 780)
+         .text(new Date().toISOString().split('T')[0], 450, 780);
+      
+      doc.end();
+      return;
+    }
+    
+    // Generate CSV (default)
     // Generate headers
     const headers = selectedFields.map(f => {
       // Convert camelCase to Title Case

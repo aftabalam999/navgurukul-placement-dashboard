@@ -297,6 +297,30 @@ Progress: 4/9 completed (44%)
 
 ---
 
+## ✅ COMPLETED: AI-Assisted JD Parsing (Jan 13, 2026)
+
+### Implementation Summary
+- **Code-based hybrid parsing**: Zero quota usage for basic extraction
+- **Automatic key rotation**: 2-5 API keys with seamless fallback
+- **Graceful degradation**: Never fails completely on quota exhaustion
+- **Error code mapping**: Clear error messages (QUOTA_EXCEEDED, RATE_LIMITED, etc)
+- **Coordinator Settings**: Personal API key management UI (up to 5 keys)
+
+### Architecture
+```
+Parse Request
+  → Step 1: Code-based extraction (regex) - NO API CALLS
+  → Step 2: If minimal results + AI available → Try AI parsing (fills gaps)
+  → Step 3: On quota error → Continue with code results (graceful fallback)
+```
+
+### Next Steps When Resuming
+- Manager global settings UI for multi-key configuration
+- Health polling dashboard for quota monitoring
+- Integration tests for error scenarios
+
+---
+
 ## 📝 Notes
 - All percentages should be configurable in Settings
 - Consider mobile responsiveness for student checklist

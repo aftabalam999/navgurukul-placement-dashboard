@@ -575,20 +575,55 @@ const JobDetails = () => {
           {/* Required Skills */}
           <div className="card">
             <h2 className="text-lg font-semibold mb-4">Required Skills</h2>
-            <div className="space-y-2">
-              {job.requiredSkills?.map((s) => (
-                <div 
-                  key={s.skill?._id}
-                  className={`flex items-center justify-between p-2 rounded-lg ${
-                    s.required ? 'bg-primary-50' : 'bg-gray-50'
-                  }`}
-                >
-                  <span className="text-sm">{s.skill?.name}</span>
-                  {s.required && (
-                    <span className="text-xs text-primary-600 font-medium">Required</span>
-                  )}
-                </div>
-              ))}
+            <div className="space-y-3">
+              {job.requiredSkills?.map((s) => {
+                // Find matching skill detail from match data
+                const skillDetail = matchDetails?.breakdown?.skills?.details?.find(
+                  d => d.skillId === (s.skill?._id?.toString() || s.skill?.toString())
+                );
+                
+                const proficiencyLevels = ['None', 'Beginner', 'Intermediate', 'Advanced', 'Expert'];
+                const requiredLevel = s.proficiencyLevel || 1;
+                const studentLevel = skillDetail?.studentLevel || 0;
+                const meets = skillDetail?.meets || false;
+                
+                return (
+                  <div 
+                    key={s.skill?._id}
+                    className={`p-3 rounded-lg border-2 ${
+                      meets 
+                        ? 'border-green-200 bg-green-50' 
+                        : 'border-orange-200 bg-orange-50'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-medium text-gray-900">{s.skill?.name || 'Unknown Skill'}</span>
+                      {meets ? (
+                        <CheckCircle className="w-5 h-5 text-green-600" />
+                      ) : (
+                        <AlertCircle className="w-5 h-5 text-orange-600" />
+                      )}
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-xs text-gray-600 mb-1">Required Level</p>
+                        <ProficiencyBadge level={requiredLevel} />
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-600 mb-1">Your Level</p>
+                        <ProficiencyBadge level={studentLevel} />
+                      </div>
+                    </div>
+                    
+                    {!meets && (
+                      <p className="text-xs text-orange-700 mt-2">
+                        ⚠️ You need to improve from {proficiencyLevels[studentLevel]} to {proficiencyLevels[requiredLevel]}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
 

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { authAPI, userAPI, settingsAPI, campusAPI, placementCycleAPI } from '../../services/api';
+import { authAPI, userAPI, settingsAPI, campusAPI, placementCycleAPI, skillAPI, utilsAPI } from '../../services/api';
 import { LoadingSpinner } from '../../components/common/UIComponents';
 import { 
   User, Mail, Phone, GraduationCap, Upload, Save, Send,
@@ -23,9 +23,9 @@ const indianStates = [
 
 const boards = ['State', 'CBSE', 'ICSE', 'Other'];
 
-const schools = [
+const fallbackSchools = [
   'School of Programming',
-  'School of Business', 
+  'School of Business',
   'School of Finance',
   'School of Education',
   'School of Second Chance'
@@ -58,6 +58,18 @@ const levelLabels = ['', 'Basic', 'Intermediate', 'Advanced', 'Expert'];
 const ratingLabels = ['', '1 - Basic', '2 - Intermediate', '3 - Advanced', '4 - Expert'];
 
 const defaultSettings = {
+  schoolModules: {
+    'School of Programming': [
+      'Programming Foundations', 'Problem Solving & Flowcharts', 'Web Fundamentals',
+      'JavaScript Fundamentals', 'Advanced JavaScript', 'DOM & Browser APIs',
+      'Python Fundamentals', 'Advanced Python', 'Data Structures & Algorithms',
+      'Advanced Data Structures', 'React & Frontend Frameworks'
+    ],
+    'School of Business': ['CRM', 'Digital Marketing', 'Data Analytics', 'Advanced Google Sheets'],
+    'School of Second Chance': ['Master Chef', 'Fashion Designing'],
+    'School of Finance': [],
+    'School of Education': []
+  },
   programmingModules: [
     'Programming Foundations', 'Problem Solving & Flowcharts', 'Web Fundamentals',
     'JavaScript Fundamentals', 'Advanced JavaScript', 'DOM & Browser APIs',
@@ -88,6 +100,7 @@ const StudentProfile = () => {
   const { user, updateUser } = useAuth();
   const [profile, setProfile] = useState(null);
   const [settings, setSettings] = useState(defaultSettings);
+  const [allSkills, setAllSkills] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -126,32 +139,50 @@ const StudentProfile = () => {
     },
     technicalSkills: [],
     profileStatus: 'draft',
-    revisionNotes: ''
+    revisionNotes: '',
+    resumeLink: ''
   });
 
   const [newCourseSkill, setNewCourseSkill] = useState('');
   const [addingCourseSkill, setAddingCourseSkill] = useState(false);
   const [newLanguage, setNewLanguage] = useState({ language: '', speaking: '', writing: '', isNative: false });
+  const [resumeLinkStatus, setResumeLinkStatus] = useState({ checked: false, ok: false, status: null });
+
+  const schoolList = Object.keys(settings.schoolModules || {});
+  const schools = schoolList.length > 0 ? schoolList : fallbackSchools;
 
   useEffect(() => {
     fetchProfile();
     fetchSettings();
     fetchCampuses();
     fetchPlacementCycles();
+    fetchSkills();
   }, []);
+
+  const fetchSkills = async () => {
+    try {
+      const response = await skillAPI.getSkills({ category: 'technical' });
+      setAllSkills(response.data);
+    } catch (error) {
+      console.error('Error fetching skills:', error);
+    }
+  };
 
   const fetchCampuses = async () => {
     try {
       const response = await campusAPI.getCampuses();
-      setCampuses(response.data);
+      setCampuses(response.data || []);
     } catch (error) {
       console.error('Error fetching campuses:', error);
+      setCampuses([]);
+      toast.error('Error fetching campuses. Click retry to try again.');
     }
   };
 
   const fetchPlacementCycles = async () => {
     try {
-      const response = await placementCycleAPI.getCycles({ activeOnly: true });
+      // Fetch all cycles (students should be able to choose any cycle)
+      const response = await placementCycleAPI.getCycles();
       setPlacementCycles(response.data);
     } catch (error) {
       console.error('Error fetching placement cycles:', error);
@@ -159,9 +190,11 @@ const StudentProfile = () => {
   };
 
   const fetchProfile = async () => {
+    let data = null;
+
     try {
       const response = await authAPI.getMe();
-      const data = response.data;
+      data = response.data;
       setProfile(data);
       setSelectedCampus(data.campus?._id || data.campus || '');
       setSelectedPlacementCycle(data.placementCycle?._id || data.placementCycle || '');
@@ -193,8 +226,20 @@ const StudentProfile = () => {
         },
         technicalSkills: data.studentProfile?.technicalSkills || [],
         profileStatus: data.studentProfile?.profileStatus || 'draft',
-        revisionNotes: data.studentProfile?.revisionNotes || ''
+        revisionNotes: data.studentProfile?.revisionNotes || '',
+        resumeLink: data.studentProfile?.resumeLink || ''
       });
+
+      // If profile has a resume link, check accessibility (do this inside try so we can use `data` safely)
+      const link = data?.studentProfile?.resumeLink || '';
+      if (link) {
+        try {
+          const res = await utilsAPI.checkUrl(link);
+          setResumeLinkStatus({ checked: true, ok: res.data?.ok === true, status: res.data?.status });
+        } catch (err) {
+          setResumeLinkStatus({ checked: true, ok: false, status: null });
+        }
+      }
     } catch (error) {
       toast.error('Error loading profile');
     } finally {
@@ -205,8 +250,9 @@ const StudentProfile = () => {
   const fetchSettings = async () => {
     try {
       const response = await settingsAPI.getSettings();
-      if (response.data && Object.keys(response.data).length > 0) {
-        setSettings({ ...defaultSettings, ...response.data });
+      const data = response.data?.data || response.data || {};
+      if (Object.keys(data).length > 0) {
+        setSettings({ ...defaultSettings, ...data });
       }
     } catch (error) {
       console.error('Error fetching settings:', error);
@@ -214,13 +260,16 @@ const StudentProfile = () => {
   };
 
   const getModulesForSchool = () => {
+    const mapped = settings.schoolModules?.[formData.currentSchool];
+    if (Array.isArray(mapped) && mapped.length > 0) return mapped;
+
     switch (formData.currentSchool) {
       case 'School of Programming':
-        return settings.programmingModules || [];
+        return settings.programmingModules || defaultSettings.programmingModules;
       case 'School of Business':
-        return settings.businessModules || [];
+        return settings.businessModules || defaultSettings.businessModules;
       case 'School of Second Chance':
-        return settings.secondChanceModules || [];
+        return settings.secondChanceModules || defaultSettings.secondChanceModules;
       default:
         return [];
     }
@@ -265,6 +314,34 @@ const StudentProfile = () => {
     e.preventDefault();
     setSaving(true);
     try {
+      // Validate resume link before saving if present
+      const url = formData.resumeLink && formData.resumeLink.trim();
+      if (url) {
+        // If we've already checked and it's false, block save
+        if (resumeLinkStatus.checked && !resumeLinkStatus.ok) {
+          toast.error('Resume link is not accessible. Please fix or remove it before saving.');
+          setSaving(false);
+          return;
+        }
+        // If not checked yet, perform a check now
+        if (!resumeLinkStatus.checked) {
+          try {
+            const res = await utilsAPI.checkUrl(url);
+            const ok = res.data?.ok === true;
+            setResumeLinkStatus({ checked: true, ok, status: res.data?.status });
+            if (!ok) {
+              toast.error('Resume link is not accessible. Please fix or remove it before saving.');
+              setSaving(false);
+              return;
+            }
+          } catch (err) {
+            toast.error('Error checking resume link. Please try again.');
+            setSaving(false);
+            return;
+          }
+        }
+      }
+
       // Include campus and gender in the profile update
       const profileData = { ...formData, campus: selectedCampus, gender: formData.gender };
       await userAPI.updateProfile(profileData);
@@ -286,7 +363,12 @@ const StudentProfile = () => {
       toast.success('Placement cycle updated');
       fetchProfile();
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Error updating placement cycle');
+      const status = error?.response?.status;
+      if (status === 403) {
+        toast.error('You are not allowed to change placement cycle. Please contact your Campus POC for assistance.');
+      } else {
+        toast.error(error.response?.data?.message || 'Error updating placement cycle');
+      }
     }
   };
 
@@ -351,6 +433,8 @@ const StudentProfile = () => {
 
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 30 }, (_, i) => currentYear - i);
+  const modulesForSchool = getModulesForSchool();
+  const hasModulesForSchool = modulesForSchool.length > 0;
 
   const getStatusBadge = () => {
     const status = formData.profileStatus;
@@ -492,27 +576,47 @@ const StudentProfile = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Campus *</label>
-                    <select 
-                      value={selectedCampus} 
-                      onChange={(e) => setSelectedCampus(e.target.value)} 
-                      disabled={!canEdit}
-                      required
-                    >
-                      <option value="">Select Campus</option>
-                      {campuses.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-                    </select>
+                    <div className="flex items-center gap-2">
+                      <select 
+                        value={selectedCampus || ''} 
+                        onChange={(e) => setSelectedCampus(e.target.value)} 
+                        disabled={!canEdit}
+                        required
+                      >
+                        <option value="">Select Campus</option>
+                        {campuses.length === 0 ? (
+                          <option value="" disabled>No campuses found</option>
+                        ) : (
+                          campuses.map(c => <option key={c._id} value={c._id}>{c.name}</option>)
+                        )}
+                      </select>
+                    </div>
                     <p className="text-xs text-gray-500 mt-1">Select your Navgurukul campus</p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Placement Cycle</label>
-                    <select 
-                      value={selectedPlacementCycle} 
-                      onChange={(e) => handleCycleChange(e.target.value)} 
-                      disabled={!canEdit}
-                    >
-                      <option value="">Select Placement Cycle</option>
-                      {placementCycles.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-                    </select>
+                    {/* Display only the active cycle (read-only) */}
+                    <div className="p-3 bg-gray-50 rounded-md">
+                      {selectedPlacementCycle ? (
+                        (() => {
+                          const my = placementCycles.find(p => p._id === selectedPlacementCycle) || null;
+                          if (my) {
+                            return (
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <div className="text-sm font-medium">{my.name}</div>
+                                  <div className="text-xs text-gray-500">{my.status === 'active' ? 'Active cycle' : (my.isActive === false ? 'Inactive' : my.status)}</div>
+                                </div>
+                              </div>
+                            );
+                          }
+                          return <div className="text-sm text-gray-600">No placement cycle assigned</div>;
+                        })()
+                      ) : (
+                        <div className="text-sm text-gray-600">No placement cycle assigned</div>
+                      )}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">Only the active cycle is shown here. To request a change, contact your Campus POC; the profile approval flow will be followed.</p>
                     <p className="text-xs text-gray-500 mt-1">The cycle when you aim to be placed</p>
                   </div>
                 </div>
@@ -565,7 +669,7 @@ const StudentProfile = () => {
                 </div>
 
                 {canEdit && (
-                  <button type="submit" disabled={saving} className="btn btn-primary flex items-center gap-2">
+                  <button type="submit" disabled={saving || (formData.resumeLink && resumeLinkStatus.checked && !resumeLinkStatus.ok)} className="btn btn-primary flex items-center gap-2">
                     <Save className="w-4 h-4" />
                     {saving ? 'Saving...' : 'Save Changes'}
                   </button>
@@ -583,7 +687,7 @@ const StudentProfile = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">School</label>
-                      <select value={formData.currentSchool} onChange={(e) => setFormData({ ...formData, currentSchool: e.target.value, currentModule: '', customModuleDescription: '' })} disabled={!canEdit}>
+                      <select value={formData.currentSchool || ''} onChange={(e) => setFormData({ ...formData, currentSchool: e.target.value, currentModule: '', customModuleDescription: '' })} disabled={!canEdit}>
                         <option value="">Select School</option>
                         {schools.map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
@@ -594,22 +698,20 @@ const StudentProfile = () => {
                     </div>
                     
                     {formData.currentSchool && (
-                      <>
-                        {['School of Programming', 'School of Business', 'School of Second Chance'].includes(formData.currentSchool) ? (
-                          <div className="md:col-span-2">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Current Module/Phase</label>
-                            <select value={formData.currentModule} onChange={(e) => setFormData({ ...formData, currentModule: e.target.value })} disabled={!canEdit}>
-                              <option value="">Select Module</option>
-                              {getModulesForSchool().map(m => <option key={m} value={m}>{m}</option>)}
-                            </select>
-                          </div>
-                        ) : (
-                          <div className="md:col-span-2">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Current Phase/Skills Description</label>
-                            <textarea rows={3} value={formData.customModuleDescription} onChange={(e) => setFormData({ ...formData, customModuleDescription: e.target.value })} placeholder="Describe your current learning phase and skills..." disabled={!canEdit} />
-                          </div>
-                        )}
-                      </>
+                      hasModulesForSchool ? (
+                        <div className="md:col-span-2">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Current Module/Phase</label>
+                          <select value={formData.currentModule} onChange={(e) => setFormData({ ...formData, currentModule: e.target.value })} disabled={!canEdit}>
+                            <option value="">Select Module</option>
+                            {modulesForSchool.map(m => <option key={m} value={m}>{m}</option>)}
+                          </select>
+                        </div>
+                      ) : (
+                        <div className="md:col-span-2">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Current Phase/Skills Description</label>
+                          <textarea rows={3} value={formData.customModuleDescription} onChange={(e) => setFormData({ ...formData, customModuleDescription: e.target.value })} placeholder="Describe your current learning phase and skills..." disabled={!canEdit} />
+                        </div>
+                      )
                     )}
                   </div>
                 </div>
@@ -1050,13 +1152,15 @@ const StudentProfile = () => {
                   <p className="text-sm text-gray-500 mb-4">Select your technical skills and rate yourself (1 = Basic, 4 = Expert)</p>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {(settings.technicalSkillOptions || defaultSettings.technicalSkillOptions).map((skillName) => {
-                      const existingSkill = formData.technicalSkills.find(s => s.skillName === skillName);
+                    {allSkills.map((skill) => {
+                      const existingSkill = formData.technicalSkills.find(s => 
+                        s.skillId === skill._id || s.skillName === skill.name
+                      );
                       const isSelected = !!existingSkill;
                       const rating = existingSkill?.selfRating || 0;
                       
                       return (
-                        <div key={skillName} className={`p-3 rounded-lg border-2 transition ${isSelected ? 'bg-primary-50 border-primary-300' : 'bg-gray-50 border-transparent'}`}>
+                        <div key={skill._id} className={`p-3 rounded-lg border-2 transition ${isSelected ? 'bg-primary-50 border-primary-300' : 'bg-gray-50 border-transparent'}`}>
                           <div className="flex items-center justify-between mb-2">
                             <label className="flex items-center gap-2 cursor-pointer">
                               <input
@@ -1066,18 +1170,25 @@ const StudentProfile = () => {
                                   if (e.target.checked) {
                                     setFormData({
                                       ...formData,
-                                      technicalSkills: [...formData.technicalSkills, { skillName, selfRating: 1, addedAt: new Date() }]
+                                      technicalSkills: [...formData.technicalSkills, { 
+                                        skillId: skill._id,
+                                        skillName: skill.name, 
+                                        selfRating: 1, 
+                                        addedAt: new Date() 
+                                      }]
                                     });
                                   } else {
                                     setFormData({
                                       ...formData,
-                                      technicalSkills: formData.technicalSkills.filter(s => s.skillName !== skillName)
+                                      technicalSkills: formData.technicalSkills.filter(s => 
+                                        s.skillId !== skill._id && s.skillName !== skill.name
+                                      )
                                     });
                                   }
                                 }}
                                 className="w-4 h-4 text-primary-600 rounded"
                               />
-                              <span className={`font-medium ${isSelected ? 'text-primary-700' : 'text-gray-700'}`}>{skillName}</span>
+                              <span className={`font-medium ${isSelected ? 'text-primary-700' : 'text-gray-700'}`}>{skill.name}</span>
                             </label>
                             {isSelected && <span className="text-sm font-medium text-primary-600">{ratingLabels[rating]}</span>}
                           </div>
@@ -1089,7 +1200,9 @@ const StudentProfile = () => {
                                   type="button"
                                   onClick={() => {
                                     const updated = formData.technicalSkills.map(s =>
-                                      s.skillName === skillName ? { ...s, selfRating: level } : s
+                                      (s.skillId === skill._id || s.skillName === skill.name) 
+                                        ? { ...s, skillId: skill._id, skillName: skill.name, selfRating: level } 
+                                        : s
                                     );
                                     setFormData({ ...formData, technicalSkills: updated });
                                   }}
@@ -1387,6 +1500,40 @@ const StudentProfile = () => {
             ) : (
               <p className="text-gray-500 text-sm mb-3">No resume uploaded</p>
             )}
+
+            {/* Resume Link Input & Accessibility Check */}
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Resume Link (optional)</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="url"
+                  value={formData.resumeLink || ''}
+                  onChange={(e) => setFormData({ ...formData, resumeLink: e.target.value })}
+                  placeholder="https://drive.google.com/..."
+                  className="flex-1"
+                />
+                <button type="button" onClick={async () => {
+                  const url = formData.resumeLink && formData.resumeLink.trim();
+                  if (!url) return toast.error('Enter a link first');
+                  try {
+                    setResumeLinkStatus({ checked: false, ok: false, status: null });
+                    const res = await utilsAPI.checkUrl(url);
+                    const ok = res.data?.ok === true;
+                    setResumeLinkStatus({ checked: true, ok, status: res.data?.status });
+                    toast.success(ok ? 'Link is accessible' : 'Link is not accessible');
+                  } catch (err) {
+                    setResumeLinkStatus({ checked: true, ok: false, status: null });
+                    toast.error('Error checking link');
+                  }
+                }} className="btn btn-outline">Check</button>
+              </div>
+              {resumeLinkStatus.checked && (
+                <p className={`text-sm mt-2 ${resumeLinkStatus.ok ? 'text-green-600' : 'text-red-600'}`}>
+                  {resumeLinkStatus.ok ? 'Accessible' : 'Not accessible'} {resumeLinkStatus.status ? `(HTTP ${resumeLinkStatus.status})` : ''}
+                </p>
+              )}
+            </div>
+
             {canEdit && (
               <label className="btn btn-secondary w-full mt-3 cursor-pointer flex items-center justify-center gap-2">
                 <Upload className="w-4 h-4" />Upload Resume
@@ -1408,7 +1555,7 @@ const StudentProfile = () => {
                 { label: 'Soft Skills', done: Object.values(formData.softSkills).some(v => v > 0) },
                 { label: 'English Level', done: formData.englishProficiency.speaking },
                 { label: 'Open For Roles', done: formData.openForRoles.length > 0 },
-                { label: 'Resume', done: profile?.studentProfile?.resume }
+                { label: 'Resume', done: profile?.studentProfile?.resume || profile?.studentProfile?.resumeLink }
               ];
               const completedCount = completionItems.filter(item => item.done).length;
               const completionPercent = Math.round((completedCount / completionItems.length) * 100);
