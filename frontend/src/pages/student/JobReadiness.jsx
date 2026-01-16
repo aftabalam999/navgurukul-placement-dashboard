@@ -1,34 +1,46 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { jobReadinessAPI } from '../../services/api';
-import { Card, Button, Badge, LoadingSpinner, Alert, Modal } from '../../components/common/UIComponents';
-import { 
-  CheckCircleIcon, 
-  ClockIcon, 
-  ExclamationCircleIcon,
-  DocumentArrowUpIcon,
+import { Card, Button, Badge, LoadingSpinner, Alert } from '../../components/common/UIComponents';
+import {
+  CheckCircleIcon,
+  ClockIcon,
   AcademicCapIcon,
   BriefcaseIcon,
   ChatBubbleBottomCenterTextIcon,
-  TrophyIcon
+  TrophyIcon,
+  CheckIcon,
+  XMarkIcon,
+  SparklesIcon,
+  FireIcon,
+  RocketLaunchIcon,
+  StarIcon
 } from '@heroicons/react/24/outline';
-import { CheckIcon } from '@heroicons/react/24/solid';
-
-const MODULE_ORDER = [
-  'Foundation',
-  'Basics of Programming', 
-  'DSA',
-  'Backend',
-  'Full Stack',
-  'Interview Prep'
-];
+import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid';
 
 const CATEGORY_ICONS = {
-  'Module Completion': AcademicCapIcon,
-  'Technical Skills': BriefcaseIcon,
-  'Soft Skills': ChatBubbleBottomCenterTextIcon,
-  'Profile Completion': DocumentArrowUpIcon,
-  'Other': TrophyIcon
+  'profile': AcademicCapIcon,
+  'skills': ChatBubbleBottomCenterTextIcon,
+  'technical': BriefcaseIcon,
+  'preparation': ClockIcon,
+  'academic': AcademicCapIcon,
+  'other': TrophyIcon
+};
+
+const MOTIVATIONAL_MESSAGES = [
+  "You're doing great! Keep it up! 🚀",
+  "One step closer to your dream job! 💪",
+  "Amazing progress! You're unstoppable! ⭐",
+  "You're on fire! Keep going! 🔥",
+  "Fantastic work! Almost there! 🎯",
+  "You're crushing it! 💯"
+];
+
+const MILESTONE_MESSAGES = {
+  25: { emoji: '🌱', message: 'Great start! You\'re building momentum!' },
+  50: { emoji: '🚀', message: 'Halfway there! You\'re doing amazing!' },
+  75: { emoji: '⚡', message: 'Almost ready! Final push!' },
+  100: { emoji: '🏆', message: 'You did it! You\'re Job Ready!' }
 };
 
 function JobReadiness() {
@@ -36,143 +48,115 @@ function JobReadiness() {
   const [readinessData, setReadinessData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [updating, setUpdating] = useState(null);
-  const [uploadModal, setUploadModal] = useState({ open: false, criterion: null });
-  const fileInputRef = useRef(null);
+  const [editingCriterion, setEditingCriterion] = useState(null);
+  const [formValues, setFormValues] = useState({});
+  const [reflections, setReflections] = useState({});
+  const [submitting, setSubmitting] = useState(false);
+  const [showConfetti, setShowConfetti] = useState(false);
 
   useEffect(() => {
     fetchReadinessStatus();
-    
-    // Cleanup function
-    return () => {
-      Object.values(debounceRef.current).forEach(timeout => {
-        if (timeout) clearTimeout(timeout);
-      });
-    };
   }, []);
 
   const fetchReadinessStatus = async () => {
     try {
       setLoading(true);
       const res = await jobReadinessAPI.getMyStatus();
-      
-      // Transform the data to match expected format
+
       const data = res.data;
       const transformedData = {
         ...data.readiness,
         progress: {
           criteria: (data.config || []).map(configCriterion => {
-            const status = data.readiness.criteriaStatus?.find(cs => cs.criteriaId === configCriterion.criteriaId) || {};
+            const status = data.readiness.criteriaStatus?.find(
+              cs => cs.criteriaId === configCriterion.criteriaId
+            ) || {};
+
             return {
               ...configCriterion,
-              ...status,
-              completed: status.status === 'completed' || status.selfReported === true,
-              verificationStatus: status.pocVerified === 'approved' ? 'verified' : 
-                                  status.pocVerified === 'rejected' ? 'rejected' : 
-                                  status.status === 'completed' ? 'pending' : 'not_started'
+              selfReportedValue: status.selfReportedValue || '',
+              notes: status.notes || '',
+              proofUrl: status.proofUrl || '',
+              pocComment: status.pocComment || '',
+              pocRating: status.pocRating || null,
+              verificationNotes: status.verificationNotes || '',
+              completed: status.status === 'completed' || status.status === 'verified',
+              verificationStatus: status.status === 'verified' ? 'verified' :
+                status.status === 'completed' ? 'pending' :
+                  'not_started'
             };
           }),
-          isJobReady: data.readiness.isJobReady || false
+          isJobReady: data.readiness.isJobReady || false,
+          jobReadyApprovedAt: data.readiness.approvedAt
         }
       };
-      
+
       setReadinessData(transformedData);
       setError(null);
     } catch (err) {
+      console.error('Fetch error:', err);
       setError(err.response?.data?.message || 'Failed to load job readiness status');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleToggleCriterion = async (criterion, completed) => {
-    // If marking complete and requires proof, show upload modal
-    if (completed && criterion.requiresProof) {
-      setUploadModal({ open: true, criterion });
-      return;
-    }
-
-    try {
-      setUpdating(criterion.criteriaId);
-      await jobReadinessAPI.updateMyCriterion(criterion.criteriaId, { completed });
-      await fetchReadinessStatus();
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to update criterion');
-    } finally {
-      setUpdating(null);
-    }
+  const handleStartEditing = (criterion) => {
+    setEditingCriterion(criterion.criteriaId);
+    setFormValues({
+      [criterion.criteriaId]: criterion.selfReportedValue || ''
+    });
+    setReflections({
+      [criterion.criteriaId]: criterion.notes || ''
+    });
   };
 
-  const debounceRef = useRef({});
+  const handleCancelEditing = () => {
+    setEditingCriterion(null);
+    setFormValues({});
+    setReflections({});
+  };
 
-  const handleUpdateCriterion = useCallback(async (criterion, updates) => {
-    const criteriaId = criterion.criteriaId;
-    
-    // Clear existing timeout for this criterion
-    if (debounceRef.current[criteriaId]) {
-      clearTimeout(debounceRef.current[criteriaId]);
-    }
-    
-    // Set new timeout
-    debounceRef.current[criteriaId] = setTimeout(async () => {
-      try {
-        setUpdating(criteriaId);
-        
-        // Auto-mark as completed if there's a meaningful value
-        const hasValue = updates.selfReportedValue && updates.selfReportedValue.trim().length > 0;
-        
-        const payload = {
-          ...updates,
-          completed: hasValue,
-          status: hasValue ? 'completed' : 'not_started'
-        };
-        
-        console.log('Updating criterion:', criteriaId, payload);
-        
-        await jobReadinessAPI.updateMyCriterion(criteriaId, payload);
-        await fetchReadinessStatus();
-      } catch (err) {
-        console.error('Update error:', err);
-        setError(err.response?.data?.message || 'Failed to update criterion');
-      } finally {
-        setUpdating(null);
-      }
-    }, 500); // 500ms debounce
-  }, [fetchReadinessStatus]);
-
-  const handleUploadSubmit = async (e) => {
-    e.preventDefault();
-    const formData = new FormData(e.target);
-    const criterion = uploadModal.criterion;
-
+  const handleSubmitCriterion = async (criterion) => {
     try {
-      setUpdating(criterion.criteriaId);
+      setSubmitting(true);
+      const value = formValues[criterion.criteriaId];
+      const reflection = reflections[criterion.criteriaId];
+
       await jobReadinessAPI.updateMyCriterion(criterion.criteriaId, {
-        completed: true,
-        notes: formData.get('notes'),
-        proofFile: formData.get('proofFile')
+        selfReportedValue: value,
+        notes: reflection,
+        status: 'completed',
+        completed: true
       });
-      setUploadModal({ open: false, criterion: null });
+
+      setEditingCriterion(null);
+      setFormValues({});
+      setReflections({});
+
+      // Show celebration animation
+      setShowConfetti(true);
+      setTimeout(() => setShowConfetti(false), 3000);
+
       await fetchReadinessStatus();
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to upload proof');
+      console.error('Submit error:', err);
+      setError(err.response?.data?.message || 'Failed to submit');
     } finally {
-      setUpdating(null);
+      setSubmitting(false);
     }
   };
 
   const getStatusBadge = (criterion) => {
     if (criterion.verificationStatus === 'verified') {
-      return <Badge variant="success">Verified</Badge>;
+      return <Badge variant="success" className="flex items-center gap-1 animate-pulse">
+        <CheckIcon className="w-3 h-3" /> Verified ✨
+      </Badge>;
     }
-    if (criterion.verificationStatus === 'rejected') {
-      return <Badge variant="danger">Rejected</Badge>;
-    }
-    if (criterion.verificationStatus === 'pending' && criterion.completed) {
-      return <Badge variant="warning">Pending Review</Badge>;
-    }
-    if (criterion.completed) {
-      return <Badge variant="info">Self-Marked</Badge>;
+    if (criterion.verificationStatus === 'pending') {
+      return <Badge variant="warning" className="flex items-center gap-1">
+        <ClockIcon className="w-3 h-3" /> Under Review
+      </Badge>;
     }
     return <Badge variant="secondary">Not Started</Badge>;
   };
@@ -180,7 +164,7 @@ function JobReadiness() {
   const groupCriteriaByCategory = (criteria) => {
     const grouped = {};
     criteria.forEach(c => {
-      const category = c.category || 'Other';
+      const category = c.category || 'other';
       if (!grouped[category]) grouped[category] = [];
       grouped[category].push(c);
     });
@@ -188,11 +172,18 @@ function JobReadiness() {
   };
 
   const calculateProgress = () => {
-    if (!readinessData?.progress?.criteria) return { completed: 0, total: 0, percentage: 0 };
+    if (!readinessData?.progress?.criteria) return { completed: 0, total: 0, percentage: 0, submitted: 0 };
     const criteria = readinessData.progress.criteria;
     const completed = criteria.filter(c => c.verificationStatus === 'verified').length;
+    const submitted = criteria.filter(c => c.completed).length;
     const total = criteria.length;
-    return { completed, total, percentage: total > 0 ? Math.round((completed / total) * 100) : 0 };
+    return { completed, submitted, total, percentage: total > 0 ? Math.round((completed / total) * 100) : 0 };
+  };
+
+  const getMotivationalMessage = (percentage) => {
+    const milestones = [25, 50, 75, 100];
+    const milestone = milestones.find(m => percentage >= m && percentage < m + 25) || 0;
+    return MILESTONE_MESSAGES[milestone] || { emoji: '💪', message: MOTIVATIONAL_MESSAGES[Math.floor(Math.random() * MOTIVATIONAL_MESSAGES.length)] };
   };
 
   if (loading) {
@@ -216,373 +207,402 @@ function JobReadiness() {
 
   const progress = calculateProgress();
   const groupedCriteria = groupCriteriaByCategory(readinessData?.progress?.criteria || []);
+  const motivationalMsg = getMotivationalMessage(progress.percentage);
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">My Job Readiness Progress</h1>
-        <div className="mt-4 bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200">
-          <p className="text-blue-800 text-sm mb-2">🎯 <strong>How this works:</strong></p>
-          <div className="text-blue-700 text-sm space-y-1">
-            <p>1. <strong>Complete criteria</strong> below by providing required information</p>
-            <p>2. <strong>Campus PoCs review</strong> your submissions and may add ratings/feedback</p>
-            <p>3. <strong>Get approved</strong> to become job-ready and apply for positions</p>
-          </div>
+    <div className="max-w-5xl mx-auto px-4 py-8 relative">
+      {/* Confetti Effect */}
+      {showConfetti && (
+        <div className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center">
+          <div className="text-6xl animate-bounce">🎉</div>
         </div>
+      )}
+
+      {/* Header */}
+      <div className="mb-8 text-center">
+        <div className="inline-flex items-center gap-2 mb-3">
+          <RocketLaunchIcon className="w-8 h-8 text-indigo-600" />
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+            Your Job Readiness Journey
+          </h1>
+          <SparklesIcon className="w-8 h-8 text-purple-600" />
+        </div>
+        <p className="text-gray-600 text-lg">Level up your skills and become job-ready! 🚀</p>
       </div>
 
       {error && <Alert type="error" className="mb-6">{error}</Alert>}
 
-      {/* Progress Overview */}
-      <Card className="mb-8">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Your Progress</h2>
-            <p className="text-gray-600 mt-1">
-              {progress.completed} of {progress.total} criteria verified
-            </p>
+      {/* Gamified Progress Card */}
+      <Card className="mb-8 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 text-white border-0 shadow-2xl">
+        <div className="relative overflow-hidden">
+          {/* Animated Background Pattern */}
+          <div className="absolute inset-0 opacity-10">
+            <div className="absolute top-0 left-0 w-32 h-32 bg-white rounded-full blur-3xl animate-pulse"></div>
+            <div className="absolute bottom-0 right-0 w-40 h-40 bg-white rounded-full blur-3xl animate-pulse delay-1000"></div>
           </div>
-          <div className="text-right">
-            {readinessData?.progress?.isJobReady ? (
-              <div className="flex items-center text-green-600">
-                <TrophyIcon className="w-8 h-8 mr-2" />
-                <span className="text-xl font-bold">Job Ready!</span>
-              </div>
-            ) : (
-              <div className="text-3xl font-bold text-indigo-600">{progress.percentage}%</div>
-            )}
-          </div>
-        </div>
-        
-        {/* Progress Bar */}
-        <div className="mt-4 w-full bg-gray-200 rounded-full h-3">
-          <div 
-            className={`h-3 rounded-full transition-all duration-500 ${
-              readinessData?.progress?.isJobReady ? 'bg-green-500' : 'bg-indigo-600'
-            }`}
-            style={{ width: `${progress.percentage}%` }}
-          />
-        </div>
 
-        {readinessData?.progress?.isJobReady && readinessData?.progress?.jobReadyApprovedAt && (
-          <p className="mt-3 text-sm text-green-600">
-            ✓ Approved as Job Ready on {new Date(readinessData.progress.jobReadyApprovedAt).toLocaleDateString()}
-          </p>
-        )}
+          <div className="relative z-10">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-bold mb-2 flex items-center gap-2">
+                  {motivationalMsg.emoji} Level {Math.floor(progress.percentage / 25) + 1}
+                </h2>
+                <p className="text-white/90 text-lg">{motivationalMsg.message}</p>
+              </div>
+              <div className="text-right">
+                {readinessData?.progress?.isJobReady ? (
+                  <div className="flex flex-col items-center">
+                    <TrophyIcon className="w-16 h-16 mb-2 animate-bounce" />
+                    <span className="text-2xl font-bold">Job Ready!</span>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center">
+                    <div className="text-5xl font-bold mb-1">{progress.percentage}%</div>
+                    <div className="flex gap-1">
+                      {[1, 2, 3, 4, 5].map(star => (
+                        star <= Math.ceil(progress.percentage / 20) ? (
+                          <StarIconSolid key={star} className="w-6 h-6 text-yellow-300" />
+                        ) : (
+                          <StarIcon key={star} className="w-6 h-6 text-white/30" />
+                        )
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* XP Bar Style Progress */}
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="font-medium">{progress.completed} / {progress.total} Verified</span>
+                <span className="font-medium">{progress.submitted} Submitted</span>
+              </div>
+              <div className="w-full bg-white/20 rounded-full h-6 overflow-hidden backdrop-blur-sm">
+                <div
+                  className="h-6 bg-gradient-to-r from-green-400 to-emerald-400 rounded-full transition-all duration-1000 ease-out flex items-center justify-end pr-2"
+                  style={{ width: `${progress.percentage}%` }}
+                >
+                  {progress.percentage > 10 && (
+                    <span className="text-xs font-bold text-white drop-shadow">
+                      {progress.percentage}% XP
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Streak & Stats */}
+            <div className="grid grid-cols-3 gap-4 mt-6">
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 text-center">
+                <FireIcon className="w-6 h-6 mx-auto mb-1 text-orange-300" />
+                <div className="text-2xl font-bold">{progress.submitted}</div>
+                <div className="text-xs text-white/80">Submitted</div>
+              </div>
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 text-center">
+                <CheckCircleIcon className="w-6 h-6 mx-auto mb-1 text-green-300" />
+                <div className="text-2xl font-bold">{progress.completed}</div>
+                <div className="text-xs text-white/80">Verified</div>
+              </div>
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3 text-center">
+                <TrophyIcon className="w-6 h-6 mx-auto mb-1 text-yellow-300" />
+                <div className="text-2xl font-bold">{progress.total - progress.submitted}</div>
+                <div className="text-xs text-white/80">Remaining</div>
+              </div>
+            </div>
+          </div>
+        </div>
       </Card>
 
       {/* Criteria by Category */}
       {Object.entries(groupedCriteria).map(([category, criteria]) => {
         const CategoryIcon = CATEGORY_ICONS[category] || TrophyIcon;
         const categoryComplete = criteria.filter(c => c.verificationStatus === 'verified').length;
-        
+        const categoryProgress = Math.round((categoryComplete / criteria.length) * 100);
+
         return (
-          <Card key={category} className="mb-6">
-            <div className="flex items-center mb-4">
-              <CategoryIcon className="w-6 h-6 text-indigo-600 mr-2" />
-              <h3 className="text-lg font-semibold text-gray-900">{category}</h3>
-              <span className="ml-auto text-sm text-gray-500">
-                {categoryComplete}/{criteria.length} complete
-              </span>
+          <Card key={category} className="mb-6 hover:shadow-lg transition-shadow">
+            <div className="flex items-center mb-6 pb-4 border-b">
+              <div className="p-3 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-xl mr-3 shadow-sm">
+                <CategoryIcon className="w-7 h-7 text-indigo-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-xl font-bold text-gray-900 capitalize flex items-center gap-2">
+                  {category}
+                  {categoryProgress === 100 && <span className="text-2xl">✨</span>}
+                </h3>
+                <div className="flex items-center gap-3 mt-1">
+                  <div className="flex-1 bg-gray-200 rounded-full h-2 max-w-xs">
+                    <div
+                      className="bg-gradient-to-r from-indigo-500 to-purple-500 h-2 rounded-full transition-all duration-500"
+                      style={{ width: `${categoryProgress}%` }}
+                    />
+                  </div>
+                  <span className="text-sm font-medium text-gray-600">
+                    {categoryComplete}/{criteria.length}
+                  </span>
+                </div>
+              </div>
             </div>
 
             <div className="space-y-4">
-              {criteria.map((criterion) => (
-                <div 
-                  key={criterion.criteriaId}
-                  className={`p-4 rounded-lg border-2 transition-all ${
-                    criterion.verificationStatus === 'verified'
-                      ? 'border-green-200 bg-green-50'
-                      : criterion.completed
-                      ? 'border-yellow-200 bg-yellow-50'
-                      : 'border-gray-200 bg-white'
-                  }`}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-start flex-1">
-                      <button
-                        onClick={() => handleToggleCriterion(criterion, !criterion.completed)}
-                        disabled={updating === criterion.criteriaId || criterion.verificationStatus === 'verified'}
-                        className={`mt-0.5 w-6 h-6 rounded-full border-2 flex items-center justify-center mr-3 transition-colors ${
-                          criterion.verificationStatus === 'verified'
-                            ? 'border-green-500 bg-green-500 cursor-default'
-                            : criterion.completed
-                            ? 'border-yellow-500 bg-yellow-500 cursor-pointer hover:bg-yellow-600'
-                            : 'border-gray-300 cursor-pointer hover:border-indigo-500'
-                        }`}
-                      >
-                        {(criterion.completed || criterion.verificationStatus === 'verified') && (
-                          <CheckIcon className="w-4 h-4 text-white" />
-                        )}
-                      </button>
+              {criteria.map((criterion) => {
+                const isEditing = editingCriterion === criterion.criteriaId;
+                const isVerified = criterion.verificationStatus === 'verified';
+                const isPending = criterion.verificationStatus === 'pending';
+
+                return (
+                  <div
+                    key={criterion.criteriaId}
+                    className={`p-6 rounded-2xl border-2 transition-all ${isVerified
+                        ? 'border-green-400 bg-gradient-to-br from-green-50 to-emerald-50 shadow-md'
+                        : isPending
+                          ? 'border-yellow-400 bg-gradient-to-br from-yellow-50 to-amber-50 shadow-md'
+                          : isEditing
+                            ? 'border-indigo-400 bg-gradient-to-br from-indigo-50 to-purple-50 shadow-lg'
+                            : 'border-gray-200 bg-white hover:border-indigo-300 hover:shadow-md'
+                      }`}
+                  >
+                    <div className="flex items-start justify-between mb-4">
                       <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <h4 className={`font-medium ${
-                            criterion.verificationStatus === 'verified' ? 'text-green-800' : 'text-gray-900'
-                          }`}>
-                            {criterion.name}
-                          </h4>
+                        <div className="flex items-center gap-3 mb-2">
+                          <h4 className="font-bold text-gray-900 text-lg">{criterion.name}</h4>
                           {getStatusBadge(criterion)}
+                          {criterion.isMandatory && (
+                            <span className="text-xs bg-red-100 text-red-700 px-2 py-1 rounded-full font-bold">
+                              ⚡ Required
+                            </span>
+                          )}
                         </div>
                         {criterion.description && (
-                          <p className="text-sm text-gray-600 mt-1">{criterion.description}</p>
+                          <p className="text-sm text-gray-600 leading-relaxed">{criterion.description}</p>
                         )}
-                        
-                        {/* Input field based on criterion type */}
-                        <div className="mt-3 relative">
-                          {updating === criterion.criteriaId && (
-                            <div className="absolute top-0 right-0 bg-blue-100 text-blue-600 px-2 py-1 rounded text-xs">
-                              Saving...
-                            </div>
-                          )}
-                          {criterion.type === 'answer' && (
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">Your Answer</label>
-                              <input
-                                type="text"
-                                value={criterion.selfReportedValue || ''}
-                                onChange={(e) => {
-                                  // Immediate visual feedback - update local state
-                                  const newValue = e.target.value;
-                                  setReadinessData(prev => ({
-                                    ...prev,
-                                    progress: {
-                                      ...prev.progress,
-                                      criteria: prev.progress.criteria.map(c => 
-                                        c.criteriaId === criterion.criteriaId 
-                                          ? { ...c, selfReportedValue: newValue }
-                                          : c
-                                      )
-                                    }
-                                  }));
-                                  // Debounced API call
-                                  handleUpdateCriterion(criterion, { selfReportedValue: newValue });
-                                }}
-                                className="w-full text-sm border rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                placeholder="Enter your answer..."
-                                disabled={updating === criterion.criteriaId}
-                              />
-                            </div>
-                          )}
-                          {criterion.type === 'link' && (
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">Link/URL</label>
-                              <input
-                                type="url"
-                                value={criterion.selfReportedValue || ''}
-                                onChange={(e) => {
-                                  const newValue = e.target.value;
-                                  setReadinessData(prev => ({
-                                    ...prev,
-                                    progress: {
-                                      ...prev.progress,
-                                      criteria: prev.progress.criteria.map(c => 
-                                        c.criteriaId === criterion.criteriaId 
-                                          ? { ...c, selfReportedValue: newValue }
-                                          : c
-                                      )
-                                    }
-                                  }));
-                                  handleUpdateCriterion(criterion, { selfReportedValue: newValue });
-                                }}
-                                className="w-full text-sm border rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                placeholder="https://..."
-                                disabled={updating === criterion.criteriaId}
-                              />
-                            </div>
-                          )}
-                          {criterion.type === 'yes/no' && (
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">Response</label>
-                              <select
-                                value={criterion.selfReportedValue || ''}
-                                onChange={(e) => {
-                                  const newValue = e.target.value;
-                                  setReadinessData(prev => ({
-                                    ...prev,
-                                    progress: {
-                                      ...prev.progress,
-                                      criteria: prev.progress.criteria.map(c => 
-                                        c.criteriaId === criterion.criteriaId 
-                                          ? { ...c, selfReportedValue: newValue }
-                                          : c
-                                      )
-                                    }
-                                  }));
-                                  handleUpdateCriterion(criterion, { selfReportedValue: newValue });
-                                }}
-                                className="text-sm border rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                disabled={updating === criterion.criteriaId}
-                              >
-                                <option value="">Select...</option>
-                                <option value="yes">Yes</option>
-                                <option value="no">No</option>
-                              </select>
-                            </div>
-                          )}
-                          {criterion.type === 'comment' && (
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-1">Your Comment</label>
-                              <textarea
-                                value={criterion.selfReportedValue || ''}
-                                onChange={(e) => {
-                                  const newValue = e.target.value;
-                                  setReadinessData(prev => ({
-                                    ...prev,
-                                    progress: {
-                                      ...prev.progress,
-                                      criteria: prev.progress.criteria.map(c => 
-                                        c.criteriaId === criterion.criteriaId 
-                                          ? { ...c, selfReportedValue: newValue }
-                                          : c
-                                      )
-                                    }
-                                  }));
-                                  handleUpdateCriterion(criterion, { selfReportedValue: newValue });
-                                }}
-                                className="w-full text-sm border rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                rows={3}
-                                placeholder="Enter your detailed response..."
-                                disabled={updating === criterion.criteriaId}
-                              />
-                            </div>
-                          )}
-                        </div>
-                        
-                        {/* PoC Feedback Section */}
-                        {(criterion.pocComment || criterion.pocRating) && (
-                          <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                            <p className="text-xs text-yellow-800 font-medium mb-2">📝 PoC Feedback:</p>
-                            {criterion.pocRating && (
-                              <div className="text-sm text-yellow-700 mb-1">
-                                <span className="font-medium">Rating:</span> {criterion.pocRating}/4
-                              </div>
-                            )}
-                            {criterion.pocComment && (
-                              <div className="text-sm text-yellow-700">
-                                <span className="font-medium">Comment:</span> {criterion.pocComment}
+                      </div>
+                    </div>
+
+                    {/* Display Mode */}
+                    {!isEditing && (
+                      <div>
+                        {criterion.selfReportedValue && (
+                          <div className="mb-4 p-4 bg-white rounded-xl border-2 border-gray-100 shadow-sm">
+                            <p className="text-xs text-gray-500 font-bold mb-2 uppercase tracking-wide">📝 Your Response</p>
+                            <p className="text-sm text-gray-900 font-medium">{criterion.selfReportedValue}</p>
+                            {criterion.notes && (
+                              <div className="mt-3 pt-3 border-t border-gray-100">
+                                <p className="text-xs text-gray-500 font-bold mb-1 uppercase tracking-wide">💭 Your Reflection</p>
+                                <p className="text-sm text-gray-700 italic">{criterion.notes}</p>
                               </div>
                             )}
                           </div>
                         )}
-                        
-                        {criterion.requiresProof && !criterion.completed && (
-                          <p className="text-xs text-amber-600 mt-1 flex items-center">
-                            <DocumentArrowUpIcon className="w-4 h-4 mr-1" />
-                            Requires proof upload
-                          </p>
-                        )}
-                        {criterion.proofUrl && (
-                          <a 
-                            href={criterion.proofUrl} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-xs text-indigo-600 mt-1 inline-block hover:underline"
+
+                        {!isVerified && (
+                          <Button
+                            variant={criterion.selfReportedValue ? "secondary" : "primary"}
+                            size="md"
+                            onClick={() => handleStartEditing(criterion)}
+                            className="mt-2 font-bold shadow-md hover:shadow-lg transition-all"
                           >
-                            View uploaded proof →
-                          </a>
+                            {criterion.selfReportedValue ? '✏️ Edit Response' : '🚀 Start This Task'}
+                          </Button>
                         )}
-                        {criterion.verificationStatus === 'rejected' && criterion.verificationNotes && (
-                          <p className="text-sm text-red-600 mt-2 bg-red-50 p-2 rounded">
-                            <strong>Feedback:</strong> {criterion.verificationNotes}
+                      </div>
+                    )}
+
+                    {/* Edit Mode */}
+                    {isEditing && (
+                      <div className="space-y-4 mt-4">
+                        {criterion.type === 'answer' && (
+                          <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-2">
+                              ✍️ Your Answer
+                            </label>
+                            <input
+                              type="text"
+                              value={formValues[criterion.criteriaId] || ''}
+                              onChange={(e) => setFormValues({
+                                ...formValues,
+                                [criterion.criteriaId]: e.target.value
+                              })}
+                              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                              placeholder="Type your answer here..."
+                              autoFocus
+                            />
+                          </div>
+                        )}
+
+                        {criterion.type === 'link' && (
+                          <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-2">
+                              🔗 Link/URL
+                            </label>
+                            <input
+                              type="url"
+                              value={formValues[criterion.criteriaId] || ''}
+                              onChange={(e) => setFormValues({
+                                ...formValues,
+                                [criterion.criteriaId]: e.target.value
+                              })}
+                              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                              placeholder="https://..."
+                              autoFocus
+                            />
+                          </div>
+                        )}
+
+                        {criterion.type === 'yes/no' && (
+                          <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-3">
+                              ✅ Your Response
+                            </label>
+                            <div className="flex gap-4">
+                              <button
+                                onClick={() => setFormValues({
+                                  ...formValues,
+                                  [criterion.criteriaId]: 'yes'
+                                })}
+                                className={`flex-1 py-4 rounded-xl font-bold text-lg transition-all transform hover:scale-105 ${formValues[criterion.criteriaId] === 'yes'
+                                    ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-xl scale-105'
+                                    : 'bg-white border-2 border-gray-300 text-gray-700 hover:border-green-500'
+                                  }`}
+                              >
+                                👍 Yes
+                              </button>
+                              <button
+                                onClick={() => setFormValues({
+                                  ...formValues,
+                                  [criterion.criteriaId]: 'no'
+                                })}
+                                className={`flex-1 py-4 rounded-xl font-bold text-lg transition-all transform hover:scale-105 ${formValues[criterion.criteriaId] === 'no'
+                                    ? 'bg-gradient-to-r from-red-500 to-rose-500 text-white shadow-xl scale-105'
+                                    : 'bg-white border-2 border-gray-300 text-gray-700 hover:border-red-500'
+                                  }`}
+                              >
+                                👎 No
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {criterion.type === 'comment' && (
+                          <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-2">
+                              💬 Your Comment
+                            </label>
+                            <textarea
+                              value={formValues[criterion.criteriaId] || ''}
+                              onChange={(e) => setFormValues({
+                                ...formValues,
+                                [criterion.criteriaId]: e.target.value
+                              })}
+                              className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                              rows={4}
+                              placeholder="Share your thoughts..."
+                              autoFocus
+                            />
+                          </div>
+                        )}
+
+                        {/* Reflection Section - Always visible */}
+                        <div className="bg-gradient-to-br from-purple-50 to-pink-50 p-5 rounded-xl border-2 border-purple-200">
+                          <label className="block text-sm font-bold text-purple-900 mb-2 flex items-center gap-2">
+                            <SparklesIcon className="w-5 h-5" />
+                            💭 Reflection: What did you learn?
+                          </label>
+                          <textarea
+                            value={reflections[criterion.criteriaId] || ''}
+                            onChange={(e) => setReflections({
+                              ...reflections,
+                              [criterion.criteriaId]: e.target.value
+                            })}
+                            className="w-full px-4 py-3 border-2 border-purple-200 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all bg-white"
+                            rows={3}
+                            placeholder="Reflect on what you learned, challenges you faced, or how this helps your growth..."
+                          />
+                          <p className="text-xs text-purple-700 mt-2 italic">
+                            💡 Tip: Reflecting helps you internalize your learning and shows your growth mindset!
                           </p>
+                        </div>
+
+                        <div className="flex gap-3 pt-3">
+                          <Button
+                            variant="secondary"
+                            onClick={handleCancelEditing}
+                            disabled={submitting}
+                            className="flex items-center gap-2 font-bold"
+                          >
+                            <XMarkIcon className="w-5 h-5" />
+                            Cancel
+                          </Button>
+                          <Button
+                            variant="primary"
+                            onClick={() => handleSubmitCriterion(criterion)}
+                            disabled={submitting || !formValues[criterion.criteriaId]}
+                            className="flex-1 flex items-center justify-center gap-2 font-bold text-lg py-3 shadow-lg hover:shadow-xl transition-all"
+                          >
+                            {submitting ? (
+                              <>
+                                <LoadingSpinner size="small" />
+                                Submitting...
+                              </>
+                            ) : (
+                              <>
+                                <RocketLaunchIcon className="w-5 h-5" />
+                                Submit for Review 🎉
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* PoC Feedback */}
+                    {(criterion.pocComment || criterion.pocRating) && (
+                      <div className="mt-4 p-4 bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl">
+                        <p className="text-sm text-blue-900 font-bold mb-3 flex items-center gap-2">
+                          <ChatBubbleBottomCenterTextIcon className="w-5 h-5" />
+                          💬 Feedback from your PoC
+                        </p>
+                        {criterion.pocRating && (
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-sm font-medium text-blue-800">Rating:</span>
+                            <div className="flex gap-1">
+                              {[1, 2, 3, 4].map(star => (
+                                star <= criterion.pocRating ? (
+                                  <StarIconSolid key={star} className="w-5 h-5 text-yellow-500" />
+                                ) : (
+                                  <StarIcon key={star} className="w-5 h-5 text-gray-300" />
+                                )
+                              ))}
+                            </div>
+                          </div>
                         )}
-                        {criterion.notes && (
-                          <p className="text-xs text-gray-500 mt-1">
-                            <em>Your notes:</em> {criterion.notes}
+                        {criterion.pocComment && (
+                          <p className="text-sm text-blue-800 bg-white/50 p-3 rounded-lg">
+                            {criterion.pocComment}
                           </p>
                         )}
                       </div>
-                    </div>
-                    
-                    {updating === criterion.criteriaId && (
-                      <LoadingSpinner size="small" />
                     )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </Card>
         );
       })}
 
-      {/* Legend */}
-      <Card className="mt-8 bg-gray-50">
-        <h4 className="font-medium text-gray-900 mb-3">Status Legend</h4>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-          <div className="flex items-center">
-            <div className="w-4 h-4 rounded-full bg-gray-300 mr-2" />
-            <span>Not Started</span>
-          </div>
-          <div className="flex items-center">
-            <div className="w-4 h-4 rounded-full bg-yellow-500 mr-2" />
-            <span>Self-Marked / Pending</span>
-          </div>
-          <div className="flex items-center">
-            <div className="w-4 h-4 rounded-full bg-green-500 mr-2" />
-            <span>Verified</span>
-          </div>
-          <div className="flex items-center">
-            <div className="w-4 h-4 rounded-full bg-red-500 mr-2" />
-            <span>Rejected</span>
-          </div>
-        </div>
-      </Card>
-
-      {/* Upload Proof Modal */}
-      <Modal
-        isOpen={uploadModal.open}
-        onClose={() => setUploadModal({ open: false, criterion: null })}
-        title={`Upload Proof: ${uploadModal.criterion?.name || ''}`}
-      >
-        <form onSubmit={handleUploadSubmit}>
-          <p className="text-sm text-gray-600 mb-4">
-            {uploadModal.criterion?.description}
+      {/* Encouragement Footer */}
+      {progress.percentage < 100 && (
+        <Card className="mt-8 bg-gradient-to-r from-indigo-100 to-purple-100 border-indigo-200 text-center">
+          <p className="text-lg font-bold text-indigo-900 mb-2">
+            🌟 Keep going! You're {100 - progress.percentage}% away from being Job Ready!
           </p>
-          
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Proof Document (PDF, Image, or Document)
-            </label>
-            <input
-              type="file"
-              name="proofFile"
-              ref={fileInputRef}
-              accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
-              className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
-              required
-            />
-          </div>
-
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Notes (Optional)
-            </label>
-            <textarea
-              name="notes"
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-              placeholder="Add any relevant notes about this submission..."
-            />
-          </div>
-
-          <div className="flex justify-end gap-3">
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={() => setUploadModal({ open: false, criterion: null })}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={updating}
-            >
-              {updating ? 'Uploading...' : 'Submit for Review'}
-            </Button>
-          </div>
-        </form>
-      </Modal>
+          <p className="text-sm text-indigo-700">
+            Every criterion you complete brings you closer to your dream career! 💪
+          </p>
+        </Card>
+      )}
     </div>
   );
 }

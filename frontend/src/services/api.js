@@ -269,14 +269,20 @@ export const jobReadinessAPI = {
   // Student self-tracking
   getMyStatus: () => api.get('/job-readiness/my-status'),
   updateMyCriterion: (criteriaId, data) => {
-    const formData = new FormData();
-    if (data.completed !== undefined) formData.append('completed', data.completed);
-    if (data.selfReportedValue !== undefined) formData.append('selfReportedValue', data.selfReportedValue);
-    if (data.notes) formData.append('notes', data.notes);
-    if (data.proofFile) formData.append('proofFile', data.proofFile);
-    return api.patch(`/job-readiness/my-status/${criteriaId}`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    });
+    // If there's a file, use FormData
+    if (data.proofFile) {
+      const formData = new FormData();
+      if (data.completed !== undefined) formData.append('completed', data.completed);
+      if (data.status) formData.append('status', data.status);
+      if (data.selfReportedValue !== undefined) formData.append('selfReportedValue', data.selfReportedValue);
+      if (data.notes) formData.append('notes', data.notes);
+      formData.append('proofFile', data.proofFile);
+      return api.patch(`/job-readiness/my-status/${criteriaId}`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+    }
+    // Otherwise send JSON
+    return api.patch(`/job-readiness/my-status/${criteriaId}`, data);
   },
   // Campus PoC review
   getCampusStudents: (params) => api.get('/job-readiness/campus-students', { params }),

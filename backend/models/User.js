@@ -266,19 +266,23 @@ const userSchema = new mongoose.Schema({
       }
     }],
 
-    // Soft Skills with levels (0-4)
-    softSkills: {
-      communication: { type: Number, min: 0, max: 4, default: 0 },
-      collaboration: { type: Number, min: 0, max: 4, default: 0 },
-      creativity: { type: Number, min: 0, max: 4, default: 0 },
-      criticalThinking: { type: Number, min: 0, max: 4, default: 0 },
-      problemSolving: { type: Number, min: 0, max: 4, default: 0 },
-      adaptability: { type: Number, min: 0, max: 4, default: 0 },
-      timeManagement: { type: Number, min: 0, max: 4, default: 0 },
-      leadership: { type: Number, min: 0, max: 4, default: 0 },
-      teamwork: { type: Number, min: 0, max: 4, default: 0 },
-      emotionalIntelligence: { type: Number, min: 0, max: 4, default: 0 }
-    },
+    // Soft Skills with self-assessment (now using Skill model)
+    softSkills: [{
+      skillId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Skill'
+      },
+      skillName: String,
+      selfRating: {
+        type: Number,
+        min: 0,
+        max: 4
+      },
+      addedAt: {
+        type: Date,
+        default: Date.now
+      }
+    }],
 
     // Council Service
     councilService: [{

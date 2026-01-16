@@ -46,14 +46,16 @@ const StudentJobs = () => {
   const [activeTab, setActiveTab] = useState('all'); // 'all' or 'matching'
   const [jobPagination, setJobPagination] = useState({ current: 1, pages: 1, total: 0 });
   const [internshipPagination, setInternshipPagination] = useState({ current: 1, pages: 1, total: 0 });
-  const [filters, setFilters] = useState({ search: '' });
+  const [filters, setFilters] = useState({ search: '', roleCategory: '' });
   const [pipelineStages, setPipelineStages] = useState([]);
   const [readiness, setReadiness] = useState(null);
+  const [roleCategories, setRoleCategories] = useState([]);
 
   useEffect(() => {
     fetchProfileStatus();
     fetchPipelineStages();
     fetchReadiness();
+    fetchRoleCategories();
   }, []);
 
   const fetchPipelineStages = async () => {
@@ -71,6 +73,15 @@ const StudentJobs = () => {
       setReadiness(response.data);
     } catch (error) {
       console.error('Error fetching readiness:', error);
+    }
+  };
+
+  const fetchRoleCategories = async () => {
+    try {
+      const response = await settingsAPI.getSettings();
+      setRoleCategories(response.data.data.roleCategories || []);
+    } catch (error) {
+      console.error('Error fetching role categories:', error);
     }
   };
 
@@ -102,6 +113,7 @@ const StudentJobs = () => {
         page: jobPagination.current,
         limit: 10,
         search: filters.search || undefined,
+        roleCategory: filters.roleCategory || undefined,
         jobType: 'full_time,part_time,contract' // Exclude internships
       });
       setJobs(response.data.jobs);
@@ -120,6 +132,7 @@ const StudentJobs = () => {
         page: internshipPagination.current,
         limit: 10,
         search: filters.search || undefined,
+        roleCategory: filters.roleCategory || undefined,
         jobType: 'internship'
       });
       setInternships(response.data.jobs);
@@ -209,8 +222,8 @@ const StudentJobs = () => {
         <button
           onClick={() => { setActiveCategory('jobs'); setActiveTab('all'); }}
           className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${activeCategory === 'jobs'
-              ? 'bg-primary-600 text-white shadow-lg'
-              : 'bg-white text-gray-600 border hover:border-primary-300 hover:text-primary-600'
+            ? 'bg-primary-600 text-white shadow-lg'
+            : 'bg-white text-gray-600 border hover:border-primary-300 hover:text-primary-600'
             }`}
         >
           <Briefcase className="w-5 h-5" />
@@ -219,8 +232,8 @@ const StudentJobs = () => {
         <button
           onClick={() => { setActiveCategory('internships'); setActiveTab('all'); }}
           className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${activeCategory === 'internships'
-              ? 'bg-primary-600 text-white shadow-lg'
-              : 'bg-white text-gray-600 border hover:border-primary-300 hover:text-primary-600'
+            ? 'bg-primary-600 text-white shadow-lg'
+            : 'bg-white text-gray-600 border hover:border-primary-300 hover:text-primary-600'
             }`}
         >
           <GraduationCap className="w-5 h-5" />
@@ -233,8 +246,8 @@ const StudentJobs = () => {
         <button
           onClick={() => setActiveTab('all')}
           className={`pb-3 px-1 font-medium transition-colors ${activeTab === 'all'
-              ? 'text-primary-600 border-b-2 border-primary-600'
-              : 'text-gray-500 hover:text-gray-700'
+            ? 'text-primary-600 border-b-2 border-primary-600'
+            : 'text-gray-500 hover:text-gray-700'
             }`}
         >
           All {activeCategory === 'jobs' ? 'Jobs' : 'Internships'}
@@ -242,14 +255,42 @@ const StudentJobs = () => {
         <button
           onClick={() => setActiveTab('matching')}
           className={`pb-3 px-1 font-medium transition-colors flex items-center gap-2 ${activeTab === 'matching'
-              ? 'text-primary-600 border-b-2 border-primary-600'
-              : 'text-gray-500 hover:text-gray-700'
+            ? 'text-primary-600 border-b-2 border-primary-600'
+            : 'text-gray-500 hover:text-gray-700'
             }`}
         >
           <Star className="w-4 h-4" />
           Matching {activeCategory === 'jobs' ? 'Jobs' : 'Internships'}
         </button>
       </div>
+
+      {/* Role Category Chips Filter */}
+      {roleCategories.length > 0 && (
+        <div className="flex flex-wrap gap-2 items-center">
+          <span className="text-sm font-medium text-gray-700">Filter by Role:</span>
+          <button
+            onClick={() => setFilters({ ...filters, roleCategory: '' })}
+            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${!filters.roleCategory
+                ? 'bg-primary-600 text-white shadow-sm'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+          >
+            All
+          </button>
+          {roleCategories.map((category) => (
+            <button
+              key={category}
+              onClick={() => setFilters({ ...filters, roleCategory: category })}
+              className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${filters.roleCategory === category
+                  ? 'bg-primary-600 text-white shadow-sm'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+            >
+              {category}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Filters */}
       {activeTab === 'all' && (
@@ -345,8 +386,8 @@ const StudentJobs = () => {
                   <div className="text-right">
                     {job.matchDetails?.overallPercentage !== undefined && (
                       <div className={`text-lg font-bold ${job.matchDetails.overallPercentage >= 80 ? 'text-green-600' :
-                          job.matchDetails.overallPercentage >= 60 ? 'text-blue-600' :
-                            job.matchDetails.overallPercentage >= 40 ? 'text-yellow-600' : 'text-red-600'
+                        job.matchDetails.overallPercentage >= 60 ? 'text-blue-600' :
+                          job.matchDetails.overallPercentage >= 40 ? 'text-yellow-600' : 'text-red-600'
                         }`}>
                         {job.matchDetails.overallPercentage}% Match
                       </div>
@@ -405,7 +446,7 @@ const StudentJobs = () => {
                   {/* Legacy match percentage for backward compatibility */}
                   {!job.matchDetails && job.matchPercentage !== undefined && (
                     <div className={`text-sm font-medium ${job.matchPercentage >= 70 ? 'text-green-600' :
-                        job.matchPercentage >= 40 ? 'text-yellow-600' : 'text-red-600'
+                      job.matchPercentage >= 40 ? 'text-yellow-600' : 'text-red-600'
                       }`}>
                       {job.matchPercentage}% Match
                     </div>

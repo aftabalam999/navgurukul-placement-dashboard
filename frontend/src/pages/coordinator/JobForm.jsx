@@ -37,11 +37,13 @@ const JobForm = () => {
   const [showHometownSuggestions, setShowHometownSuggestions] = useState(false);
   const [showHomestateSuggestions, setShowHomestateSuggestions] = useState(false);
   const [showCouncilPostSuggestions, setShowCouncilPostSuggestions] = useState({}); // Keyed by index
+  const [roleCategories, setRoleCategories] = useState([]);
 
   const [formData, setFormData] = useState({
     title: '',
     company: { name: '', website: '', description: '' },
     location: '',
+    roleCategory: '',
     jobType: 'full_time',
     duration: '', // for internship
     salary: { min: '', max: '', currency: 'INR' },
@@ -125,6 +127,7 @@ const JobForm = () => {
     fetchCompanies();
     fetchLocations();
     fetchStudentLocations();
+    fetchRoleCategories();
     if (isEdit) fetchJob();
   }, [id]);
 
@@ -199,6 +202,15 @@ const JobForm = () => {
       }
     } catch (error) {
       console.error('Error fetching campuses:', error);
+    }
+  };
+
+  const fetchRoleCategories = async () => {
+    try {
+      const response = await settingsAPI.getSettings();
+      setRoleCategories(response.data.data.roleCategories || []);
+    } catch (error) {
+      console.error('Error fetching role categories:', error);
     }
   };
 
@@ -695,6 +707,19 @@ const JobForm = () => {
                   </>
                 )}
               </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Role Category</label>
+              <select
+                value={formData.roleCategory}
+                onChange={(e) => setFormData({ ...formData, roleCategory: e.target.value })}
+              >
+                <option value="">Select Category (Optional)</option>
+                {roleCategories.map((category) => (
+                  <option key={category} value={category}>{category}</option>
+                ))}
+              </select>
             </div>
 
             <div>

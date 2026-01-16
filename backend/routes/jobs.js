@@ -211,6 +211,7 @@ router.get('/', auth, async (req, res) => {
   try {
     const {
       status, company, jobType, campus, search,
+      roleCategory,
       page = 1, limit = 20
     } = req.query;
 
@@ -257,6 +258,10 @@ router.get('/', auth, async (req, res) => {
 
     if (campus) {
       query['eligibility.campuses'] = campus;
+    }
+
+    if (roleCategory) {
+      query.roleCategory = roleCategory;
     }
 
     if (search) {

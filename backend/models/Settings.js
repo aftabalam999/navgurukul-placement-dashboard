@@ -40,6 +40,11 @@ const settingsSchema = new mongoose.Schema({
     type: [String],
     default: []
   },
+  // Role Categories for job postings
+  roleCategories: {
+    type: [String],
+    default: []
+  },
   // Council Posts
   councilPosts: {
     type: [String],
@@ -159,6 +164,26 @@ const DEFAULT_INSTITUTION_OPTIONS = new Map([
   ['Other', '']
 ]);
 
+// Default Role Categories
+const DEFAULT_ROLE_CATEGORIES = [
+  'Backend Developer',
+  'Counselling',
+  'Customer Success',
+  'Customer Support',
+  'Data Analytics',
+  'Database Management',
+  'Design',
+  'Fellowship',
+  'Frontend Developer',
+  'Full Stack Developer',
+  'Marketing',
+  'Operations',
+  'Program Management',
+  'Sales',
+  'Software Developer',
+  'Teaching'
+];
+
 // Ensure only one settings document exists
 settingsSchema.statics.getSettings = async function () {
   try {
@@ -173,8 +198,15 @@ settingsSchema.statics.getSettings = async function () {
         jobPipelineStages: DEFAULT_PIPELINE_STAGES,
         inactiveSchools: [],
         higherEducationOptions: DEFAULT_HIGHER_EDUCATION_OPTIONS,
-        institutionOptions: DEFAULT_INSTITUTION_OPTIONS
+        institutionOptions: DEFAULT_INSTITUTION_OPTIONS,
+        roleCategories: DEFAULT_ROLE_CATEGORIES
       });
+    }
+
+    // Ensure role categories exist (for existing databases)
+    if (!settings.roleCategories || settings.roleCategories.length === 0) {
+      settings.roleCategories = DEFAULT_ROLE_CATEGORIES;
+      await settings.save();
     }
 
     // Ensure pipeline stages exist (for existing databases)
@@ -318,6 +350,7 @@ settingsSchema.statics.updateSettings = async function (updates, userId) {
   if (updates.softSkills) settings.softSkills = updates.softSkills;
   if (updates.inactiveSchools) settings.inactiveSchools = updates.inactiveSchools;
   if (updates.jobPipelineStages) settings.jobPipelineStages = updates.jobPipelineStages;
+  if (updates.roleCategories) settings.roleCategories = updates.roleCategories;
   if (updates.higherEducationOptions) {
     if (!(updates.higherEducationOptions instanceof Map)) {
       settings.higherEducationOptions = new Map(Object.entries(updates.higherEducationOptions));

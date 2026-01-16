@@ -226,7 +226,7 @@ router.get('/my-status', auth, authorize('student'), async (req, res) => {
 router.patch('/my-status/:criteriaId', auth, authorize('student'), [
   body('completed').optional().isBoolean(),
   body('status').optional().isString(),
-  body('selfReportedValue').optional().trim(),
+  body('selfReportedValue').optional(),
   body('notes').optional().trim()
 ], async (req, res) => {
   try {

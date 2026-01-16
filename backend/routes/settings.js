@@ -17,6 +17,7 @@ router.get('/', auth, async (req, res) => {
       degreeOptions: settings.degreeOptions || [],
       softSkills: settings.softSkills || [],
       inactiveSchools: settings.inactiveSchools || [],
+      roleCategories: settings.roleCategories || [],
       institutionOptions: Object.fromEntries(settings.institutionOptions || new Map()),
       higherEducationOptions: Object.fromEntries(settings.higherEducationOptions || new Map())
     };
@@ -31,7 +32,7 @@ router.get('/', auth, async (req, res) => {
 // Update all settings (manager/coordinator only)
 router.put('/', auth, authorize('manager', 'coordinator'), async (req, res) => {
   try {
-    const { schoolModules, rolePreferences, technicalSkills, degreeOptions, softSkills, inactiveSchools, institutionOptions, higherEducationOptions } = req.body;
+    const { schoolModules, rolePreferences, technicalSkills, degreeOptions, softSkills, inactiveSchools, institutionOptions, higherEducationOptions, roleCategories } = req.body;
 
     const settings = await Settings.updateSettings({
       schoolModules,
@@ -41,7 +42,8 @@ router.put('/', auth, authorize('manager', 'coordinator'), async (req, res) => {
       softSkills,
       inactiveSchools,
       institutionOptions,
-      higherEducationOptions
+      higherEducationOptions,
+      roleCategories
     }, req.userId);
 
     // Convert Map to plain object for JSON response
@@ -52,6 +54,7 @@ router.put('/', auth, authorize('manager', 'coordinator'), async (req, res) => {
       degreeOptions: settings.degreeOptions || [],
       softSkills: settings.softSkills || [],
       inactiveSchools: settings.inactiveSchools || [],
+      roleCategories: settings.roleCategories || [],
       institutionOptions: Object.fromEntries(settings.institutionOptions || new Map()),
       higherEducationOptions: Object.fromEntries(settings.higherEducationOptions || new Map())
     };

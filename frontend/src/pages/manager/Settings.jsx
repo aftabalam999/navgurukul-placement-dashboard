@@ -19,6 +19,7 @@ const Settings = () => {
   const [newSkill, setNewSkill] = useState('');
   const [newDegree, setNewDegree] = useState('');
   const [newSpecialization, setNewSpecialization] = useState({}); // degree -> string
+  const [newRoleCategory, setNewRoleCategory] = useState('');
   const [newSoftSkill, setNewSoftSkill] = useState('');
   const [newInstitution, setNewInstitution] = useState('');
   const [newInstitutionPincode, setNewInstitutionPincode] = useState('');
@@ -300,6 +301,17 @@ const Settings = () => {
     setSettings({ ...settings, softSkills: settings.softSkills.filter(s => s !== skill) });
   };
 
+  // Role Categories management
+  const addRoleCategory = () => {
+    if (!newRoleCategory.trim() || settings.roleCategories?.includes(newRoleCategory.trim())) return;
+    setSettings({ ...settings, roleCategories: [...(settings.roleCategories || []), newRoleCategory.trim()] });
+    setNewRoleCategory('');
+  };
+
+  const removeRoleCategory = (category) => {
+    setSettings({ ...settings, roleCategories: settings.roleCategories.filter(c => c !== category) });
+  };
+
   // Institution management
   const addInstitution = () => {
     const institution = newInstitution.trim();
@@ -376,6 +388,7 @@ const Settings = () => {
 
   const tabs = [
     { id: 'modules', label: 'School Modules', icon: '📚' },
+    { id: 'roleCategories', label: 'Role Categories', icon: '🏷️' },
     { id: 'roles', label: 'Role Preferences', icon: '💼' },
     { id: 'skills', label: 'Technical Skills', icon: '🔧' },
     { id: 'degrees', label: 'Departments', icon: '🎓' },
@@ -589,6 +602,55 @@ const Settings = () => {
             </Card>
           ))}
         </div>
+      )}
+
+      {/* Role Categories Tab */}
+      {activeTab === 'roleCategories' && (
+        <Card>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Job Role Categories</h3>
+          <p className="text-gray-600 mb-4">
+            These categories are used to classify job and internship postings for better student filtering.
+          </p>
+
+          {/* Add new category */}
+          <div className="flex gap-2 mb-4">
+            <input
+              type="text"
+              value={newRoleCategory}
+              onChange={(e) => setNewRoleCategory(e.target.value)}
+              placeholder="Add new role category (e.g. Full Stack Developer)..."
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              onKeyPress={(e) => e.key === 'Enter' && addRoleCategory()}
+            />
+            <Button variant="primary" onClick={addRoleCategory}>
+              Add Category
+            </Button>
+          </div>
+
+          {/* Category list */}
+          <div className="flex flex-wrap gap-2">
+            {settings.roleCategories?.map((category) => (
+              <span
+                key={category}
+                className="inline-flex items-center px-3 py-1.5 bg-indigo-100 text-indigo-800 rounded-full text-sm"
+              >
+                {category}
+                <button
+                  onClick={() => removeRoleCategory(category)}
+                  className="ml-2 text-indigo-600 hover:text-indigo-800"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </span>
+            ))}
+          </div>
+
+          {(!settings.roleCategories || settings.roleCategories.length === 0) && (
+            <p className="text-gray-500 text-center py-4">No role categories added yet</p>
+          )}
+        </Card>
       )}
 
       {/* Role Preferences Tab */}

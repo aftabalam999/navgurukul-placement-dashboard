@@ -5,7 +5,7 @@ import { Card, Button, Badge, LoadingSpinner, Alert, Modal } from '../../compone
 import {
     Plus, Edit, Trash2, Save, X, Eye, Info, CheckCircle2, AlertCircle,
     ChevronRight, Layout, Settings2, Sparkles, Users, Search,
-    Filter, Trophy, Clock, CheckCircle, Target, Users2, ListChecks
+    Filter, Trophy, Clock, CheckCircle, Target, Users2, ListChecks, CheckSquare
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
