@@ -7,6 +7,13 @@ const skillSchema = new mongoose.Schema({
     unique: true,
     trim: true
   },
+  // Case-insensitive canonical form for lookups (lowercased + trimmed)
+  normalizedName: {
+    type: String,
+    trim: true,
+    lowercase: true,
+    index: true // Unique index will be created via a migration once duplicates are resolved
+  },
   category: {
     type: String,
     required: true,
@@ -33,6 +40,14 @@ const skillSchema = new mongoose.Schema({
   }
 }, {
   timestamps: true
+});
+
+// Ensure normalizedName is set from name
+skillSchema.pre('save', function(next) {
+  if (this.isModified('name') && this.name) {
+    this.normalizedName = this.name.toString().trim().toLowerCase();
+  }
+  next();
 });
 
 module.exports = mongoose.model('Skill', skillSchema);

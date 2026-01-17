@@ -101,14 +101,16 @@ router.post('/', auth, authorize('coordinator', 'manager', 'campus_poc'), [
     const settings = await Settings.getSettings();
     const allowedSchools = Object.keys(Object.fromEntries(settings.schoolModules || new Map()));
 
-    // Check if skill already exists
-    const existingSkill = await Skill.findOne({ name: { $regex: new RegExp(`^${name}$`, 'i') } });
+    // Normalize name to prevent case-only collisions and check if skill already exists
+    const normalized = (name || '').toString().trim().toLowerCase();
+    const existingSkill = await Skill.findOne({ normalizedName: normalized });
     if (existingSkill) {
       return res.status(400).json({ message: 'Skill already exists' });
     }
 
     const skill = new Skill({
       name,
+      normalizedName: normalized,
       category,
       description,
       isCommon: Boolean(isCommon),
@@ -150,11 +152,19 @@ router.put('/:id', auth, authorize('coordinator', 'manager', 'campus_poc'), asyn
 
     await skill.save();
 
-    // Back-propagate skill name changes to student profiles that reference this skill
+    // Back-propagate skill name changes to student profiles that reference this skill (technical + soft skills)
     try {
+      // Technical skills
       await User.updateMany(
         { 'studentProfile.technicalSkills.skillId': skill._id },
         { $set: { 'studentProfile.technicalSkills.$[elem].skillName': skill.name } },
+        { arrayFilters: [{ 'elem.skillId': skill._id }] }
+      );
+
+      // Soft skills
+      await User.updateMany(
+        { 'studentProfile.softSkills.skillId': skill._id },
+        { $set: { 'studentProfile.softSkills.$[elem].skillName': skill.name } },
         { arrayFilters: [{ 'elem.skillId': skill._id }] }
       );
     } catch (err) {
