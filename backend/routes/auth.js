@@ -7,9 +7,22 @@ const { auth } = require('../middleware/auth');
 const passport = require('../config/passport');
 
 // Google OAuth routes
-router.get('/google', 
-  passport.authenticate('google', { scope: ['profile', 'email'] })
-);
+const isGoogleConfigured = () => !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+
+router.get('/google', (req, res, next) => {
+  if (!isGoogleConfigured()) {
+    return res.status(503).json({ message: 'Google OAuth is not configured on the server. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in environment.' });
+  }
+  return passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
+});
+
+router.get('/google/config', (req, res) => {
+  res.json({
+    configured: isGoogleConfigured(),
+    managerEmail: process.env.MANAGER_EMAIL || null,
+    redirectUri: process.env.GOOGLE_REDIRECT_URI || '/api/auth/google/callback'
+  });
+});
 
 router.get('/google/callback',
   passport.authenticate('google', { session: false }),
