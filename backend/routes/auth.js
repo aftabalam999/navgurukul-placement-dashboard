@@ -63,7 +63,11 @@ router.post('/google/exchange', async (req, res) => {
       console.debug('Exchange route - unable to read Set-Cookie header:', err.message);
     }
 
-    return res.json({ user });
+    // WARNING: Temporary debug - return token in response body so we can validate token independently
+    // Remove this before leaving debug mode / production
+    console.warn('DEBUG: Returning JWT in exchange response for debugging. REMOVE THIS IN PRODUCTION.');
+
+    return res.json({ user, token });
   } catch (error) {
     console.error('Token exchange error:', error);
     return res.status(500).json({ message: 'Server error during token exchange' });
