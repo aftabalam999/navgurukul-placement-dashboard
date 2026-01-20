@@ -184,7 +184,9 @@ const Login = () => {
           <button
             type="button"
             onClick={() => {
-              window.location.href = `${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/auth/google`;
+              const apiBase = (import.meta.env.VITE_API_URL || 'http://localhost:5001').replace(/\/$/, '');
+              const authUrl = apiBase.endsWith('/api') ? `${apiBase}/auth/google` : `${apiBase}/api/auth/google`;
+              window.location.href = authUrl;
             }}
             className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors"
           >
