@@ -54,8 +54,14 @@ router.post('/google/exchange', async (req, res) => {
 
     res.cookie('auth_token', token, cookieOptionsForToken());
 
-    // Debug: confirm cookie was set on server side
+    // Debug: confirm cookie was set on server side and inspect header
     console.info('Exchange route - set auth_token cookie for user:', user.email || user.id);
+    try {
+      const sc = res.getHeader('Set-Cookie');
+      console.debug('Exchange route - Set-Cookie header:', sc);
+    } catch (err) {
+      console.debug('Exchange route - unable to read Set-Cookie header:', err.message);
+    }
 
     return res.json({ user });
   } catch (error) {

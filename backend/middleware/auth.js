@@ -12,8 +12,26 @@ const auth = async (req, res, next) => {
       return res.status(401).json({ message: 'No authentication token, access denied' });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.userId).select('-password');
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      console.debug('auth middleware - token decoded for userId:', decoded.userId);
+      const user = await User.findById(decoded.userId).select('-password');
+
+      if (!user) {
+        return res.status(401).json({ message: 'User not found' });
+      }
+
+      if (!user.isActive) {
+        return res.status(401).json({ message: 'Account is deactivated' });
+      }
+
+      req.user = user;
+      req.userId = user._id;
+      next();
+    } catch (err) {
+      console.error('auth middleware - token verify error:', err.message);
+      return res.status(401).json({ message: 'Token is invalid or expired' });
+    }
     
     if (!user) {
       return res.status(401).json({ message: 'User not found' });
