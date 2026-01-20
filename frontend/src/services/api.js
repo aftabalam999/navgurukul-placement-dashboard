@@ -8,7 +8,8 @@ const api = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json'
-  }
+  },
+  withCredentials: true // Send cookies (HttpOnly auth_token) with all requests by default
 });
 
 // Add auth token to requests

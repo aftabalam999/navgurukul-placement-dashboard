@@ -45,11 +45,18 @@ router.post('/google/exchange', async (req, res) => {
     const payload = consumeTokenEntry(code);
     if (!payload) return res.status(400).json({ message: 'Invalid or expired code' });
 
+    // Debug: log incoming cookies and response (helps validate browser behavior)
+    console.debug('Exchange route - incoming req.cookies:', req.cookies);
+
     // Set the JWT as an HttpOnly cookie and return minimal user info
     const token = payload.token;
     const user = payload.user;
 
     res.cookie('auth_token', token, cookieOptionsForToken());
+
+    // Debug: confirm cookie was set on server side
+    console.info('Exchange route - set auth_token cookie for user:', user.email || user.id);
+
     return res.json({ user });
   } catch (error) {
     console.error('Token exchange error:', error);
@@ -309,6 +316,9 @@ router.post('/login', loginValidation, async (req, res) => {
 // Get current user
 router.get('/me', auth, async (req, res) => {
   try {
+    // Debug: log cookie header to see if browser sent auth_token
+    console.debug('/me route - incoming cookies:', req.cookies);
+
     const user = await User.findById(req.userId)
       .select('-password')
       .populate('campus')
