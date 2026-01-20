@@ -14,6 +14,7 @@ const UsersManager = () => {
   const [roleFilter, setRoleFilter] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [loadingUserId, setLoadingUserId] = useState(null);
   const [campuses, setCampuses] = useState([]);
 
   const fetchUsers = async () => {
@@ -58,11 +59,18 @@ const UsersManager = () => {
 
   const openEdit = async (userId) => {
     try {
+      // Show modal immediately and indicate loading
+      setSelectedUser(null);
+      setLoadingUserId(userId);
+      setShowModal(true);
+
       const res = await userAPI.getUser(userId);
       setSelectedUser(res.data.user);
-      setShowModal(true);
     } catch (err) {
       toast.error('Error loading user');
+      setShowModal(false);
+    } finally {
+      setLoadingUserId(null);
     }
   };
 
@@ -131,7 +139,13 @@ const UsersManager = () => {
                       </td>
                       <td>{u.campus?.name || (u.managedCampuses && u.managedCampuses.length > 0 ? u.managedCampuses.map(c => c.name).join(', ') : '')}</td>
                       <td>
-                        <button className="px-3 py-1 rounded bg-gray-100" onClick={() => openEdit(u._id)} title="Edit user"><Edit className="w-4 h-4" /></button>
+                        <button className="px-3 py-1 rounded bg-gray-100 flex items-center gap-2" onClick={() => openEdit(u._id)} title="Edit user">
+                          {loadingUserId === u._id ? (
+                            <span className="inline-flex items-center"><LoadingSpinner size="sm" /></span>
+                          ) : (
+                            <Edit className="w-4 h-4" />
+                          )}
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -147,7 +161,9 @@ const UsersManager = () => {
       </div>
 
       <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="User details" size="md">
-        {selectedUser && (
+        {loadingUserId && !selectedUser ? (
+          <div className="py-8 flex items-center justify-center"><LoadingSpinner size="lg" /></div>
+        ) : selectedUser ? (
           <div className="space-y-4">
             <div>
               <label className="text-xs text-gray-500">Name</label>
@@ -187,6 +203,8 @@ const UsersManager = () => {
               <button className="btn btn-primary" onClick={saveUser}>Save</button>
             </div>
           </div>
+        ) : (
+          <div className="py-6 text-sm text-gray-500">No user loaded</div>
         )}
       </Modal>
     </div>
