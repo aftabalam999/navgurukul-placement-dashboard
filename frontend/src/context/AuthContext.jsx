@@ -17,15 +17,28 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const initAuth = async () => {
-      const token = localStorage.getItem('token');
-      if (token) {
-        try {
-          const response = await authAPI.getMe();
+      try {
+        // Prefer cookie-based session (server sets HttpOnly cookie)
+        const response = await authAPI.getMe();
+        if (response?.data) {
           setUser(response.data);
-        } catch (error) {
-          console.error('Auth init error:', error);
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
+          localStorage.setItem('user', JSON.stringify(response.data));
+          setLoading(false);
+          return;
+        }
+      } catch (error) {
+        // If cookie-based auth fails, fall back to token in localStorage
+        const token = localStorage.getItem('token');
+        if (token) {
+          try {
+            const response2 = await authAPI.getMe();
+            setUser(response2.data);
+            localStorage.setItem('user', JSON.stringify(response2.data));
+          } catch (err) {
+            console.error('Auth init fallback error:', err);
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+          }
         }
       }
       setLoading(false);
@@ -52,11 +65,25 @@ export const AuthProvider = ({ children }) => {
     return newUser;
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await authAPI.logout();
+    } catch (err) {
+      console.warn('Logout request failed, clearing client state anyway');
+    }
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
   };
+
+  // Listen for cross-tab login events (AuthCallback dispatches a custom event)
+  useEffect(() => {
+    const onAuthLogin = (e) => {
+      if (e?.detail) setUser(e.detail);
+    };
+    window.addEventListener('auth:login', onAuthLogin);
+    return () => window.removeEventListener('auth:login', onAuthLogin);
+  }, []);
 
   const updateUser = (updates) => {
     setUser(prev => ({ ...prev, ...updates }));

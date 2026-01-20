@@ -28,14 +28,29 @@ router.get('/google/config', (req, res) => {
   });
 });
 
-// Exchange short-lived code for a JWT token (single-use)
+// Helper for cookie options
+const cookieOptionsForToken = (ttlMs = 7 * 24 * 60 * 60 * 1000) => ({
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
+  maxAge: ttlMs,
+  path: '/'
+});
+
+// Exchange short-lived code for a JWT token (single-use) and set an HttpOnly cookie
 router.post('/google/exchange', async (req, res) => {
   try {
     const { code } = req.body;
     if (!code) return res.status(400).json({ message: 'Code is required' });
     const payload = consumeTokenEntry(code);
     if (!payload) return res.status(400).json({ message: 'Invalid or expired code' });
-    return res.json({ token: payload.token, user: payload.user });
+
+    // Set the JWT as an HttpOnly cookie and return minimal user info
+    const token = payload.token;
+    const user = payload.user;
+
+    res.cookie('auth_token', token, cookieOptionsForToken());
+    return res.json({ user });
   } catch (error) {
     console.error('Token exchange error:', error);
     return res.status(500).json({ message: 'Server error during token exchange' });
@@ -88,6 +103,17 @@ router.get('/google/callback', (req, res, next) => {
     }
   }
 );
+
+// Logout (clear cookie)
+router.post('/logout', (req, res) => {
+  try {
+    res.clearCookie('auth_token', cookieOptionsForToken());
+    return res.json({ message: 'Logged out' });
+  } catch (error) {
+    console.error('Logout error:', error);
+    return res.status(500).json({ message: 'Server error during logout' });
+  }
+});
 
 // Manager approval endpoint
 router.post('/approve-user', auth, async (req, res) => {

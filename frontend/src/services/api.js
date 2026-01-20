@@ -38,8 +38,12 @@ api.interceptors.response.use(
 export const authAPI = {
   login: (data) => api.post('/auth/login', data),
   register: (data) => api.post('/auth/register', data),
-  getMe: () => api.get('/auth/me'),
-  changePassword: (data) => api.put('/auth/change-password', data)
+  // getMe supports cookie-based auth: include credentials when requesting
+  getMe: () => api.get('/auth/me', { withCredentials: true }),
+  changePassword: (data) => api.put('/auth/change-password', data),
+  // Exchange short-lived code (cookie will be set by server)
+  exchange: (code) => api.post('/auth/google/exchange', { code }, { withCredentials: true }),
+  logout: () => api.post('/auth/logout', {}, { withCredentials: true })
 };
 
 // User APIs

@@ -9,7 +9,7 @@ const AuthCallback = () => {
 
   useEffect(() => {
     const handleCallback = async () => {
-      const token = searchParams.get('token');
+      const code = searchParams.get('code');
       const error = searchParams.get('error');
 
       if (error) {
@@ -18,54 +18,51 @@ const AuthCallback = () => {
         return;
       }
 
-      if (token) {
+      if (code) {
         try {
-          // Decode the token to get user info
-          const payload = JSON.parse(atob(token.split('.')[1]));
-          
-          // Store the token and user info
-          localStorage.setItem('token', token);
-          localStorage.setItem('user', JSON.stringify({
-            id: payload.userId,
-            email: payload.email,
-            role: payload.role
-          }));
+          const response = await authAPI.exchange(code);
 
-          // Update auth context
-          login(token, {
-            id: payload.userId,
-            email: payload.email,
-            role: payload.role
-          });
+          // Server sets HttpOnly cookie; response includes user info
+          const user = response.data.user;
+          if (user) {
+            // Persist minimal user info for frontend conveniences
+            localStorage.setItem('user', JSON.stringify(user));
+            // Update auth context
+            // Use updateUser to set user state
+            // (we rely on /auth/me for full user data on reload)
+            window.dispatchEvent(new CustomEvent('auth:login', { detail: user }));
 
-          // Redirect based on role
-          switch (payload.role) {
-            case 'student':
-              navigate('/student/dashboard');
-              break;
-            case 'coordinator':
-              navigate('/coordinator/dashboard');
-              break;
-            case 'campus_poc':
-              navigate('/campus-poc/dashboard');
-              break;
-            case 'manager':
-              navigate('/manager/dashboard');
-              break;
-            default:
-              navigate('/');
+            // Redirect based on role
+            switch (user.role) {
+              case 'student':
+                navigate('/student/dashboard');
+                break;
+              case 'coordinator':
+                navigate('/coordinator/dashboard');
+                break;
+              case 'campus_poc':
+                navigate('/campus-poc/dashboard');
+                break;
+              case 'manager':
+                navigate('/manager/dashboard');
+                break;
+              default:
+                navigate('/');
+            }
+          } else {
+            navigate('/auth/login?error=oauth_failed');
           }
-        } catch (error) {
-          console.error('Token processing error:', error);
-          navigate('/auth/login?error=invalid_token');
+        } catch (err) {
+          console.error('Exchange error:', err);
+          navigate('/auth/login?error=oauth_failed');
         }
       } else {
-        navigate('/auth/login?error=missing_token');
+        navigate('/auth/login?error=missing_code');
       }
     };
 
     handleCallback();
-  }, [searchParams, navigate, login]);
+  }, [searchParams, navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">

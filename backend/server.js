@@ -4,6 +4,7 @@ const cors = require('cors');
 const mongoose = require('mongoose');
 const path = require('path');
 const session = require('express-session');
+const cookieParser = require('cookie-parser');
 const passport = require('./config/passport');
 
 // Import routes
@@ -62,7 +63,8 @@ app.use(session({
   }
 }));
 
-// Initialize Passport
+// Initialize cookie parser and Passport
+app.use(cookieParser());
 app.use(passport.initialize());
 app.use(passport.session());
 
