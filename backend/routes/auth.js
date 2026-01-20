@@ -5,6 +5,10 @@ const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const { auth } = require('../middleware/auth');
 const passport = require('../config/passport');
+const { createTokenEntry, consumeTokenEntry } = require('../utils/tokenStore');
+
+// Helper to normalize FRONTEND_URL (trim trailing slash)
+const getFrontendBase = () => (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/+$|\/$/g, '').replace(/\/+$/, '');
 
 // Google OAuth routes
 const isGoogleConfigured = () => !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
@@ -24,6 +28,20 @@ router.get('/google/config', (req, res) => {
   });
 });
 
+// Exchange short-lived code for a JWT token (single-use)
+router.post('/google/exchange', async (req, res) => {
+  try {
+    const { code } = req.body;
+    if (!code) return res.status(400).json({ message: 'Code is required' });
+    const payload = consumeTokenEntry(code);
+    if (!payload) return res.status(400).json({ message: 'Invalid or expired code' });
+    return res.json({ token: payload.token, user: payload.user });
+  } catch (error) {
+    console.error('Token exchange error:', error);
+    return res.status(500).json({ message: 'Server error during token exchange' });
+  }
+});
+
 router.get('/google/callback', (req, res, next) => {
   // Guard: avoid calling passport when OAuth is not configured
   if (!isGoogleConfigured()) {
@@ -35,17 +53,18 @@ router.get('/google/callback', (req, res, next) => {
 }, async (req, res) => {
     try {
       const user = req.user;
-      
+      const frontendBase = getFrontendBase();
+
       // Check if user needs approval
       if (user.needsApproval && !user.isActive) {
-        return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/auth/pending-approval?email=${encodeURIComponent(user.email)}`);
+        return res.redirect(`${frontendBase}/auth/pending-approval?email=${encodeURIComponent(user.email)}`);
       }
-      
+
       // Check if user is inactive (needs manager approval)
       if (!user.isActive) {
-        return res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/auth/account-inactive`);
+        return res.redirect(`${frontendBase}/auth/account-inactive`);
       }
-      
+
       // Generate JWT token
       const token = jwt.sign(
         { 
@@ -56,14 +75,16 @@ router.get('/google/callback', (req, res, next) => {
         process.env.JWT_SECRET,
         { expiresIn: '7d' }
       );
-      
-      // Redirect to frontend with token
-      const redirectUrl = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/auth/callback?token=${token}`;
+
+      // Create a short-lived, single-use code and redirect the user with the code
+      const code = createTokenEntry({ token, user: { id: user._id, email: user.email, role: user.role } }, 2 * 60 * 1000);
+      const redirectUrl = `${frontendBase}/auth/callback?code=${code}`;
       res.redirect(redirectUrl);
-      
+
     } catch (error) {
       console.error('Google callback error:', error);
-      res.redirect(`${process.env.FRONTEND_URL || 'http://localhost:5173'}/auth/login?error=authentication_failed`);
+      const frontendBase = getFrontendBase();
+      res.redirect(`${frontendBase}/auth/login?error=authentication_failed`);
     }
   }
 );
