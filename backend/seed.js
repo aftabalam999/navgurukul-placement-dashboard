@@ -7,7 +7,9 @@ const Settings = require('./models/Settings');
 const seedData = async () => {
   try {
     await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/placement_dashboard');
-    console.log('Connected to MongoDB');
+    const isProd = process.env.NODE_ENV === 'production';
+    const debugLog = (...args) => { if (!isProd) console.log(...args); };
+    debugLog('Connected to MongoDB');
 
     // Clear existing data
     await Promise.all([
@@ -18,7 +20,7 @@ const seedData = async () => {
       Settings.deleteMany({}),
       PlacementCycle.deleteMany({})
     ]);
-    console.log('Cleared existing data');
+    debugLog('Cleared existing data');
 
     // Create Settings with Navgurukul-specific options
     await Settings.updateSettings({
@@ -140,7 +142,7 @@ const seedData = async () => {
         'Work Ethic'
       ]
     });
-    console.log('Created settings');
+    debugLog('Created settings');
 
     // Create campuses (Navgurukul campuses)
     const campuses = await Campus.insertMany([
@@ -153,7 +155,7 @@ const seedData = async () => {
       { name: 'Sarjapur', code: 'SARJ', location: { city: 'Sarjapur', state: 'Karnataka' }, placementTarget: 70 },
       { name: 'Pune', code: 'PUNE', location: { city: 'Pune', state: 'Maharashtra' }, placementTarget: 55 }
     ]);
-    console.log('Created campuses');
+    debugLog('Created campuses');
 
     // Create skills
     const skills = await Skill.insertMany([
@@ -171,7 +173,7 @@ const seedData = async () => {
       { name: 'AWS Certified', category: 'certification', description: 'AWS Cloud certification' },
       { name: 'Machine Learning', category: 'domain', description: 'Machine learning and AI' }
     ]);
-    console.log('Created skills');
+    debugLog('Created skills');
 
     // Create users - pass plain password, User model will hash it
     const plainPassword = 'password123';
@@ -456,7 +458,7 @@ const seedData = async () => {
         profileStatus: 'pending_approval'
       }
     ]);
-    console.log('Created users');
+    debugLog('Created users');
 
     // Create jobs
     await Job.insertMany([
@@ -558,7 +560,7 @@ const seedData = async () => {
         createdBy: coordinator._id
       }
     ]);
-    console.log('Created jobs');
+    debugLog('Created jobs');
 
     // Create Placement Cycles (Global - managed by Manager)
     const placementCycles = await PlacementCycle.insertMany([
@@ -617,7 +619,7 @@ const seedData = async () => {
         createdBy: manager._id
       }
     ]);
-    console.log('Created placement cycles');
+    debugLog('Created placement cycles');
 
     // Assign students to placement cycles
     await User.updateMany(
@@ -636,21 +638,21 @@ const seedData = async () => {
         placementCycleAssignedBy: manager._id
       }
     );
-    console.log('Assigned students to placement cycles');
+    debugLog('Assigned students to placement cycles');
 
-    console.log('\n=== Seed Data Complete ===');
-    console.log('\nTest Accounts:');
-    console.log('Manager: manager@placement.edu / password123');
-    console.log('Coordinator: coordinator@placement.edu / password123');
-    console.log('Campus POC (Jashpur): poc.jashpur@placement.edu / password123');
-    console.log('Campus POC (Dharamshala): poc.dharamshala@placement.edu / password123');
-    console.log('Student (Approved): john.doe@student.edu / password123');
-    console.log('Student (Pending): jane.smith@student.edu / password123');
-    console.log('Student (Draft): mike.wilson@student.edu / password123');
-    console.log('Student (Second Chance): priya.sharma@student.edu / password123');
+    debugLog('\n=== Seed Data Complete ===');
+    debugLog('\nTest Accounts:');
+    debugLog('Manager: manager@placement.edu / password123');
+    debugLog('Coordinator: coordinator@placement.edu / password123');
+    debugLog('Campus POC (Jashpur): poc.jashpur@placement.edu / password123');
+    debugLog('Campus POC (Dharamshala): poc.dharamshala@placement.edu / password123');
+    debugLog('Student (Approved): john.doe@student.edu / password123');
+    debugLog('Student (Pending): jane.smith@student.edu / password123');
+    debugLog('Student (Draft): mike.wilson@student.edu / password123');
+    debugLog('Student (Second Chance): priya.sharma@student.edu / password123');
 
     await mongoose.connection.close();
-    console.log('\nDisconnected from MongoDB');
+    debugLog('\nDisconnected from MongoDB');
   } catch (error) {
     console.error('Seed error:', error);
     process.exit(1);

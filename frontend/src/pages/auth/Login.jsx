@@ -10,6 +10,14 @@ const Login = () => {
   const [formData, setFormData] = useState({ email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const isLocalHost = (typeof window !== 'undefined' && (() => {
+    try {
+      const h = window.location.hostname || '';
+      return h === 'localhost' || h === '127.0.0.1' || h.endsWith('.local');
+    } catch (e) {
+      return false;
+    }
+  })());
 
   // Demo accounts for quick login
   const demoAccounts = [
@@ -64,10 +72,6 @@ const Login = () => {
     }
     
     setSyncing(true);
-    // Autofill demo account credentials
-    const handleDemoLogin = (demoEmail) => {
-      setFormData({ email: demoEmail, password: "password123" });
-    };
     try {
       await api.post('/sync-from-production', { productionUri });
       toast.success('Database synced successfully!');
@@ -208,7 +212,8 @@ const Login = () => {
             </p>
           </div>
 
-          {/* Demo Accounts */}
+          {/* Demo Accounts (visible in development only) */}
+          {isLocalHost && (
           <div className="mt-6 pt-6 border-t">
             <p className="text-sm text-gray-500 text-center mb-3">Demo Accounts:</p>
             <div className="grid grid-cols-2 gap-2 text-xs">
@@ -248,6 +253,7 @@ const Login = () => {
             </div>
             <p className="text-xs text-gray-400 text-center mt-2">Password: password123</p>
           </div>
+          )}
         </div>
 
         {/* Status & Sync Section */}
