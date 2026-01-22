@@ -26,9 +26,11 @@ const UserApprovals = () => {
 
   const handleApproveUser = async (userId, approvedRole) => {
     try {
+      // Normalize role: frontend uses 'campus_poc' but backend expects 'campus-poc'
+      const normalizedRole = (approvedRole || '').replace('_', '-');
       await api.post('/auth/approve-user', {
         userId,
-        approvedRole
+        approvedRole: normalizedRole
       });
       toast.success('User approved successfully');
       fetchPendingUsers(); // Refresh the list

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { statsAPI } from '../../services/api';
 import { StatsCard, LoadingSpinner } from '../../components/common/UIComponents';
 import UserApprovals from '../../components/manager/UserApprovals';
+import ManagerStudents from '../../components/manager/ManagerStudents';
 import { 
   Users, Briefcase, Building2, Award, TrendingUp, 
   CheckCircle, Clock, BarChart3, PieChart, Download, UserCog
@@ -13,6 +14,7 @@ const Dashboard = () => {
   const [coordinatorStats, setCoordinatorStats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState('all');
+  const [activeTab, setActiveTab] = useState('approvals');
 
   useEffect(() => {
     fetchStats();
@@ -236,8 +238,19 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* User Approvals Section */}
-      <UserApprovals />
+      {/* Manager Tabs: Pending Approvals / Students */}
+      <div className="card">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button className={`px-3 py-2 rounded-md font-medium ${activeTab === 'approvals' ? 'bg-primary-50 text-primary-700' : 'bg-gray-100 text-gray-700'}`} onClick={() => setActiveTab('approvals')}>Pending Approvals</button>
+            <button className={`px-3 py-2 rounded-md font-medium ${activeTab === 'students' ? 'bg-primary-50 text-primary-700' : 'bg-gray-100 text-gray-700'}`} onClick={() => setActiveTab('students')}>Students</button>
+          </div>
+        </div>
+
+        <div className="mt-4">
+          {activeTab === 'approvals' ? <UserApprovals /> : <ManagerStudents />}
+        </div>
+      </div>
 
       {/* Coordinator Performance Stats */}
       <div className="card">

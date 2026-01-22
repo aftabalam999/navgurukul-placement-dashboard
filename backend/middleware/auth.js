@@ -12,35 +12,29 @@ const auth = async (req, res, next) => {
       return res.status(401).json({ message: 'No authentication token, access denied' });
     }
 
-    try {
-      // Debug: show token summary (length and start/end) to help debug mismatches
-      if (token && process.env.NODE_ENV !== 'production') {
+    // Debug: show token summary (length and start/end) to help debug mismatches
+    if (process.env.NODE_ENV !== 'production') {
+      try {
         const start = token.slice(0, 8);
         const end = token.slice(-8);
         console.debug(`auth middleware - verifying token (len=${token.length}) start=${start} end=${end}`);
+      } catch (e) {
+        // ignore slicing errors
       }
+    }
 
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      console.debug('auth middleware - token decoded for userId:', decoded.userId);
-      const user = await User.findById(decoded.userId).select('-password');
-
-      if (!user) {
-        return res.status(401).json({ message: 'User not found' });
-      }
-
-      if (!user.isActive) {
-        return res.status(401).json({ message: 'Account is deactivated' });
-      }
-
-      req.user = user;
-      req.userId = user._id;
-      next();
+    // Verify and load user
+    let decoded;
+    try {
+      decoded = jwt.verify(token, process.env.JWT_SECRET);
     } catch (err) {
       console.error('auth middleware - token verify error:', err.message);
-      console.error(err.stack);
       return res.status(401).json({ message: 'Token is invalid or expired' });
     }
-    
+
+    console.debug('auth middleware - token decoded for userId:', decoded.userId);
+    const user = await User.findById(decoded.userId).select('-password');
+
     if (!user) {
       return res.status(401).json({ message: 'User not found' });
     }
@@ -53,7 +47,8 @@ const auth = async (req, res, next) => {
     req.userId = user._id;
     next();
   } catch (error) {
-    res.status(401).json({ message: 'Token is invalid or expired' });
+    console.error('auth middleware - unexpected error:', error);
+    return res.status(401).json({ message: 'Token is invalid or expired' });
   }
 };
 

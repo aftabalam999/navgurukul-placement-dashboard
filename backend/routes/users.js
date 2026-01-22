@@ -9,9 +9,13 @@ const upload = require('../middleware/upload');
 // Get all students (for Campus POCs, Coordinators, Managers)
 router.get('/students', auth, authorize('campus_poc', 'coordinator', 'manager'), async (req, res) => {
   try {
-    const { campus, school, batch, page = 1, limit = 20, search, status } = req.query;
+    // Accept pagination, filters and sorting
+    const { campus, school, batch, page = 1, limit = 20, search, status, sortField, sortOrder } = req.query;
 
     let query = { role: 'student' };
+
+    // Default: show only Active students if status not provided
+    const statusFilter = status || 'Active';
 
     // Campus POCs can see students from their managed campuses
     if (req.user.role === 'campus_poc') {
@@ -34,8 +38,8 @@ router.get('/students', auth, authorize('campus_poc', 'coordinator', 'manager'),
       query['studentProfile.batch'] = batch;
     }
 
-    if (status) {
-      query['studentProfile.currentStatus'] = status;
+    if (statusFilter) {
+      query['studentProfile.currentStatus'] = statusFilter;
     }
 
     if (search) {
@@ -46,13 +50,44 @@ router.get('/students', auth, authorize('campus_poc', 'coordinator', 'manager'),
       ];
     }
 
+    // Sorting: support sortField and sortOrder; default to oldest joining active student first
+    let sortObj = {};
+    if (sortField) {
+      sortObj[sortField] = sortOrder === 'desc' ? -1 : 1;
+    } else {
+      // Default order: ascending by joining date, then by createdAt as tiebreaker
+      sortObj = { 'studentProfile.joiningDate': 1, createdAt: 1 };
+    }
+
+    // Support a lightweight summary mode to return minimal fields for list views
+    if (req.query.summary === 'true') {
+      const students = await User.find(query)
+        .select('firstName lastName email campus studentProfile.currentStatus studentProfile.joiningDate')
+        .populate('campus', 'name')
+        .skip((page - 1) * limit)
+        .limit(parseInt(limit))
+        .sort(sortObj);
+
+      const total = await User.countDocuments(query);
+
+      return res.json({
+        students,
+        pagination: {
+          current: parseInt(page),
+          pages: Math.ceil(total / limit),
+          total
+        }
+      });
+    }
+
+    // Full student payload (used when opening student detail)
     const students = await User.find(query)
       .select('-password')
       .populate('campus')
       .populate('studentProfile.skills.skill')
       .skip((page - 1) * limit)
       .limit(parseInt(limit))
-      .sort({ createdAt: -1 });
+      .sort(sortObj);
 
     const total = await User.countDocuments(query);
 
@@ -883,16 +918,52 @@ router.get('/:userId', auth, authorize('manager'), async (req, res) => {
 router.put('/:userId', auth, authorize('manager'), async (req, res) => {
   try {
     const { userId } = req.params;
-    const { firstName, lastName, email, role, isActive, managedCampuses } = req.body;
+    const {
+      firstName, lastName, email, role, isActive, managedCampuses,
+      // student profile fields (for managers editing students)
+      studentProfile
+    } = req.body;
 
+    // Load the user before changes for audit
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
+    const userBefore = JSON.parse(JSON.stringify(user));
 
     if (firstName !== undefined) user.firstName = firstName;
     if (lastName !== undefined) user.lastName = lastName;
     if (email !== undefined) user.email = email;
     if (isActive !== undefined) user.isActive = isActive;
     if (managedCampuses !== undefined) user.managedCampuses = managedCampuses;
+
+    // Allow manager to update select studentProfile fields when editing a student
+    if (studentProfile && user.role === 'student') {
+      const { currentStatus, joiningDate, batch, currentSchool, linkedIn, resumeLink, resumeAccessibilityRemark, resumeAccessible, about } = studentProfile;
+      if (currentStatus !== undefined) user.studentProfile.currentStatus = currentStatus;
+      if (joiningDate !== undefined) user.studentProfile.joiningDate = new Date(joiningDate);
+      // batch removed from modal requirement; keep updating if passed but UI no longer sends it
+      if (batch !== undefined) user.studentProfile.batch = batch;
+      if (currentSchool !== undefined) user.studentProfile.currentSchool = currentSchool;
+      if (linkedIn !== undefined) user.studentProfile.linkedIn = linkedIn;
+      if (about !== undefined) user.studentProfile.about = about;
+
+      // If manager provided a resume link, verify accessibility and store decision and remark
+      if (resumeLink !== undefined) {
+        const { checkUrlAccessible } = require('../utils/urlChecker');
+        let checkRes = { ok: null, status: null, reason: null };
+        try {
+          checkRes = await checkUrlAccessible(resumeLink);
+        } catch (err) {
+          // swallow and record reason
+          checkRes = { ok: false, status: null, reason: err.message };
+        }
+        user.studentProfile.resumeLink = resumeLink;
+        user.studentProfile.resumeAccessible = !!checkRes.ok;
+        user.studentProfile.resumeAccessibilityRemark = resumeAccessibilityRemark || (checkRes.ok ? '' : (checkRes.reason || `HTTP ${checkRes.status || 'unknown'}`));
+        // If explicit override was provided by manager, respect it
+        if (resumeAccessible !== undefined) user.studentProfile.resumeAccessible = resumeAccessible;
+        if (resumeAccessibilityRemark !== undefined) user.studentProfile.resumeAccessibilityRemark = resumeAccessibilityRemark;
+      }
+    }
 
     // Role change is sensitive - log timeline and notify user
     if (role && role !== user.role) {
@@ -910,12 +981,65 @@ router.put('/:userId', auth, authorize('manager'), async (req, res) => {
       });
     }
 
-    await user.save();
-
+    // Build audit record by comparing saved user with previous snapshot
     const updated = await User.findById(userId).select('-password').populate('campus managedCampuses');
+
+    try {
+      const UserChangeLog = require('../models/UserChangeLog');
+      const changes = [];
+
+      const capture = (path, oldVal, newVal) => {
+        const oldStr = (oldVal === undefined) ? null : oldVal;
+        const newStr = (newVal === undefined) ? null : newVal;
+        if (JSON.stringify(oldStr) !== JSON.stringify(newStr)) {
+          changes.push({ path, oldValue: oldVal, newValue: newVal });
+        }
+      };
+
+      // Basic fields
+      capture('firstName', userBefore.firstName, updated.firstName);
+      capture('lastName', userBefore.lastName, updated.lastName);
+      capture('email', userBefore.email, updated.email);
+      capture('role', userBefore.role, updated.role);
+      capture('isActive', userBefore.isActive, updated.isActive);
+      capture('managedCampuses', (userBefore.managedCampuses || []).map(String), (updated.managedCampuses || []).map(String));
+
+      // Student profile fields (if target is student)
+      if (updated.role === 'student') {
+        const beforeSP = userBefore.studentProfile || {};
+        const afterSP = updated.studentProfile || {};
+        capture('studentProfile.currentStatus', beforeSP.currentStatus, afterSP.currentStatus);
+        capture('studentProfile.joiningDate', beforeSP.joiningDate, afterSP.joiningDate);
+        capture('studentProfile.currentSchool', beforeSP.currentSchool, afterSP.currentSchool);
+        capture('studentProfile.linkedIn', beforeSP.linkedIn, afterSP.linkedIn);
+        capture('studentProfile.resumeLink', beforeSP.resumeLink, afterSP.resumeLink);
+        capture('studentProfile.resumeAccessible', beforeSP.resumeAccessible, afterSP.resumeAccessible);
+        capture('studentProfile.resumeAccessibilityRemark', beforeSP.resumeAccessibilityRemark, afterSP.resumeAccessibilityRemark);
+        capture('studentProfile.about', beforeSP.about, afterSP.about);
+      }
+
+      if (changes.length > 0) {
+        await UserChangeLog.create({ user: updated._id, changedBy: req.userId, changeType: 'profile_update', fieldChanges: changes });
+      }
+    } catch (logErr) {
+      console.error('Failed to write change log:', logErr);
+    }
+
     res.json({ message: 'User updated', user: updated });
   } catch (error) {
     console.error('Update user error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get audit history for a user (manager only)
+router.get('/:userId/audit', auth, authorize('manager'), async (req, res) => {
+  try {
+    const UserChangeLog = require('../models/UserChangeLog');
+    const logs = await UserChangeLog.find({ user: req.params.userId }).sort({ createdAt: -1 }).limit(100);
+    res.json({ logs });
+  } catch (error) {
+    console.error('Get user audit error:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

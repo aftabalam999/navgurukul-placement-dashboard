@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { authAPI } from '../../services/api';
@@ -8,14 +8,20 @@ const AuthCallback = () => {
   const [searchParams] = useSearchParams();
   const { login } = useAuth();
 
+  const handledRef = useRef(false);
+
   useEffect(() => {
     const handleCallback = async () => {
+      // prevent double execution (React 18 StrictMode/dev double mount) or duplicate calls
+      if (handledRef.current) return;
+      handledRef.current = true;
+
       const code = searchParams.get('code');
       const error = searchParams.get('error');
 
       if (error) {
         console.error('Auth error:', error);
-        navigate('/auth/login?error=' + error);
+        navigate('/login?error=' + error);
         return;
       }
 
@@ -60,19 +66,23 @@ const AuthCallback = () => {
             }
 
             // Redirect based on role
+            // NOTE: route layout uses the top-level role path as the dashboard (e.g. '/student'),
+            // so navigate to parent role route rather than '/role/dashboard' which doesn't exist.
             const finalRole = (user.role || response?.data?.user?.role);
             switch (finalRole) {
               case 'student':
-                navigate('/student/dashboard');
+                navigate('/student');
                 break;
               case 'coordinator':
-                navigate('/coordinator/dashboard');
+                navigate('/coordinator');
                 break;
               case 'campus_poc':
-                navigate('/campus-poc/dashboard');
+              case 'campus-poc':
+                // accept both variants (underscore or hyphen) and normalize to the hyphenated path
+                navigate('/campus-poc');
                 break;
               case 'manager':
-                navigate('/manager/dashboard');
+                navigate('/manager');
                 break;
               default:
                 navigate('/');
@@ -82,8 +92,10 @@ const AuthCallback = () => {
             navigate('/auth/login?error=oauth_failed');
           }
         } catch (err) {
-          console.error('Exchange error:', err?.response?.status, err?.response?.data || err.message);
-          navigate('/auth/login?error=oauth_failed');
+          const status = err?.response?.status || 'unknown';
+          console.error('Exchange error:', status, err?.response?.data || err.message);
+          // Include status to make debugging easier in the UI
+          navigate(`/login?error=oauth_failed&status=${status}`);
         }
       } else {
         navigate('/auth/login?error=missing_code');

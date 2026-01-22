@@ -23,6 +23,19 @@ function consumeTokenEntry(code) {
   return entry.payload;
 }
 
+// Debug helpers (development only) - useful to inspect transient token store state
+function debugStoreSize() {
+  return store.size;
+}
+
+function debugListKeys() {
+  return Array.from(store.keys()).slice(0, 50); // limit output
+}
+
+function debugHasCode(code) {
+  return store.has(code);
+}
+
 // Periodic cleanup to avoid memory leaks
 setInterval(() => {
   const now = Date.now();

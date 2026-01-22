@@ -326,6 +326,10 @@ const userSchema = new mongoose.Schema({
 
     resume: String,
     resumeLink: String,
+    // Indicates whether the resume link was confirmed accessible when last checked
+    resumeAccessible: { type: Boolean, default: null },
+    // Free-text remark about accessibility or instructions (set by manager or system checks)
+    resumeAccessibilityRemark: String,
     linkedIn: String,
     github: String,
     portfolio: String,

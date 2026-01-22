@@ -42,11 +42,11 @@ api.interceptors.response.use(
       // Notify app of logout (listeners can update UI without forcing navigation)
       window.dispatchEvent(new CustomEvent('auth:logout'));
 
-      // Only redirect to login if we're not already on an auth route to avoid reload loops
+      // Only redirect to login if we're not already on an auth/login route to avoid reload loops
       const pathname = window.location.pathname || '';
-      if (!pathname.startsWith('/auth')) {
+      if (!pathname.startsWith('/auth') && !pathname.startsWith('/login')) {
         // Use replace to avoid creating history entries
-        window.location.replace('/auth/login');
+        window.location.replace('/login');
       }
     }
     return Promise.reject(error);
@@ -314,6 +314,9 @@ export const jobReadinessAPI = {
     // Otherwise send JSON
     return api.patch(`/job-readiness/my-status/${criteriaId}`, data);
   },
+  // Manager/PoC student readiness operations
+  getStudentReadiness: (studentId) => api.get(`/job-readiness/student/${studentId}`),
+  updateStudentReadiness: (studentId, data) => api.put(`/job-readiness/student/${studentId}`, data),
   // Campus PoC review
   getCampusStudents: (params) => api.get('/job-readiness/campus-students', { params }),
   verifyCriterion: (studentId, criteriaId, status, notes) =>

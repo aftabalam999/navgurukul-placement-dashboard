@@ -59,7 +59,7 @@ const LoadingScreen = () => (
   </div>
 );
 
-// Protected Route wrapper
+// Protected Route wrapper (normalize role variants to avoid hyphen/underscore mismatches)
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { user, loading } = useAuth();
 
@@ -69,27 +69,26 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     return <Navigate to="/login" replace />;
   }
 
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return <Navigate to={`/${user.role.replace('_', '-')}`} replace />;
+  if (allowedRoles) {
+    const normalizedUserRole = user.role ? user.role.replace('-', '_') : '';
+    const normalizedAllowed = allowedRoles.map(r => r.replace('-', '_'));
+    if (!normalizedAllowed.includes(normalizedUserRole)) {
+      return <Navigate to={`/${user.role.replace('_', '-')}`} replace />;
+    }
   }
 
   return children;
 };
 
-// Public Route wrapper (redirects if authenticated)
+// Public Route wrapper (redirects if authenticated) - normalize role to path
 const PublicRoute = ({ children }) => {
   const { user, loading } = useAuth();
 
   if (loading) return <LoadingScreen />;
 
   if (user) {
-    const dashboardRoutes = {
-      student: '/student',
-      campus_poc: '/campus-poc',
-      coordinator: '/coordinator',
-      manager: '/manager'
-    };
-    return <Navigate to={dashboardRoutes[user.role]} replace />;
+    const path = `/${user.role.replace('_', '-')}`;
+    return <Navigate to={path} replace />;
   }
 
   return children;

@@ -99,7 +99,13 @@ MANAGER_EMAIL=mubin@navgurukul.org
 
 # Frontend URL
 FRONTEND_URL=http://localhost:5173
+
+# Cookie / OAuth notes
+- If your frontend and backend run on different origins (e.g. `http://localhost:5173` and `http://localhost:5001`), the server will set the authentication cookie as a cross-site cookie. The server uses `SameSite=None` for this cookie and still requires `secure` when `NODE_ENV=production`.
+- You can optionally set `COOKIE_DOMAIN` in production to scope the cookie to your top-level domain.
+- For debugging only, set `DEBUG_RETURN_TOKEN=true` to return the JWT in the `/auth/google/exchange` response (use with caution; do not enable in production).
 ```
+
 
 ## 🚀 Database Migration
 

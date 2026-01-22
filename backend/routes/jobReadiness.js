@@ -222,6 +222,118 @@ router.get('/my-status', auth, authorize('student'), async (req, res) => {
   }
 });
 
+// --- Manager/PoC: Get readiness for a specific student ---
+router.get('/student/:studentId', auth, authorize('campus_poc', 'coordinator', 'manager'), sameCampus, async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const student = await User.findById(studentId);
+    if (!student) return res.status(404).json({ message: 'Student not found' });
+
+    let readiness = await StudentJobReadiness.findOne({ student: studentId });
+    if (!readiness) {
+      // Initialize if missing
+      const config = await JobReadinessConfig.findOne({
+        school: student.studentProfile?.currentSchool,
+        $or: [{ campus: student.campus }, { campus: null }],
+        isActive: true
+      }).sort({ campus: -1 });
+
+      const initialStatus = config?.criteria?.map(c => ({ criteriaId: c.criteriaId, status: 'not_started' })) || [];
+      readiness = new StudentJobReadiness({ student: studentId, school: student.studentProfile?.currentSchool, campus: student.campus, criteriaStatus: initialStatus });
+      await readiness.save();
+    }
+
+    const config = await JobReadinessConfig.findOne({
+      school: readiness.school,
+      $or: [{ campus: readiness.campus }, { campus: null }],
+      isActive: true
+    }).sort({ campus: -1 });
+
+    res.json({ readiness, config: config?.criteria || [], defaults: DEFAULT_CRITERIA });
+  } catch (error) {
+    console.error('Get student readiness error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// --- Manager/PoC: Update readiness for a specific student ---
+router.put('/student/:studentId', auth, authorize('campus_poc', 'coordinator', 'manager'), sameCampus, async (req, res) => {
+  try {
+    const { studentId } = req.params;
+    const { criteriaStatus } = req.body; // expect array of { criteriaId, status, pocComment, pocRating, proofUrl }
+
+    const readiness = await StudentJobReadiness.findOne({ student: studentId });
+    if (!readiness) return res.status(404).json({ message: 'Readiness record not found' });
+
+    // Merge incoming statuses
+    for (const incoming of (criteriaStatus || [])) {
+      const existing = readiness.criteriaStatus.find(c => c.criteriaId === incoming.criteriaId);
+      if (existing) {
+        if (incoming.status) existing.status = incoming.status;
+        if (incoming.proofUrl !== undefined) existing.proofUrl = incoming.proofUrl;
+        if (incoming.pocComment !== undefined) {
+          existing.pocComment = incoming.pocComment;
+          existing.pocCommentedBy = req.userId;
+          existing.pocCommentedAt = new Date();
+        }
+        if (incoming.pocRating !== undefined) {
+          existing.pocRating = incoming.pocRating;
+          existing.pocRatedBy = req.userId;
+          existing.pocRatedAt = new Date();
+        }
+        if ((incoming.status === 'verified' || incoming.status === 'completed') && !existing.verifiedAt) {
+          existing.verifiedAt = new Date();
+          existing.verifiedBy = req.userId;
+        }
+        existing.updatedAt = new Date();
+      } else {
+        // If criterion not present, push it
+        readiness.criteriaStatus.push({
+          criteriaId: incoming.criteriaId,
+          status: incoming.status || 'not_started',
+          proofUrl: incoming.proofUrl,
+          pocComment: incoming.pocComment,
+          pocCommentedBy: incoming.pocComment ? req.userId : undefined,
+          pocCommentedAt: incoming.pocComment ? new Date() : undefined,
+          pocRating: incoming.pocRating,
+          pocRatedBy: incoming.pocRating ? req.userId : undefined,
+          pocRatedAt: incoming.pocRating ? new Date() : undefined,
+          updatedAt: new Date(),
+        });
+      }
+    }
+
+    // Recalculate readiness
+    const before = JSON.parse(JSON.stringify(readiness));
+    await readiness.calculateReadiness();
+    await readiness.save();
+
+    // Log readiness changes
+    try {
+      const UserChangeLog = require('../models/UserChangeLog');
+      const diffs = [];
+      // Compare criteria statuses
+      const beforeMap = new Map((before.criteriaStatus || []).map(c => [c.criteriaId, c]));
+      for (const now of (readiness.criteriaStatus || [])) {
+        const b = beforeMap.get(now.criteriaId) || {};
+        if (b.status !== now.status) diffs.push({ path: `readiness.${now.criteriaId}.status`, oldValue: b.status, newValue: now.status });
+        if ((b.pocComment || '') !== (now.pocComment || '')) diffs.push({ path: `readiness.${now.criteriaId}.pocComment`, oldValue: b.pocComment, newValue: now.pocComment });
+        if ((b.pocRating || '') !== (now.pocRating || '')) diffs.push({ path: `readiness.${now.criteriaId}.pocRating`, oldValue: b.pocRating, newValue: now.pocRating });
+      }
+      if (diffs.length > 0) {
+        await UserChangeLog.create({ user: readiness.student, changedBy: req.userId, changeType: 'readiness_change', fieldChanges: diffs });
+      }
+    } catch (logErr) {
+      console.error('Failed to write readiness change log:', logErr);
+    }
+
+    res.json({ message: 'Readiness updated', readiness });
+  } catch (error) {
+    console.error('Update student readiness error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Update my criterion status (Student)
 router.patch('/my-status/:criteriaId', auth, authorize('student'), [
   body('completed').optional().isBoolean(),

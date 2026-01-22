@@ -29,21 +29,46 @@ router.get('/google/config', (req, res) => {
 });
 
 // Helper for cookie options
-const cookieOptionsForToken = (ttlMs = 7 * 24 * 60 * 60 * 1000) => ({
-  httpOnly: true,
-  secure: process.env.NODE_ENV === 'production',
-  sameSite: process.env.NODE_ENV === 'production' ? 'None' : 'Lax',
-  maxAge: ttlMs,
-  path: '/'
-});
+// Use SameSite=None for cross-site cookie delivery (required for SPA exchange flow).
+// Modern browsers require `Secure` when `SameSite=None` — ensure we set it in development when using localhost
+// or when explicitly forcing secure cookies via environment.
+const cookieOptionsForToken = (ttlMs = 7 * 24 * 60 * 60 * 1000) => {
+  const frontendBase = process.env.FRONTEND_URL || 'http://localhost:5173';
+  const isLocalhostFront = frontendBase.includes('localhost');
+  const forceSecure = process.env.FORCE_SECURE_COOKIES === 'true';
+  const secureFlag = process.env.NODE_ENV === 'production' || isLocalhostFront || forceSecure;
+
+  return {
+    httpOnly: true,
+    secure: secureFlag,
+    sameSite: 'None',
+    maxAge: ttlMs,
+    path: '/',
+    domain: process.env.COOKIE_DOMAIN || undefined
+  };
+};
 
 // Exchange short-lived code for a JWT token (single-use) and set an HttpOnly cookie
 router.post('/google/exchange', async (req, res) => {
   try {
     const { code } = req.body;
+    console.debug('Exchange route - received code:', code);
     if (!code) return res.status(400).json({ message: 'Code is required' });
+
     const payload = consumeTokenEntry(code);
-    if (!payload) return res.status(400).json({ message: 'Invalid or expired code' });
+    if (!payload) {
+      // Extra debug output to help diagnose why a code was rejected
+      try {
+        const { debugListKeys, debugStoreSize, debugHasCode } = require('../utils/tokenStore');
+        console.warn('Exchange route - invalid or expired code:', code);
+        console.debug('Exchange route - tokenStore size:', debugStoreSize());
+        console.debug('Exchange route - sample keys:', debugListKeys());
+        console.debug('Exchange route - code present before consume?', debugHasCode(code));
+      } catch (dbgErr) {
+        console.debug('Exchange route - debug helpers not available:', dbgErr.message);
+      }
+      return res.status(400).json({ message: 'Invalid or expired code' });
+    }
 
     // Debug: log incoming cookies and response (helps validate browser behavior)
     console.debug('Exchange route - incoming req.cookies:', req.cookies);
@@ -63,11 +88,14 @@ router.post('/google/exchange', async (req, res) => {
       console.debug('Exchange route - unable to read Set-Cookie header:', err.message);
     }
 
-    // WARNING: Temporary debug - return token in response body so we can validate token independently
-    // Remove this before leaving debug mode / production
-    console.warn('DEBUG: Returning JWT in exchange response for debugging. REMOVE THIS IN PRODUCTION.');
+    // Only return token in response body when explicitly enabled for debugging.
+    if (process.env.DEBUG_RETURN_TOKEN === 'true') {
+      console.warn('DEBUG: Returning JWT in exchange response because DEBUG_RETURN_TOKEN is enabled.');
+      return res.json({ user, token });
+    }
 
-    return res.json({ user, token });
+    // Default (safer): do not return token in response body. Browser will hold HttpOnly cookie.
+    return res.json({ user });
   } catch (error) {
     console.error('Token exchange error:', error);
     return res.status(500).json({ message: 'Server error during token exchange' });
@@ -116,7 +144,8 @@ router.get('/google/callback', (req, res, next) => {
     } catch (error) {
       console.error('Google callback error:', error);
       const frontendBase = getFrontendBase();
-      res.redirect(`${frontendBase}/auth/login?error=authentication_failed`);
+      // Redirect to the canonical frontend login path
+      res.redirect(`${frontendBase}/login?error=authentication_failed`);
     }
   }
 );
@@ -124,7 +153,15 @@ router.get('/google/callback', (req, res, next) => {
 // Logout (clear cookie)
 router.post('/logout', (req, res) => {
   try {
-    res.clearCookie('auth_token', cookieOptionsForToken());
+    const opts = cookieOptionsForToken();
+    // Primary clear: with same options used when setting the cookie
+    res.clearCookie('auth_token', opts);
+    // Secondary clear: attempt to clear host-only cookie variant
+    res.clearCookie('auth_token');
+    // Overwrite cookie with empty value and immediate expiry to be extra safe
+    res.cookie('auth_token', '', { ...opts, maxAge: 0, expires: new Date(0) });
+
+    console.info('Logout - cleared auth_token cookie (attempted multiple variants)');
     return res.json({ message: 'Logged out' });
   } catch (error) {
     console.error('Logout error:', error);
@@ -161,10 +198,16 @@ router.post('/approve-user', auth, async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
     
+    // Normalize approvedRole to accept both underscore and hyphen variants (frontend may send campus_poc)
+    const normalizedRole = approvedRole ? String(approvedRole).replace('_', '-').trim() : undefined;
+
     // Update user status
     user.isActive = true;
-    if (approvedRole && ['student', 'coordinator', 'campus-poc', 'manager'].includes(approvedRole)) {
-      user.role = approvedRole;
+    if (normalizedRole && ['student', 'coordinator', 'campus-poc', 'manager'].includes(normalizedRole)) {
+      user.role = normalizedRole;
+    } else if (approvedRole && ['student', 'coordinator', 'campus_poc', 'manager'].includes(approvedRole)) {
+      // Fallback: accept underscore variant for campus_poc
+      user.role = approvedRole === 'campus_poc' ? 'campus-poc' : approvedRole;
     }
     await user.save();
     
