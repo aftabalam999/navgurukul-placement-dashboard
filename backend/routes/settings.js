@@ -36,6 +36,18 @@ router.get('/', auth, async (req, res) => {
 // Update all settings (manager/coordinator only)
 router.put('/', auth, authorize('manager', 'coordinator'), async (req, res) => {
   try {
+    // Diagnostic logging to help debug accidental overwrites in production
+    try {
+      const payloadSummary = Object.keys(req.body).reduce((acc, key) => {
+        const val = req.body[key];
+        acc[key] = Array.isArray(val) ? `array(len=${val.length})` : (val && typeof val === 'object' ? 'object' : String(val));
+        return acc;
+      }, {});
+      console.log('Update settings request by user:', req.userId, 'payloadSummary:', payloadSummary);
+    } catch (e) {
+      console.log('Failed to summarize settings payload', e && e.message);
+    }
+
     const { schoolModules, rolePreferences, technicalSkills, degreeOptions, softSkills, inactiveSchools, institutionOptions, higherEducationOptions, roleCategories } = req.body;
 
     const settings = await Settings.updateSettings({
@@ -49,6 +61,20 @@ router.put('/', auth, authorize('manager', 'coordinator'), async (req, res) => {
       higherEducationOptions,
       roleCategories
     }, req.userId);
+
+    // Log post-update snapshot for diagnostics (only keys and lengths to avoid leaking data)
+    try {
+      const snapshot = {
+        schoolModules: settings.schoolModules ? Object.fromEntries(Object.entries(Object.fromEntries(settings.schoolModules)).map(([k, v])=>[k, `array(len=${(v||[]).length})`])) : {},
+        rolePreferencesLen: settings.rolePreferences ? settings.rolePreferences.length : 0,
+        technicalSkillsLen: settings.technicalSkills ? settings.technicalSkills.length : 0,
+        degreeOptionsLen: settings.degreeOptions ? settings.degreeOptions.length : 0,
+        softSkillsLen: settings.softSkills ? settings.softSkills.length : 0
+      };
+      console.log('Post-update settings snapshot by user:', req.userId, snapshot);
+    } catch (e) {
+      console.log('Failed to snapshot settings after update', e && e.message);
+    }
 
     // Convert Map to plain object for JSON response
     const response = {
