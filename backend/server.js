@@ -26,6 +26,8 @@ const questionRoutes = require('./routes/questions');
 const discordRoutes = require('./routes/discord');
 
 const app = express();
+// trust proxy so secure cookies work behind proxies (Render, Heroku, etc.)
+app.set('trust proxy', 1);
 
 // Middleware
 app.use(cors({
@@ -41,6 +43,7 @@ app.use(session({
   saveUninitialized: false,
   cookie: {
     secure: process.env.NODE_ENV === 'production',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   }
 }));
