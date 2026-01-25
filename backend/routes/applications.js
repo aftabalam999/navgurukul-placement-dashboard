@@ -507,15 +507,30 @@ router.post('/export/xls', auth, authorize('coordinator', 'manager'), async (req
 
     // Available fields mapping
     const fieldMap = {
+      // Basic Student Info
       studentName: (app) => `${app.student.firstName} ${app.student.lastName}`,
       email: (app) => app.student.email,
       phone: (app) => app.student.phone || '',
       gender: (app) => app.student.gender || '',
-      campus: (app) => app.student.campus?.name || '',
+
+      // Profile Links
+      resume: (app) => app.student.studentProfile?.resume || '',
+      github: (app) => app.student.studentProfile?.github || '',
+      portfolio: (app) => app.student.studentProfile?.portfolio || '',
+      linkedIn: (app) => app.student.studentProfile?.linkedIn || '',
+
+      // Education
       school: (app) => app.student.studentProfile?.currentSchool || '',
-      currentModule: (app) => app.student.studentProfile?.currentModule || '',
       joiningDate: (app) => app.student.studentProfile?.dateOfJoining ? new Date(app.student.studentProfile.dateOfJoining).toLocaleDateString() : '',
+      currentModule: (app) => app.student.studentProfile?.currentModule || '',
       attendance: (app) => app.student.studentProfile?.attendancePercentage || '',
+      higherEducation: (app) => app.student.studentProfile?.higherEducation?.map(edu =>
+        `${edu.degree} in ${edu.fieldOfStudy} from ${edu.institution} (${edu.startYear}-${edu.endYear})`
+      ).join('; ') || '',
+      tenthPercentage: (app) => app.student.studentProfile?.tenthGrade?.percentage || '',
+      twelfthPercentage: (app) => app.student.studentProfile?.twelfthGrade?.percentage || '',
+
+      // Skills & Rest
       jobTitle: (app) => app.job.title,
       company: (app) => app.job.company.name,
       location: (app) => app.job.location,
@@ -524,12 +539,7 @@ router.post('/export/xls', auth, authorize('coordinator', 'manager'), async (req
       status: (app) => app.status,
       appliedDate: (app) => app.createdAt.toISOString().split('T')[0],
       coverLetter: (app) => app.coverLetter || '',
-      feedback: (app) => app.feedback || '',
-      linkedIn: (app) => app.student.studentProfile?.linkedIn || '',
-      github: (app) => app.student.studentProfile?.github || '',
-      resume: (app) => app.student.studentProfile?.resume || '',
-      tenthPercentage: (app) => app.student.studentProfile?.tenthGrade?.percentage || '',
-      twelfthPercentage: (app) => app.student.studentProfile?.twelfthGrade?.percentage || ''
+      feedback: (app) => app.feedback || ''
     };
 
     // Use selected fields or all fields
@@ -571,95 +581,53 @@ router.post('/export/xls', auth, authorize('coordinator', 'manager'), async (req
 // Get available export fields
 router.get('/export/fields', auth, authorize('coordinator', 'manager'), async (req, res) => {
   const fields = [
-    // Basic Student Info
+    // 1. Basic Student Info (PERSONEL)
     { key: 'studentName', label: 'Student Name', category: 'Student Info' },
     { key: 'email', label: 'Email', category: 'Student Info' },
     { key: 'phone', label: 'Phone', category: 'Student Info' },
     { key: 'gender', label: 'Gender', category: 'Student Info' },
+    { key: 'hometown', label: 'Hometown Details', category: 'Personal Info' },
+    { key: 'about', label: 'About/Bio', category: 'Personal Info' },
 
-    // Campus Info
-    { key: 'campus', label: 'Campus Name', category: 'Campus Info' },
-    { key: 'campusCode', label: 'Campus Code', category: 'Campus Info' },
+    // 2. Profile Links & Documents
+    { key: 'resume', label: 'Resume URL', category: 'Profile Links' },
+    { key: 'github', label: 'GitHub Profile', category: 'Profile Links' },
+    { key: 'portfolio', label: 'Portfolio Website', category: 'Profile Links' },
+    { key: 'linkedIn', label: 'LinkedIn Profile', category: 'Profile Links' },
 
-    // Navgurukul Education
-    { key: 'currentSchool', label: 'Current School', category: 'Navgurukul Education' },
+    // 3. Education & Professional Exp
+    { key: 'currentSchool', label: 'Current School (Navgurukul)', category: 'Navgurukul Education' },
     { key: 'joiningDate', label: 'Joining Date', category: 'Navgurukul Education' },
     { key: 'currentModule', label: 'Current Module', category: 'Navgurukul Education' },
-    { key: 'customModuleDescription', label: 'Custom Module Description', category: 'Navgurukul Education' },
     { key: 'attendance', label: 'Attendance %', category: 'Navgurukul Education' },
+    { key: 'professionalExperience', label: 'Professional Experience', category: 'Experience' },
+    { key: 'higherEducation', label: 'Higher Education Details', category: 'Academic Background' },
 
-    // Academic Background - 10th Grade
+    // Academic Background - Schooling
     { key: 'tenthBoard', label: '10th Board', category: 'Academic Background' },
     { key: 'tenthPercentage', label: '10th Percentage', category: 'Academic Background' },
     { key: 'tenthPassingYear', label: '10th Passing Year', category: 'Academic Background' },
-    { key: 'tenthState', label: '10th State', category: 'Academic Background' },
-
-    // Academic Background - 12th Grade
     { key: 'twelfthBoard', label: '12th Board', category: 'Academic Background' },
     { key: 'twelfthPercentage', label: '12th Percentage', category: 'Academic Background' },
     { key: 'twelfthPassingYear', label: '12th Passing Year', category: 'Academic Background' },
-    { key: 'twelfthState', label: '12th State', category: 'Academic Background' },
 
-    // Higher Education
-    { key: 'higherEducation', label: 'Higher Education Details', category: 'Academic Background' },
-
-    // Location
-    { key: 'hometown', label: 'Hometown Details', category: 'Personal Info' },
-
-    // Technical Skills
+    // 4. Skills
     { key: 'technicalSkills', label: 'Technical Skills', category: 'Skills' },
-
-    // Soft Skills
     { key: 'communication', label: 'Communication Skill', category: 'Soft Skills' },
     { key: 'collaboration', label: 'Collaboration Skill', category: 'Soft Skills' },
-    { key: 'creativity', label: 'Creativity Skill', category: 'Soft Skills' },
-    { key: 'criticalThinking', label: 'Critical Thinking Skill', category: 'Soft Skills' },
     { key: 'problemSolving', label: 'Problem Solving Skill', category: 'Soft Skills' },
-    { key: 'adaptability', label: 'Adaptability Skill', category: 'Soft Skills' },
-    { key: 'timeManagement', label: 'Time Management Skill', category: 'Soft Skills' },
-    { key: 'leadership', label: 'Leadership Skill', category: 'Soft Skills' },
-    { key: 'teamwork', label: 'Teamwork Skill', category: 'Soft Skills' },
-    { key: 'emotionalIntelligence', label: 'Emotional Intelligence', category: 'Soft Skills' },
-
-    // Language Skills
     { key: 'languages', label: 'Language Proficiency', category: 'Language Skills' },
-    { key: 'englishSpeaking', label: 'English Speaking (Legacy)', category: 'Language Skills' },
-    { key: 'englishWriting', label: 'English Writing (Legacy)', category: 'Language Skills' },
-
-    // Courses & Learning
     { key: 'courses', label: 'Completed Courses', category: 'Learning & Development' },
-    { key: 'openForRoles', label: 'Open for Roles', category: 'Career Preferences' },
 
-    // Profile Links & Documents
-    { key: 'linkedIn', label: 'LinkedIn Profile', category: 'Profile Links' },
-    { key: 'github', label: 'GitHub Profile', category: 'Profile Links' },
-    { key: 'portfolio', label: 'Portfolio Website', category: 'Profile Links' },
-    { key: 'resume', label: 'Resume URL', category: 'Profile Links' },
-
-    // Personal Details
-    { key: 'about', label: 'About/Bio', category: 'Personal Info' },
-    { key: 'expectedSalary', label: 'Expected Salary', category: 'Career Preferences' },
-    { key: 'profileStatus', label: 'Profile Approval Status', category: 'Profile Status' },
-
-    // Job Information
+    // 5. Rest / Job Info / Application
     { key: 'jobTitle', label: 'Job Title', category: 'Job Info' },
     { key: 'company', label: 'Company', category: 'Job Info' },
-    { key: 'location', label: 'Job Location', category: 'Job Info' },
-    { key: 'jobType', label: 'Job Type', category: 'Job Info' },
-    { key: 'salary', label: 'Job Salary Range', category: 'Job Info' },
-
-    // Application Details
     { key: 'status', label: 'Application Status', category: 'Application' },
     { key: 'appliedDate', label: 'Applied Date', category: 'Application' },
-    { key: 'coverLetter', label: 'Cover Letter', category: 'Application' },
+    { key: 'currentRound', label: 'Interview Round', category: 'Application' },
     { key: 'feedback', label: 'Interview Feedback', category: 'Application' },
-    { key: 'currentRound', label: 'Current Interview Round', category: 'Application' },
-    { key: 'customResponses', label: 'Custom Requirements Responses', category: 'Application' },
-
-    // Job Readiness
-    { key: 'jobReadinessCompleted', label: 'Job Readiness Completed', category: 'Job Readiness' },
-    { key: 'jobReadinessStatus', label: 'Job Readiness Status', category: 'Job Readiness' },
-    { key: 'jobReadinessCriteria', label: 'Job Readiness Criteria Details', category: 'Job Readiness' }
+    { key: 'expectedSalary', label: 'Expected Salary', category: 'Career Preferences' },
+    { key: 'jobReadinessStatus', label: 'Job Readiness Status', category: 'Job Readiness' }
   ];
   res.json(fields);
 });

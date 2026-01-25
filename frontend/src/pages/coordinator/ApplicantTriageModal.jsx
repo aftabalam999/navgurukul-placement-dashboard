@@ -59,7 +59,7 @@ const ApplicantTriageModal = ({
 
     // Initialize applicants with buckets
     useEffect(() => {
-        if (isOpen && initialApplicants) {
+        if (isOpen && initialApplicants && applicants.length === 0) {
             setApplicants(initialApplicants.map(app => ({
                 ...app,
                 bucket: app._target ? app._target : (app.status === 'rejected' ? 'exit' : 'hold'),
@@ -68,15 +68,13 @@ const ApplicantTriageModal = ({
 
             // Default to first round or current max round if applicable
             if (hasInterviewRounds) {
-                // If advancing to a new stage, start at round 0. 
-                // If staying in current stage, maybe find the "most common" round or just default to 0
                 setSelectedRoundIndex(0);
             }
 
             // Init Discord Thread
             setDiscordThreadId(job?.discordThreadId || '');
         }
-    }, [isOpen, initialApplicants, targetStatus, job]);
+    }, [isOpen, initialApplicants, hasInterviewRounds, job?.discordThreadId, applicants.length]);
 
     if (!isOpen || !job) return null;
 
@@ -131,9 +129,15 @@ const ApplicantTriageModal = ({
         });
     };
 
-    const promoteList = filteredApplicants.filter(a => a.bucket === 'promote');
-    const exitList = filteredApplicants.filter(a => a.bucket === 'exit');
-    const holdList = filteredApplicants.filter(a => a.bucket === 'hold');
+    // Full lists for summary and preview
+    const promoteList = applicants.filter(a => a.bucket === 'promote');
+    const exitList = applicants.filter(a => a.bucket === 'exit');
+    const holdList = applicants.filter(a => a.bucket === 'hold');
+
+    // Filtered lists for the drag & drop workspace
+    const filteredPromoteList = filteredApplicants.filter(a => a.bucket === 'promote');
+    const filteredExitList = filteredApplicants.filter(a => a.bucket === 'exit');
+    const filteredHoldList = filteredApplicants.filter(a => a.bucket === 'hold');
 
     const StudentCard = ({ app, index, isExiting }) => (
         <Draggable draggableId={app._id} index={index}>
@@ -308,13 +312,13 @@ const ApplicantTriageModal = ({
                                                     className={`flex-1 overflow-y-auto p-2 rounded-xl border-2 border-dashed transition-colors flex flex-col ${snapshot.isDraggingOver ? 'bg-green-50 border-green-300' : 'bg-white/50 border-gray-200'
                                                         }`}
                                                 >
-                                                    {promoteList.length === 0 && !snapshot.isDraggingOver && (
+                                                    {filteredPromoteList.length === 0 && !snapshot.isDraggingOver && (
                                                         <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-8 text-center">
                                                             <CheckCircle className="w-12 h-12 mb-3 opacity-20" />
                                                             <p className="text-sm">Drag candidates here to advance them to the next round</p>
                                                         </div>
                                                     )}
-                                                    {promoteList.map((app, index) => (
+                                                    {filteredPromoteList.map((app, index) => (
                                                         <StudentCard key={app._id} app={app} index={index} />
                                                     ))}
                                                     {provided.placeholder}
@@ -342,13 +346,13 @@ const ApplicantTriageModal = ({
                                                     className={`flex-1 overflow-y-auto p-2 rounded-xl border-2 border-dashed transition-colors flex flex-col ${snapshot.isDraggingOver ? 'bg-yellow-50 border-yellow-300' : 'bg-white/50 border-gray-200'
                                                         }`}
                                                 >
-                                                    {holdList.length === 0 && !snapshot.isDraggingOver && (
+                                                    {filteredHoldList.length === 0 && !snapshot.isDraggingOver && (
                                                         <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-8 text-center">
                                                             <Pause className="w-12 h-12 mb-3 opacity-20" />
                                                             <p className="text-sm">Candidates dropped here won't change status but can still be messaged</p>
                                                         </div>
                                                     )}
-                                                    {holdList.map((app, index) => (
+                                                    {filteredHoldList.map((app, index) => (
                                                         <StudentCard key={app._id} app={app} index={index} />
                                                     ))}
                                                     {provided.placeholder}
@@ -383,13 +387,13 @@ const ApplicantTriageModal = ({
                                                     className={`flex-1 overflow-y-auto p-2 rounded-xl border-2 border-dashed transition-colors flex flex-col ${snapshot.isDraggingOver ? 'bg-red-50 border-red-300' : 'bg-white/50 border-gray-200'
                                                         }`}
                                                 >
-                                                    {exitList.length === 0 && !snapshot.isDraggingOver && (
+                                                    {filteredExitList.length === 0 && !snapshot.isDraggingOver && (
                                                         <div className="flex-1 flex flex-col items-center justify-center text-gray-400 p-8 text-center">
                                                             <XCircle className="w-12 h-12 mb-3 opacity-20" />
                                                             <p className="text-sm">Candidates here will be rejected with mandatory feedback</p>
                                                         </div>
                                                     )}
-                                                    {exitList.map((app, index) => (
+                                                    {filteredExitList.map((app, index) => (
                                                         <StudentCard key={app._id} app={app} index={index} isExiting />
                                                     ))}
                                                     {provided.placeholder}
@@ -457,7 +461,9 @@ const ApplicantTriageModal = ({
                                         <p className="text-sm text-gray-600 mt-4 leading-relaxed italic border-l-4 border-primary-100 pl-4">
                                             {isInterviewingStage && hasInterviewRounds
                                                 ? `Candidates will be advanced to the specified interview round: ${job.interviewRounds[selectedRoundIndex]?.name}.`
-                                                : "The recruitment process for this job is advancing. Selected candidates will be notified of their new status."
+                                                : currentLabel === targetLabel
+                                                    ? "Candidates will be confirmed for the current stage. No status change will occur, but notifications may be sent."
+                                                    : "The recruitment process for this job is advancing. Selected candidates will be notified of their new status."
                                             }
                                         </p>
                                     </div>
@@ -483,28 +489,50 @@ const ApplicantTriageModal = ({
                                         <h4 className="font-bold text-gray-700 uppercase text-xs tracking-widest">Movement Tracker</h4>
                                         <span className="text-[10px] text-gray-400">Total {applicants.length} students</span>
                                     </div>
-                                    <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                                        {promoteList.slice(0, 5).map(app => (
-                                            <div key={app._id} className="flex items-center justify-between text-sm">
-                                                <span className="font-medium">{app.student?.firstName} {app.student?.lastName}</span>
-                                                <span className="text-green-600 font-bold bg-green-50 px-2 py-0.5 rounded border border-green-100 uppercase text-[10px]">
-                                                    {isInterviewingStage && hasInterviewRounds ? 'To Round' : 'Promoted'}
-                                                </span>
+                                    <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                                        {promoteList.length > 0 && (
+                                            <div className="space-y-2">
+                                                <div className="text-[10px] font-bold text-green-600 uppercase tracking-widest bg-green-50 px-2 py-0.5 rounded">Promotions / Advances</div>
+                                                {promoteList.map(app => (
+                                                    <div key={app._id} className="flex items-center justify-between text-sm py-1 border-b border-gray-50 last:border-0">
+                                                        <span className="font-medium">{app.student?.firstName} {app.student?.lastName}</span>
+                                                        <span className="text-green-600 font-bold bg-green-50 px-2 py-0.5 rounded border border-green-100 uppercase text-[10px]">
+                                                            {isInterviewingStage && hasInterviewRounds ? 'To Round' : 'Promoted'}
+                                                        </span>
+                                                    </div>
+                                                ))}
                                             </div>
-                                        ))}
-                                        {exitList.slice(0, 5).map(app => (
-                                            <div key={app._id} className="flex flex-col gap-1 text-sm border-t pt-2 mt-2">
-                                                <div className="flex items-center justify-between">
-                                                    <span className="font-medium">{app.student?.firstName} {app.student?.lastName}</span>
-                                                    <span className="text-red-600 font-bold bg-red-50 px-2 py-0.5 rounded border border-red-100 uppercase text-[10px]">Exited</span>
-                                                </div>
-                                                <p className="text-[10px] text-gray-500 italic bg-gray-50 p-2 rounded truncate overflow-hidden">
-                                                    Feedback: "{app.comment}"
-                                                </p>
+                                        )}
+
+                                        {holdList.length > 0 && (
+                                            <div className="space-y-2">
+                                                <div className="text-[10px] font-bold text-yellow-600 uppercase tracking-widest bg-yellow-50 px-2 py-0.5 rounded">Remaining / On Hold</div>
+                                                {holdList.map(app => (
+                                                    <div key={app._id} className="flex items-center justify-between text-sm py-1 border-b border-gray-50 last:border-0">
+                                                        <span className="font-medium text-gray-600">{app.student?.firstName} {app.student?.lastName}</span>
+                                                        <span className="text-yellow-600 font-bold bg-yellow-50 px-2 py-0.5 rounded border border-yellow-100 uppercase text-[10px]">No Change</span>
+                                                    </div>
+                                                ))}
                                             </div>
-                                        ))}
-                                        {applicants.length > 10 && (
-                                            <div className="text-center text-xs text-gray-400 py-2">... and {applicants.length - 10} others</div>
+                                        )}
+
+                                        {exitList.length > 0 && (
+                                            <div className="space-y-2">
+                                                <div className="text-[10px] font-bold text-red-600 uppercase tracking-widest bg-red-50 px-2 py-0.5 rounded">Exits / Rejections</div>
+                                                {exitList.map(app => (
+                                                    <div key={app._id} className="flex flex-col gap-1 text-sm py-2 border-b border-gray-50 last:border-0">
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="font-medium text-gray-700">{app.student?.firstName} {app.student?.lastName}</span>
+                                                            <span className="text-red-600 font-bold bg-red-50 px-2 py-0.5 rounded border border-red-100 uppercase text-[10px]">Exited</span>
+                                                        </div>
+                                                        {app.comment && (
+                                                            <p className="text-[10px] text-gray-500 italic bg-gray-50 p-2 rounded">
+                                                                Feedback: "{app.comment}"
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
                                         )}
                                     </div>
                                 </div>

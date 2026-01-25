@@ -154,12 +154,36 @@ input, select, textarea {
   white-space: nowrap;
 }
 
-/* Reduce spacing on small screens inside modal */
-@media (max-width: 768px) {
-  .applicant-column {
-    @apply p-2;
-  }
-  .student-card {
-    @apply p-2;
-  }
+/* Premium Job Card Styles */
+.job-card {
+  @apply bg-white rounded-2xl border border-gray-100 p-5 transition-all duration-300 hover:shadow-xl hover:border-primary-100 hover:-translate-y-1 relative overflow-hidden;
+}
+
+.job-card::before {
+  content: '';
+  @apply absolute top-0 left-0 w-1 h-full bg-primary-500 opacity-0 transition-opacity duration-300;
+}
+
+.job-card:hover::before {
+  @apply opacity-100;
+}
+
+.job-card-icon {
+  @apply w-12 h-12 rounded-xl flex items-center justify-center bg-gray-50 border border-gray-100 shadow-sm transition-transform duration-300 group-hover:scale-110;
+}
+
+.job-stat-pill {
+  @apply flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 rounded-lg text-sm font-medium text-gray-600 border border-gray-100;
+}
+
+.job-action-btn {
+  @apply p-2 rounded-xl transition-all duration-200 hover:scale-110 active:scale-95;
+}
+
+.glass-morphism {
+  @apply bg-white/70 backdrop-blur-md border border-white/20;
+}
+
+.input-premium {
+  @apply bg-gray-50 border-gray-200 focus:bg-white focus:ring-4 focus:ring-primary-100 transition-all duration-300;
 }

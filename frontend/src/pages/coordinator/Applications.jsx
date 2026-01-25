@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { applicationAPI, jobAPI } from '../../services/api';
+import { applicationAPI, jobAPI, settingsAPI } from '../../services/api';
 import { LoadingSpinner, StatusBadge, Pagination, EmptyState, Modal } from '../../components/common/UIComponents';
 import { Search, Filter, Eye, CheckCircle, XCircle, Clock, MessageSquare, Download, Users } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -41,11 +41,37 @@ const Applications = () => {
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [feedback, setFeedback] = useState('');
   const [newStatus, setNewStatus] = useState('');
+  const [selectedRoundIndex, setSelectedRoundIndex] = useState(0);
+  const [discordThreadId, setDiscordThreadId] = useState('');
+  const [pipelineStages, setPipelineStages] = useState([]);
 
   useEffect(() => {
     fetchJobs();
     fetchApplications();
+    fetchPipelineStages();
   }, [filters.status, filters.job, pagination.page]);
+
+  const fetchPipelineStages = async () => {
+    try {
+      const response = await settingsAPI.getPipelineStages();
+      const stages = response.data?.data || [];
+      if (stages.length > 0) {
+        setPipelineStages(stages);
+      } else {
+        // Fallback to defaults if no stages configured
+        setPipelineStages([
+          { id: 'applied', label: 'Applied' },
+          { id: 'under_review', label: 'Under Review' },
+          { id: 'shortlisted', label: 'Shortlisted' },
+          { id: 'interviewing', label: 'Interviewing' },
+          { id: 'hired', label: 'Hired' },
+          { id: 'rejected', label: 'Rejected' },
+        ]);
+      }
+    } catch (e) {
+      console.error('Error fetching pipeline stages:', e);
+    }
+  };
 
   // Apply job filter from URL query ?job=<id> so links like "View applicants" open a filtered view
   useEffect(() => {
@@ -182,25 +208,46 @@ const Applications = () => {
     }
 
     const jobId = uniqueJobIds[0];
+    const jobObj = jobs.find(j => String(j._id) === String(jobId));
 
-    const jobObj = jobs.find(j => j._id === jobId);
     if (!canManageJob(jobObj)) {
       toast.error("Only the job's assigned coordinator or a manager may perform bulk actions for this job");
       return;
     }
 
     try {
+      // Logic mirrored from handleTriageConfirm in Jobs.jsx
       if (action === 'set_status') {
-        await jobAPI.bulkUpdate(jobId, { applicationIds: selectedIds, action: 'set_status', status: bulkStatus, generalFeedback: feedback });
+        const payload = {
+          applicationIds: selectedIds,
+          action: 'set_status',
+          status: bulkStatus,
+          generalFeedback: feedback
+        };
+
+        // Handle interview rounds if target status is interviewing
+        const isInterviewing = bulkStatus === 'interviewing' || bulkStatus === 'shortlisted' || (pipelineStages.find(s => s.id === bulkStatus)?.label?.toLowerCase().includes('interview'));
+        if (isInterviewing && jobObj?.interviewRounds?.length > 0) {
+          payload.targetRound = selectedRoundIndex;
+          payload.roundName = jobObj.interviewRounds[selectedRoundIndex]?.name;
+        }
+
+        await jobAPI.bulkUpdate(jobId, payload);
       } else if (action === 'advance_round') {
-        await jobAPI.bulkUpdate(jobId, { applicationIds: selectedIds, action: 'advance_round', advanceBy: 1, generalFeedback: feedback });
+        await jobAPI.bulkUpdate(jobId, {
+          applicationIds: selectedIds,
+          action: 'advance_round',
+          advanceBy: 1,
+          generalFeedback: feedback
+        });
       }
 
-      toast.success('Bulk update completed');
+      toast.success('Bulk update completed successfully');
       setSelectedIds([]);
       setShowBulkModal(false);
       setFeedback('');
       setBulkStatus('');
+      setSelectedRoundIndex(0);
       fetchApplications();
     } catch (error) {
       console.error('Bulk update error', error);
@@ -563,19 +610,17 @@ const Applications = () => {
                 <h3 className="font-semibold text-gray-900 mb-3">Interview Progress</h3>
                 <div className="space-y-2">
                   {selectedApplication.interviewRounds.map((round, index) => (
-                    <div 
-                      key={index} 
-                      className={`flex items-center gap-3 p-3 rounded-lg ${
-                        round.status === 'passed' ? 'bg-green-50' :
+                    <div
+                      key={index}
+                      className={`flex items-center gap-3 p-3 rounded-lg ${round.status === 'passed' ? 'bg-green-50' :
                         round.status === 'failed' ? 'bg-red-50' :
-                        round.status === 'scheduled' ? 'bg-yellow-50' : 'bg-gray-50'
-                      }`}
+                          round.status === 'scheduled' ? 'bg-yellow-50' : 'bg-gray-50'
+                        }`}
                     >
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                        round.status === 'passed' ? 'bg-green-500 text-white' :
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${round.status === 'passed' ? 'bg-green-500 text-white' :
                         round.status === 'failed' ? 'bg-red-500 text-white' :
-                        round.status === 'scheduled' ? 'bg-yellow-500 text-white' : 'bg-gray-300 text-gray-600'
-                      }`}>
+                          round.status === 'scheduled' ? 'bg-yellow-500 text-white' : 'bg-gray-300 text-gray-600'
+                        }`}>
                         {index + 1}
                       </div>
                       <div className="flex-1">
@@ -691,38 +736,98 @@ const Applications = () => {
         </div>
       </Modal>
 
-      {/* Bulk Action Modal */}
+      {/* Bulk Action Modal - Prioritized Triage Logic */}
       <Modal
         isOpen={showBulkModal}
         onClose={() => {
           setShowBulkModal(false);
           setFeedback('');
           setBulkStatus('');
+          setSelectedRoundIndex(0);
         }}
-        title={`Bulk Action`}
+        title={`Bulk Multi-Stage Triage`}
+        size="md"
       >
-        <div className="space-y-4">
-          <p className="text-gray-600">Change status or advance rounds for selected applications. This will send the same message to all selected students.</p>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Action</label>
-            <select value={bulkStatus} onChange={(e) => setBulkStatus(e.target.value)} className="w-full">
-              <option value="">Select action</option>
-              <option value="shortlisted">Shortlist</option>
-              <option value="in_progress">Mark In Progress</option>
-              <option value="selected">Select (Placed)</option>
-              <option value="rejected">Reject</option>
-            </select>
+        <div className="space-y-5">
+          <div className="bg-primary-50 p-4 rounded-xl border border-primary-100 flex items-start gap-3">
+            <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center text-primary-600 shadow-sm shrink-0">
+              <Clock className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-primary-900 leading-tight">Batch Movement for {selectedIds.length} Applicants</p>
+              <p className="text-xs text-primary-700 mt-1">This will update status and rounds for all selected candidates from <strong>{selectedIds.length > 0 && applications.find(a => a._id === selectedIds[0])?.job?.title}</strong>.</p>
+            </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">General Comment (visible to students)</label>
-            <textarea rows={4} value={feedback} onChange={(e) => setFeedback(e.target.value)} className="w-full" placeholder="A short note that will be sent to all selected students" />
+          <div className="grid grid-cols-1 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Target Pipeline Stage</label>
+              <select
+                value={bulkStatus}
+                onChange={(e) => setBulkStatus(e.target.value)}
+                className="w-full text-sm font-medium border-2 border-gray-100 focus:border-primary-500 rounded-xl"
+              >
+                <option value="">-- Choose New Stage --</option>
+                {pipelineStages.map(stage => (
+                  <option key={stage.id} value={stage.id}>{stage.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Sub-selection for interview rounds if the selected stage is interviewing */}
+            {(() => {
+              const selectedApp = applications.find(a => a._id === selectedIds[0]);
+              const jobObj = jobs.find(j => String(j._id) === String(selectedApp?.job?._id));
+              const isInterviewing = bulkStatus === 'interviewing' || (pipelineStages.find(s => s.id === bulkStatus)?.label?.toLowerCase().includes('interview'));
+
+              if (isInterviewing && jobObj?.interviewRounds?.length > 0) {
+                return (
+                  <div className="animate-fadeIn">
+                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Target Interview Round</label>
+                    <select
+                      value={selectedRoundIndex}
+                      onChange={(e) => setSelectedRoundIndex(parseInt(e.target.value))}
+                      className="w-full text-sm font-bold border-2 border-primary-200 focus:border-primary-500 rounded-xl bg-primary-50/30"
+                    >
+                      {jobObj.interviewRounds.map((round, idx) => (
+                        <option key={idx} value={idx}>Round {idx + 1}: {round.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
+            <div>
+              <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Internal Notes / Student Feedback</label>
+              <textarea
+                rows={4}
+                value={feedback}
+                onChange={(e) => setFeedback(e.target.value)}
+                className="w-full text-sm border-2 border-gray-100 focus:border-primary-500 rounded-xl p-3"
+                placeholder="A personalized note that will be sent to ALL selected students..."
+              />
+              <p className={`text-[10px] mt-1 font-medium ${bulkStatus === 'rejected' ? 'text-red-500' : 'text-gray-400'}`}>
+                {bulkStatus === 'rejected' ? '* Feedback is mandatory for rejections in triage.' : 'Note: This feedback will be visible in the candidate dashboard.'}
+              </p>
+            </div>
           </div>
 
-          <div className="flex justify-end gap-3">
-            <button onClick={() => setShowBulkModal(false)} className="btn btn-secondary">Cancel</button>
-            <button onClick={() => handleBulkUpdate('set_status')} className="btn btn-primary">Confirm</button>
+          <div className="flex gap-3 pt-2">
+            <button
+              onClick={() => setShowBulkModal(false)}
+              className="flex-1 btn btn-secondary text-gray-600 font-bold rounded-xl"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => handleBulkUpdate('set_status')}
+              disabled={!bulkStatus || (bulkStatus === 'rejected' && !feedback.trim())}
+              className="flex-[2] btn btn-primary font-bold rounded-xl shadow-lg shadow-primary-200 disabled:opacity-50"
+            >
+              Confirm Bulk Decision
+            </button>
           </div>
         </div>
       </Modal>

@@ -14,7 +14,7 @@ const CoordinatorJobs = () => {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ current: 1, pages: 1, total: 0 });
-  const [filters, setFilters] = useState({ search: '', status: '', jobType: '' });
+  const [filters, setFilters] = useState({ search: '', status: '', jobType: '', sortBy: 'newest' });
   const [deleteModal, setDeleteModal] = useState({ show: false, jobId: null });
   const [viewMode, setViewMode] = useState(() => {
     return localStorage.getItem('jobsViewMode') || 'list';
@@ -30,6 +30,8 @@ const CoordinatorJobs = () => {
   const [presets, setPresets] = useState([]);
   const [presetName, setPresetName] = useState('');
   const [selectedPresetId, setSelectedPresetId] = useState(null);
+  const [fieldSearch, setFieldSearch] = useState('');
+  const [expandedCategories, setExpandedCategories] = useState(['Student Info', 'Campus Info']);
 
   // Applicant modal state
   const [showApplicantModal, setShowApplicantModal] = useState(false);
@@ -369,7 +371,8 @@ const CoordinatorJobs = () => {
         limit: 10,
         search: filters.search || undefined,
         status: filters.status || undefined,
-        jobType: filters.jobType || undefined
+        jobType: filters.jobType || undefined,
+        sortBy: filters.sortBy || undefined
       });
       setJobs(response.data.jobs);
       setPagination(response.data.pagination);
@@ -629,6 +632,16 @@ const CoordinatorJobs = () => {
                   <option key={stage.id} value={stage.id}>{stage.label}</option>
                 ))}
               </select>
+              <select
+                value={filters.sortBy}
+                onChange={(e) => setFilters({ ...filters, sortBy: e.target.value })}
+                className="w-full md:w-48"
+              >
+                <option value="newest">Newest First</option>
+                <option value="deadline_asc">Deadline (Soonest)</option>
+                <option value="deadline_desc">Deadline (Latest)</option>
+                <option value="placements">Most Placements</option>
+              </select>
             </div>
           </div>
 
@@ -639,127 +652,133 @@ const CoordinatorJobs = () => {
             </div>
           ) : jobs.length > 0 ? (
             <>
-              <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-4">
                 {jobs.map((job) => (
-                  <div key={job._id} className="card">
-                    <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-start gap-3">
-                          <div className={`w-12 h-12 rounded-lg flex items-center justify-center shrink-0 border border-gray-100 bg-white shadow-sm overflow-hidden`}>
+                  <div key={job._id} className="job-card group">
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start gap-4">
+                          <div className="job-card-icon">
                             {job.company?.logo ? (
                               <img src={job.company.logo} alt={job.company.name} className="w-8 h-8 object-contain" />
-                            ) : job.jobType === 'internship' ? (
-                              <GraduationCap className="w-6 h-6 text-purple-500" />
                             ) : (
-                              <Briefcase className="w-6 h-6 text-gray-400" />
+                              <Briefcase className={`w-6 h-6 ${job.jobType === 'internship' ? 'text-purple-500' : 'text-primary-500'}`} />
                             )}
                           </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-semibold text-gray-900">{job.title}</h3>
-                              {job.jobType === 'internship' && (
-                                <span className="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full">
-                                  Internship
-                                </span>
-                              )}
-                              {job.eligibility?.openForAll && (
-                                <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full">
-                                  Open for All
-                                </span>
-                              )}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2 mb-1">
+                              <h3 className="text-lg font-bold text-gray-900 truncate hover:text-primary-600 transition-colors">
+                                {job.title}
+                              </h3>
+                              <div className="flex gap-1.5">
+                                {job.jobType === 'internship' && (
+                                  <span className="badge bg-purple-50 text-purple-600 border border-purple-100">Internship</span>
+                                )}
+                                {job.eligibility?.openForAll && (
+                                  <span className="badge bg-green-50 text-green-600 border border-green-100">Open for All</span>
+                                )}
+                              </div>
                             </div>
-                            <p className="text-gray-600">{job.company?.name}</p>
-                            <div className="flex flex-wrap items-center gap-3 mt-2 text-sm text-gray-500">
-                              <span className="flex items-center gap-1">
-                                <MapPin className="w-4 h-4" />
-                                {job.location}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <Users className="w-4 h-4" />
-                                {job.maxPositions} positions
-                              </span>
-                              {job.jobType === 'internship' && job.duration && (
-                                <span className="flex items-center gap-1">
-                                  <Clock className="w-4 h-4" />
-                                  {job.duration}
-                                </span>
-                              )}
-                              <span className="flex items-center gap-1">
-                                <Calendar className="w-4 h-4" />
-                                Deadline: {format(new Date(job.applicationDeadline), 'MMM dd, yyyy')}
-                              </span>
-                            </div>
-                          </div>
 
-                          {/* Quick 'View applicants' and 'Manage applicants' actions (responsive: below title on small screens) */}
-                          <div className="w-full lg:w-auto flex items-center gap-2 mt-2 lg:mt-0 justify-start lg:justify-end">
-                            <Link className="btn btn-outline flex items-center" to={`/coordinator/applications?job=${job._id}`} title={`View ${job.totalApplications || 0} applications`}>
-                              <span>View applicants</span>
-                              <span className="ml-2 text-sm text-gray-600 px-2 py-1 bg-gray-100 rounded-full">{job.totalApplications || 0}</span>
-                            </Link>
-                            <button
-                              className="btn"
-                              title="Change status and manage applicants"
-                              onClick={() => openManageApplicants(job)}
-                            >
-                              Manage Applicants
-                            </button>
+                            <p className="text-gray-500 font-medium flex items-center gap-1 mb-3">
+                              {job.company?.name}
+                            </p>
+
+                            <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
+                              <div className="flex items-center gap-1.5">
+                                <MapPin className="w-4 h-4 text-gray-400" />
+                                {job.location || 'Remote'}
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <Users className="w-4 h-4 text-gray-400" />
+                                {job.maxPositions} positions
+                              </div>
+                              <div className={`flex items-center gap-1.5 font-medium ${new Date(job.applicationDeadline) < new Date() ? 'text-red-500' : 'text-primary-600'
+                                }`}>
+                                <Calendar className="w-4 h-4" />
+                                {format(new Date(job.applicationDeadline), 'MMM dd, yyyy')}
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-3">
-                        <select
-                          value={job.status}
-                          onChange={(e) => handleStatusChange(job._id, e.target.value)}
-                          className="text-sm border rounded-lg px-2 py-1"
-                        >
-                          {pipelineStages.map(stage => (
-                            <option key={stage.id} value={stage.id}>{stage.label}</option>
-                          ))}
-                        </select>
-                        <button
-                          onClick={() => openExportModal(job._id, job.title)}
-                          className="flex items-center gap-2 px-3 py-2 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg transition-colors border border-green-200"
-                          title="Export Applications (CSV/PDF)"
-                        >
-                          <Download className="w-4 h-4" />
-                          <span className="text-sm font-medium">Export</span>
-                        </button>
-                        <Link
-                          to={`/coordinator/jobs/${job._id}/edit`}
-                          className="p-2 hover:bg-gray-100 rounded-lg"
-                        >
-                          <Edit className="w-5 h-5 text-gray-600" />
-                        </Link>
-                        <button
-                          onClick={() => setDeleteModal({ show: true, jobId: job._id })}
-                          className="p-2 hover:bg-red-50 rounded-lg text-red-600"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
+                      <div className="flex flex-wrap items-center gap-3 lg:border-l lg:pl-6 border-gray-100">
+                        <div className="flex flex-col gap-2 min-w-[200px]">
+                          <Link
+                            to={`/coordinator/applications?job=${job._id}`}
+                            className="flex items-center justify-between px-4 py-2 bg-gray-50 hover:bg-primary-50 hover:text-primary-700 rounded-xl transition-all group/link"
+                          >
+                            <span className="text-sm font-semibold">View Applicants</span>
+                            <span className="bg-white border rounded-full px-2 py-0.5 text-xs shadow-sm group-hover/link:border-primary-200">
+                              {job.totalApplications || 0}
+                            </span>
+                          </Link>
+                          <button
+                            onClick={() => openManageApplicants(job)}
+                            className="flex items-center justify-center gap-2 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl shadow-md hover:shadow-lg transition-all font-semibold text-sm"
+                          >
+                            Manage Triage
+                          </button>
+                        </div>
+
+                        <div className="flex flex-col gap-2">
+                          <select
+                            value={job.status}
+                            onChange={(e) => handleStatusChange(job._id, e.target.value)}
+                            className="text-xs font-bold border-2 border-gray-100 rounded-xl px-3 py-2 focus:border-primary-500 transition-colors uppercase bg-white cursor-pointer"
+                          >
+                            {pipelineStages.map(stage => (
+                              <option key={stage.id} value={stage.id}>{stage.label}</option>
+                            ))}
+                          </select>
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={() => openExportModal(job._id, job.title)}
+                              className="job-action-btn bg-green-50 text-green-600 hover:bg-green-100"
+                              title="Export Data"
+                            >
+                              <Download className="w-4 h-4" />
+                            </button>
+                            <Link
+                              to={`/coordinator/jobs/${job._id}/edit`}
+                              className="job-action-btn bg-blue-50 text-blue-600 hover:bg-blue-100"
+                              title="Edit Job"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Link>
+                            <button
+                              onClick={() => setDeleteModal({ show: true, jobId: job._id })}
+                              className="job-action-btn bg-red-50 text-red-600 hover:bg-red-100"
+                              title="Delete Job"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="mt-4 pt-4 border-t flex items-center justify-between">
-                      <div className="flex items-center gap-4 text-sm">
-                        <span className="text-gray-500">
-                          Placements: <span className="font-medium text-green-600">{job.placementsCount || 0}</span>
-                        </span>
-                        <span className="text-gray-500">
-                          Applications: <span className="font-medium">{job.totalApplications || 0}</span>
-                        </span>
-                        <span className="text-gray-500">
-                          Skills: <span className="font-medium">{job.requiredSkills?.length || 0}</span>
-                        </span>
-                        {/* Job Readiness Tooltip (School of Programming only) */}
-                        {job.school === 'School of Programming' && jobReadinessSummaries['School of Programming'] > 0 && (
-                          <span className="ml-2 relative group cursor-pointer">
-                            <span className="bg-yellow-100 text-yellow-800 px-2 py-0.5 rounded-full text-xs">Job Readiness</span>
-                            <span className="absolute left-1/2 -translate-x-1/2 mt-2 w-56 bg-white border border-gray-200 shadow-lg rounded p-2 text-xs text-gray-700 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                              Job Readiness required for this job (School of Programming). Only students who have completed at least 1 criterion will be considered "In Progress"; all must be completed for "Job Ready".
-                            </span>
-                          </span>
+                    <div className="mt-5 pt-4 border-t border-gray-50 flex flex-wrap items-center justify-between gap-4">
+                      <div className="flex flex-wrap items-center gap-3">
+                        <div className="job-stat-pill">
+                          <span className="text-gray-400">Placements:</span>
+                          <span className="text-green-600 font-bold">{job.placementsCount || 0}</span>
+                        </div>
+                        <div className="job-stat-pill">
+                          <span className="text-gray-400">Applications:</span>
+                          <span className="text-primary-600 font-bold">{job.totalApplications || 0}</span>
+                        </div>
+                        {job.school === 'School of Programming' && (
+                          <div className="relative group cursor-help">
+                            <div className="job-stat-pill bg-yellow-50 text-yellow-700 border-yellow-100">
+                              <GraduationCap className="w-3.5 h-3.5" />
+                              Readiness Required
+                            </div>
+                            <div className="absolute bottom-full left-0 mb-2 w-64 bg-gray-900 text-white text-[10px] p-3 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity z-20 pointer-events-none shadow-2xl">
+                              Job Readiness required for this job. Only students who have completed at least 1 criterion will be considered "In Progress".
+                            </div>
+                          </div>
                         )}
                       </div>
                       <StatusBadge status={job.status} />
@@ -877,72 +896,98 @@ const CoordinatorJobs = () => {
         danger
       />
 
-      {/* Export Modal */}
+      {/* Export Modal - Premium Redesign */}
       {exportModal.show && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-5xl w-full max-h-[90vh] overflow-hidden">
+        <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fadeIn text-left">
+          <div className="bg-white rounded-[2rem] max-w-6xl w-full max-h-[90vh] overflow-hidden shadow-2xl flex flex-col border border-white/20">
             {/* Header */}
-            <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+            <div className="px-8 py-6 border-b border-gray-100 bg-white">
               <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                    <Download className="w-6 h-6 text-blue-600" />
-                    Export Applications
-                  </h3>
-                  <p className="text-sm text-gray-600 mt-1">
-                    <span className="font-medium">{exportModal.jobTitle}</span> -
-                    Select fields and format to export
-                  </p>
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-primary-50 rounded-2xl flex items-center justify-center text-primary-600 shadow-inner">
+                    <Download className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-gray-900 tracking-tight">Export Applications</h3>
+                    <p className="text-sm text-gray-500 font-medium">
+                      Configure your report for <span className="text-primary-600">{exportModal.jobTitle}</span>
+                    </p>
+                  </div>
                 </div>
                 <button
                   onClick={closeExportModal}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="w-10 h-10 flex items-center justify-center hover:bg-gray-50 rounded-xl transition-all text-gray-400 hover:text-gray-900"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
             </div>
 
-            {/* Content */}
-            <div className="flex h-[70vh]">
-              {/* Left Panel - Format Selection */}
-              <div className="w-64 bg-gray-50 border-r border-gray-200 p-4">
-                <h4 className="text-sm font-semibold text-gray-900 mb-3">Export Format</h4>
-                <div className="space-y-2">
-                  <label className="flex items-center p-3 bg-white border rounded-lg cursor-pointer hover:bg-gray-50">
-                    <input
-                      type="radio"
-                      name="exportFormat"
-                      value="csv"
-                      checked={exportFormat === 'csv'}
-                      onChange={(e) => setExportFormat(e.target.value)}
-                      className="mr-3"
-                    />
-                    <div>
-                      <div className="font-medium text-sm">CSV Spreadsheet</div>
-                      <div className="text-xs text-gray-500">Excel compatible format</div>
-                    </div>
-                  </label>
-                  <label className="flex items-center p-3 bg-white border rounded-lg cursor-pointer hover:bg-gray-50">
-                    <input
-                      type="radio"
-                      name="exportFormat"
-                      value="pdf"
-                      checked={exportFormat === 'pdf'}
-                      onChange={(e) => setExportFormat(e.target.value)}
-                      className="mr-3"
-                    />
-                    <div>
-                      <div className="font-medium text-sm">PDF Report</div>
-                      <div className="text-xs text-gray-500">Formal document with company branding</div>
-                    </div>
-                  </label>
+            {/* Content Body */}
+            <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
+              {/* Left Sidebar - Configuration */}
+              <div className="w-full lg:w-80 bg-gray-50/50 border-r border-gray-100 p-6 overflow-y-auto space-y-6">
+                <div>
+                  <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4 text-left">Export Format</h4>
+                  <div className="grid grid-cols-2 lg:grid-cols-1 gap-3">
+                    {['csv', 'pdf'].map(format => (
+                      <label key={format} className={`relative flex items-center gap-3 p-4 rounded-2xl cursor-pointer transition-all border-2 ${exportFormat === format ? 'bg-white border-primary-500 shadow-md ring-4 ring-primary-50' : 'bg-white/50 border-transparent hover:border-gray-200'
+                        }`}>
+                        <input
+                          type="radio"
+                          name="exportFormat"
+                          value={format}
+                          checked={exportFormat === format}
+                          onChange={(e) => setExportFormat(e.target.value)}
+                          className="w-4 h-4 text-primary-600 focus:ring-primary-500 border-gray-300"
+                        />
+                        <div className="text-left">
+                          <p className="font-bold text-sm uppercase">{format === 'csv' ? 'Excel / CSV' : 'PDF Report'}</p>
+                          <p className="text-[10px] text-gray-500 leading-tight">
+                            {format === 'csv' ? 'Best for data analysis' : 'Ready for printing'}
+                          </p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
                 </div>
 
-                {/* Presets */}
-                <div className="mt-4">
-                  <h4 className="text-sm font-semibold text-gray-900 mb-2">Presets</h4>
-                  <div className="flex gap-2">
+                {/* PDF Specific Layout */}
+                {exportFormat === 'pdf' && (
+                  <div className="animate-fadeIn">
+                    <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4 text-left">PDF Layout Style</h4>
+                    <div className="space-y-3">
+                      {[
+                        { id: 'resume', label: 'Resume Grid', desc: 'Visual cards, 2 per page' },
+                        { id: 'table', label: 'Compact Table', desc: 'Detailed list, dense layout' }
+                      ].map(layout => (
+                        <label key={layout.id} className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all border ${exportLayout === layout.id ? 'bg-primary-50 border-primary-200 text-primary-700' : 'bg-white border-gray-100'
+                          }`}>
+                          <input
+                            type="radio"
+                            name="exportLayout"
+                            value={layout.id}
+                            checked={exportLayout === layout.id}
+                            onChange={(e) => setExportLayout(e.target.value)}
+                            className="hidden"
+                          />
+                          <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${exportLayout === layout.id ? 'border-primary-600' : 'border-gray-300'}`}>
+                            {exportLayout === layout.id && <div className="w-2 h-2 bg-primary-600 rounded-full" />}
+                          </div>
+                          <div className="text-left">
+                            <p className="font-bold text-xs">{layout.label}</p>
+                            <p className="text-[9px] opacity-70">{layout.desc}</p>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Presets & Management */}
+                <div>
+                  <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4 text-left">Saved Presets</h4>
+                  <div className="bg-white p-3 rounded-2xl border border-gray-100 shadow-sm space-y-3">
                     <select
                       value={selectedPresetId || ''}
                       onChange={(e) => {
@@ -950,203 +995,164 @@ const CoordinatorJobs = () => {
                         if (p) applyPreset(p);
                         setSelectedPresetId(e.target.value || null);
                       }}
-                      className="flex-1 p-2 border rounded bg-white text-sm"
+                      className="w-full text-xs font-bold bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-primary-100"
                     >
-                      <option value="">-- Select Preset --</option>
+                      <option value="">-- Quick Load --</option>
                       {presets.map(p => (
                         <option key={p._id} value={p._id}>{p.name}</option>
                       ))}
                     </select>
-                    <button
-                      onClick={savePreset}
-                      className="px-3 py-2 bg-indigo-600 text-white rounded text-sm hover:bg-indigo-700"
-                    >
-                      Save
-                    </button>
-                    <button
-                      onClick={() => selectedPresetId && deletePreset(selectedPresetId)}
-                      disabled={!selectedPresetId}
-                      className="px-3 py-2 bg-red-50 text-red-600 rounded text-sm hover:bg-red-100 disabled:opacity-50"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-
-                {/* PDF Layout */}
-                {exportFormat === 'pdf' && (
-                  <div className="mt-4">
-                    <h4 className="text-sm font-semibold text-gray-900 mb-2">PDF Layout</h4>
-                    <label className="flex items-center gap-3 p-2 bg-white border rounded cursor-pointer">
-                      <input
-                        type="radio"
-                        name="exportLayout"
-                        value="resume"
-                        checked={exportLayout === 'resume'}
-                        onChange={(e) => setExportLayout(e.target.value)}
-                        className="mr-3"
-                      />
-                      <div>
-                        <div className="font-medium text-sm">Resume-style (2 per page)</div>
-                        <div className="text-xs text-gray-500">Polished resume cards, 2 students per page</div>
-                      </div>
-                    </label>
-                    <label className="flex items-center gap-3 p-2 bg-white border rounded cursor-pointer mt-2">
-                      <input
-                        type="radio"
-                        name="exportLayout"
-                        value="table"
-                        checked={exportLayout === 'table'}
-                        onChange={(e) => setExportLayout(e.target.value)}
-                        className="mr-3"
-                      />
-                      <div>
-                        <div className="font-medium text-sm">Compact Table</div>
-                        <div className="text-xs text-gray-500">Dense one-row-per-student table</div>
-                      </div>
-                    </label>
-                  </div>
-                )}
-
-                <div className="mt-6">
-                  <h4 className="text-sm font-semibold text-gray-900 mb-3">Quick Selection</h4>
-                  <div className="space-y-2">
-                    <button
-                      onClick={() => {
-                        const essentialFields = ['studentName', 'email', 'phone', 'campus', 'currentSchool', 'currentModule', 'attendance', 'status', 'appliedDate', 'profileStatus'];
-                        setExportData({
-                          fields: essentialFields.filter(f => availableFields.some(af => af.key === f)),
-                          allSelected: false
-                        });
-                      }}
-                      className="w-full text-left px-3 py-2 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
-                    >
-                      🎯 Essential Only
-                    </button>
-                    <button
-                      onClick={() => {
-                        const profileFields = availableFields.filter(f =>
-                          ['Student Info', 'Campus Info', 'Navgurukul Education', 'Academic Background', 'Skills', 'Soft Skills'].includes(f.category)
-                        ).map(f => f.key);
-                        setExportData({
-                          fields: profileFields,
-                          allSelected: false
-                        });
-                      }}
-                      className="w-full text-left px-3 py-2 text-xs bg-green-100 text-green-700 rounded hover:bg-green-200 transition-colors"
-                    >
-                      👤 Profile + Skills
-                    </button>
-                    <button
-                      onClick={handleSelectAll}
-                      className="w-full text-left px-3 py-2 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors"
-                    >
-                      {exportData.allSelected ? '✖️ Deselect All' : '✅ Select All'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Panel - Field Selection */}
-              <div className="flex-1 px-6 py-4 overflow-y-auto">
-                <div className="mb-4">
-                  <h4 className="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                    <Users className="w-5 h-5" />
-                    Select Fields to Export
-                  </h4>
-                  <p className="text-sm text-gray-600">
-                    Choose which student information fields to include in your export.
-                  </p>
-                </div>
-
-                {/* Fields grouped by category */}
-                {[
-                  'Student Info',
-                  'Campus Info',
-                  'Navgurukul Education',
-                  'Academic Background',
-                  'Personal Info',
-                  'Skills',
-                  'Soft Skills',
-                  'Language Skills',
-                  'Learning & Development',
-                  'Career Preferences',
-                  'Profile Links',
-                  'Profile Status',
-                  'Job Info',
-                  'Application',
-                  'Job Readiness'
-                ].map(category => {
-                  const categoryFields = availableFields.filter(f => f.category === category);
-
-                  if (categoryFields.length === 0) return null;
-
-                  return (
-                    <div key={category} className="mb-4">
-                      <h5 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
-                        {category}
-                        <span className="ml-2 text-xs text-gray-500">({categoryFields.length} fields)</span>
-                      </h5>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                        {categoryFields.map(field => (
-                          <label key={field.key} className="flex items-start space-x-2 p-2 hover:bg-gray-50 rounded cursor-pointer text-sm">
-                            <input
-                              type="checkbox"
-                              checked={exportData.fields.includes(field.key)}
-                              onChange={() => handleFieldToggle(field.key)}
-                              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 mt-0.5 flex-shrink-0"
-                            />
-                            <span className="text-sm text-gray-700 leading-5">{field.label}</span>
-                          </label>
-                        ))}
-                      </div>
+                    <div className="flex gap-2">
+                      <button onClick={savePreset} className="flex-1 py-2 text-[10px] font-black bg-indigo-50 text-indigo-700 rounded-xl hover:bg-indigo-100 transition-colors uppercase">Save Selection</button>
+                      {selectedPresetId && (
+                        <button onClick={() => deletePreset(selectedPresetId)} className="p-2 text-red-500 bg-red-50 rounded-xl hover:bg-red-100 transition-colors">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
-                  );
-                })}
+                  </div>
+                </div>
+
+                {/* Smart Selection Buttons */}
+                <div className="space-y-2">
+                  <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3 text-left">Smart Select</h4>
+                  <button
+                    onClick={() => {
+                      const esFields = ['studentName', 'email', 'phone', 'campus', 'currentSchool', 'currentModule', 'attendance', 'status', 'appliedDate', 'profileStatus'];
+                      setExportData({ fields: esFields.filter(f => availableFields.some(af => af.key === f)), allSelected: false });
+                    }}
+                    className="w-full text-left px-4 py-2 text-[10px] font-bold bg-white border border-gray-100 text-gray-600 rounded-xl hover:bg-primary-50 hover:text-primary-600 hover:border-primary-100 transition-all flex items-center justify-between"
+                  >
+                    <span>Essential Data</span>
+                    <span className="bg-primary-100 text-primary-700 px-1.5 py-0.5 rounded text-[8px]">Recommended</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      const profFields = availableFields.filter(f => ['Student Info', 'Campus Info', 'Navgurukul Education', 'Skills', 'Soft Skills'].includes(f.category)).map(f => f.key);
+                      setExportData({ fields: profFields, allSelected: false });
+                    }}
+                    className="w-full text-left px-4 py-2 text-[10px] font-bold bg-white border border-gray-100 text-gray-600 rounded-xl hover:bg-green-50 hover:text-green-600 hover:border-green-100 transition-all"
+                  >
+                    Detailed Profiles
+                  </button>
+                </div>
               </div>
 
-              {exportData.fields.length > 0 && (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                  <p className="text-sm text-blue-700 mb-2">
-                    <strong>{exportData.fields.length}</strong> field{exportData.fields.length !== 1 ? 's' : ''} selected for export
-                  </p>
-                  <p className="text-xs text-blue-600">
-                    {exportFormat === 'pdf'
-                      ? 'PDF export will include formal layout with company branding and structured presentation.'
-                      : 'CSV export will include comprehensive student data in spreadsheet format, compatible with Excel.'
-                    }
-                  </p>
+              {/* Main Area - Field Grid */}
+              <div className="flex-1 flex flex-col bg-white">
+                <div className="p-6 border-b border-gray-50 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="relative flex-1 max-w-md">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search available fields..."
+                      value={fieldSearch}
+                      onChange={(e) => setFieldSearch(e.target.value)}
+                      className="w-full pl-11 pr-4 py-2 text-sm bg-gray-50 border-none rounded-2xl focus:ring-4 focus:ring-primary-50 focus:bg-white transition-all font-medium"
+                    />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button onClick={handleSelectAll} className="text-xs font-bold text-primary-600 hover:text-primary-700 px-3 py-2 bg-primary-50 rounded-xl transition-colors">
+                      {exportData.allSelected ? 'Deselect Everything' : 'Select All Fields'}
+                    </button>
+                  </div>
                 </div>
-              )}
+
+                <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+                    {[
+                      'Student Info', 'Campus Info', 'Navgurukul Education', 'Job Info', 'Application', 'Academic Background', 'Personal Info', 'Skills', 'Soft Skills', 'Language Skills', 'Learning & Development', 'Career Preferences', 'Profile Links', 'Profile Status', 'Job Readiness'
+                    ].map(category => {
+                      const categoryFields = availableFields.filter(f =>
+                        f.category === category && (fieldSearch === '' || f.label.toLowerCase().includes(fieldSearch.toLowerCase()))
+                      );
+
+                      if (categoryFields.length === 0) return null;
+
+                      const allCatSelected = categoryFields.every(f => exportData.fields.includes(f.key));
+
+                      return (
+                        <div key={category} className="bg-gray-50/50 rounded-[2rem] p-6 border border-gray-100/50 transition-all hover:bg-white hover:shadow-xl group/cat flex flex-col h-fit">
+                          <div className="flex items-center justify-between mb-4">
+                            <h5 className="text-[11px] font-black text-gray-900 uppercase tracking-widest text-left">{category}</h5>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => {
+                                  const catKeys = categoryFields.map(f => f.key);
+                                  setExportData(prev => ({
+                                    ...prev,
+                                    fields: allCatSelected ? prev.fields.filter(k => !catKeys.includes(k)) : [...new Set([...prev.fields, ...catKeys])]
+                                  }));
+                                }}
+                                className={`text-[9px] font-bold px-2 py-1 rounded-lg transition-colors ${allCatSelected ? 'bg-red-50 text-red-600' : 'bg-primary-50 text-primary-600 opacity-0 group-hover/cat:opacity-100'
+                                  }`}
+                              >
+                                {allCatSelected ? 'Deselect Category' : 'Select Category'}
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="space-y-1.5 overflow-hidden">
+                            {categoryFields.map(field => (
+                              <label key={field.key} className={`group flex items-center gap-3 p-2 rounded-xl cursor-pointer transition-all border ${exportData.fields.includes(field.key) ? 'bg-white border-primary-100 shadow-sm' : 'border-transparent hover:bg-white hover:border-gray-100'
+                                }`}>
+                                <div className={`w-5 h-5 rounded-lg border-2 flex items-center justify-center transition-all flex-shrink-0 ${exportData.fields.includes(field.key) ? 'bg-primary-500 border-primary-500' : 'bg-white border-gray-200 group-hover:border-primary-300'
+                                  }`}>
+                                  {exportData.fields.includes(field.key) && <CheckCircle className="w-3 h-3 text-white" />}
+                                </div>
+                                <input
+                                  type="checkbox"
+                                  className="hidden"
+                                  checked={exportData.fields.includes(field.key)}
+                                  onChange={() => handleFieldToggle(field.key)}
+                                />
+                                <span className={`text-xs font-semibold text-left truncate ${exportData.fields.includes(field.key) ? 'text-gray-900' : 'text-gray-500 group-hover:text-gray-700'}`}>
+                                  {field.label}
+                                </span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
             </div>
 
-            {/* Footer */}
-            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-gray-600">
-                  <span className="font-medium">{exportData.fields.length}</span> fields selected
-                  {exportFormat === 'pdf' && (
-                    <span className="ml-4 text-blue-600 font-medium">
-                      📄 PDF will include company branding and formal layout
-                    </span>
-                  )}
+            {/* Premium Footer */}
+            <div className="px-8 py-6 border-t border-gray-100 bg-white shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.05)]">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
+                <div className="flex items-center gap-4">
+                  <div className="flex -space-x-2">
+                    <div className="w-10 h-10 rounded-full bg-primary-100 border-2 border-white flex items-center justify-center text-primary-600 font-black text-xs">
+                      {exportData.fields.length}
+                    </div>
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm font-black text-gray-900 leading-none">Selected Data Points</p>
+                    <p className="text-[10px] text-gray-500 mt-1 uppercase tracking-widest font-bold">
+                      Export as {exportFormat.toUpperCase()} • {exportFormat === 'pdf' ? exportLayout.replace('_', ' ') : 'Standard Sheet'}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
+
+                <div className="flex items-center gap-3 w-full sm:w-auto">
                   <button
                     onClick={closeExportModal}
-                    className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    className="flex-1 sm:flex-none px-8 py-3 text-sm font-bold text-gray-400 hover:text-gray-900 transition-colors"
                   >
-                    Cancel
+                    Discard
                   </button>
                   <button
                     onClick={handleExport}
                     disabled={exportData.fields.length === 0 || exporting}
-                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                    className="flex-1 sm:flex-none px-10 py-3 bg-primary-600 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-primary-200 hover:bg-primary-700 hover:-translate-y-1 active:translate-y-0 disabled:opacity-50 disabled:translate-y-0 transition-all flex items-center justify-center gap-3"
                   >
                     {exporting ? (
                       <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        Exporting...
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Processing...
                       </>
                     ) : (
                       <>

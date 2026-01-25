@@ -213,7 +213,7 @@ router.get('/', auth, async (req, res) => {
   try {
     const {
       status, company, jobType, campus, search,
-      roleCategory,
+      roleCategory, sortBy,
       page = 1, limit = 20
     } = req.query;
 
@@ -221,19 +221,15 @@ router.get('/', auth, async (req, res) => {
 
     // Students only see jobs in student-visible pipeline stages
     if (req.user.role === 'student') {
-      // Get pipeline settings to check which stages are visible to students
       const settings = await Settings.getSettings();
       const visibleStages = settings.jobPipelineStages
         .filter(stage => stage.visibleToStudents)
         .map(stage => stage.id);
-
-      // Include legacy 'active' status for backward compatibility
       const studentVisibleStatuses = [...visibleStages, 'active'];
 
       query.status = { $in: studentVisibleStatuses };
       query.applicationDeadline = { $gte: new Date() };
 
-      // Build eligibility filters
       const campusFilter = req.user.campus ? {
         $or: [
           { 'eligibility.campuses': { $size: 0 } },
@@ -249,7 +245,6 @@ router.get('/', auth, async (req, res) => {
         ]
       };
 
-      // Combine eligibility filters
       if (campusFilter) {
         query.$and = [campusFilter, houseFilter];
       } else {
@@ -259,41 +254,23 @@ router.get('/', auth, async (req, res) => {
       if (status) query.status = status;
     }
 
-    if (company) {
-      query['company.name'] = { $regex: company, $options: 'i' };
-    }
+    if (company) query['company.name'] = { $regex: company, $options: 'i' };
 
     if (jobType) {
-      // Support comma-separated job types (e.g., "full_time,part_time,contract")
       const jobTypes = jobType.split(',').map(t => t.trim());
-      if (jobTypes.length > 1) {
-        query.jobType = { $in: jobTypes };
-      } else {
-        query.jobType = jobType;
-      }
+      query.jobType = jobTypes.length > 1 ? { $in: jobTypes } : jobType;
     }
 
-    if (campus) {
-      query['eligibility.campuses'] = campus;
-    }
+    if (campus) query['eligibility.campuses'] = campus;
+    if (req.query.myLeads === 'true' && req.user) query.coordinator = req.userId;
+    if (req.query.coordinator) query.coordinator = req.query.coordinator;
+    if (roleCategory) query.roleCategory = roleCategory;
+    if (search) query.$text = { $search: search };
 
-    // If requested, return only jobs where current user is the coordinator (My Leads)
-    if (req.query.myLeads === 'true' && req.user) {
-      query.coordinator = req.userId;
-    }
-
-    // If requested, filter jobs by a specific coordinator id (coordinator filter in UI)
-    if (req.query.coordinator) {
-      query.coordinator = req.query.coordinator;
-    }
-
-    if (roleCategory) {
-      query.roleCategory = roleCategory;
-    }
-
-    if (search) {
-      query.$text = { $search: search };
-    }
+    let sortOptions = { createdAt: -1 };
+    if (sortBy === 'deadline_asc') sortOptions = { applicationDeadline: 1 };
+    else if (sortBy === 'deadline_desc') sortOptions = { applicationDeadline: -1 };
+    else if (sortBy === 'placements') sortOptions = { placementsCount: -1 };
 
     const jobs = await Job.find(query)
       .populate('requiredSkills.skill')
@@ -301,7 +278,7 @@ router.get('/', auth, async (req, res) => {
       .populate('createdBy', 'firstName lastName')
       .skip((page - 1) * limit)
       .limit(parseInt(limit))
-      .sort({ createdAt: -1 });
+      .sort(sortOptions);
 
     const total = await Job.countDocuments(query);
 
@@ -1452,108 +1429,76 @@ router.post('/:id/export', auth, authorize('coordinator', 'manager'), async (req
       email: (app) => app.student.email,
       phone: (app) => app.student.phone || '',
       gender: (app) => app.student.gender || '',
-
-      // Campus Info
-      campus: (app) => app.student.campus?.name || '',
-      campusCode: (app) => app.student.campus?.code || '',
-
-      // Navgurukul Education
-      currentSchool: (app) => app.student.studentProfile?.currentSchool || '',
-      joiningDate: (app) => app.student.studentProfile?.dateOfJoining ? new Date(app.student.studentProfile.dateOfJoining).toLocaleDateString() : '',
-      currentModule: (app) => app.student.studentProfile?.currentModule || '',
-      customModuleDescription: (app) => app.student.studentProfile?.customModuleDescription || '',
-      attendance: (app) => app.student.studentProfile?.attendancePercentage || '',
-
-      // Academic Background
-      tenthBoard: (app) => app.student.studentProfile?.tenthGrade?.board || '',
-      tenthPercentage: (app) => app.student.studentProfile?.tenthGrade?.percentage || '',
-      tenthPassingYear: (app) => app.student.studentProfile?.tenthGrade?.passingYear || '',
-      tenthState: (app) => app.student.studentProfile?.tenthGrade?.state || '',
-
-      twelfthBoard: (app) => app.student.studentProfile?.twelfthGrade?.board || '',
-      twelfthPercentage: (app) => app.student.studentProfile?.twelfthGrade?.percentage || '',
-      twelfthPassingYear: (app) => app.student.studentProfile?.twelfthGrade?.passingYear || '',
-      twelfthState: (app) => app.student.studentProfile?.twelfthGrade?.state || '',
-
-      // Higher Education
-      higherEducation: (app) => app.student.studentProfile?.higherEducation?.map(edu =>
-        `${edu.degree} in ${edu.fieldOfStudy} from ${edu.institution} (${edu.startYear}-${edu.endYear})`
-      ).join('; ') || '',
-
-      // Location Info
       hometown: (app) => {
         const hometown = app.student.studentProfile?.hometown;
         if (!hometown) return '';
         return `${hometown.village || ''}, ${hometown.district || ''}, ${hometown.state || ''} - ${hometown.pincode || ''}`.replace(/^,\s*|,\s*$/g, '');
       },
 
+      // Profile Links
+      resume: (app) => app.student.studentProfile?.resume || '',
+      github: (app) => app.student.studentProfile?.github || '',
+      portfolio: (app) => app.student.studentProfile?.portfolio || '',
+      linkedIn: (app) => app.student.studentProfile?.linkedIn || '',
+
+      // Navgurukul Education
+      currentSchool: (app) => app.student.studentProfile?.currentSchool || '',
+      joiningDate: (app) => app.student.studentProfile?.dateOfJoining ? new Date(app.student.studentProfile.dateOfJoining).toLocaleDateString() : '',
+      currentModule: (app) => app.student.studentProfile?.currentModule || '',
+      attendance: (app) => app.student.studentProfile?.attendancePercentage || '',
+
+      // Academic Background
+      higherEducation: (app) => app.student.studentProfile?.higherEducation?.map(edu =>
+        `${edu.degree} in ${edu.fieldOfStudy} from ${edu.institution} (${edu.startYear}-${edu.endYear})`
+      ).join('; ') || '',
+      tenthBoard: (app) => app.student.studentProfile?.tenthGrade?.board || '',
+      tenthPercentage: (app) => app.student.studentProfile?.tenthGrade?.percentage || '',
+      tenthPassingYear: (app) => app.student.studentProfile?.tenthGrade?.passingYear || '',
+      tenthState: (app) => app.student.studentProfile?.tenthGrade?.state || '',
+      twelfthBoard: (app) => app.student.studentProfile?.twelfthGrade?.board || '',
+      twelfthPercentage: (app) => app.student.studentProfile?.twelfthGrade?.percentage || '',
+      twelfthPassingYear: (app) => app.student.studentProfile?.twelfthGrade?.passingYear || '',
+      twelfthState: (app) => app.student.studentProfile?.twelfthGrade?.state || '',
+
       // Skills
       technicalSkills: (app) => app.student.studentProfile?.technicalSkills?.map(skill =>
         `${skill.skillName} (${skill.selfRating}/4)`
       ).join('; ') || '',
-
-      // Soft Skills
       communication: (app) => app.student.studentProfile?.softSkills?.communication || '',
       collaboration: (app) => app.student.studentProfile?.softSkills?.collaboration || '',
       creativity: (app) => app.student.studentProfile?.softSkills?.creativity || '',
       criticalThinking: (app) => app.student.studentProfile?.softSkills?.criticalThinking || '',
       problemSolving: (app) => app.student.studentProfile?.softSkills?.problemSolving || '',
-      adaptability: (app) => app.student.studentProfile?.softSkills?.adaptability || '',
-      timeManagement: (app) => app.student.studentProfile?.softSkills?.timeManagement || '',
-      leadership: (app) => app.student.studentProfile?.softSkills?.leadership || '',
-      teamwork: (app) => app.student.studentProfile?.softSkills?.teamwork || '',
-      emotionalIntelligence: (app) => app.student.studentProfile?.softSkills?.emotionalIntelligence || '',
-
-      // Language Skills
       languages: (app) => app.student.studentProfile?.languages?.map(lang =>
         `${lang.language} (S:${lang.speaking}, W:${lang.writing})`
       ).join('; ') || '',
-
-      // English Proficiency (legacy)
-      englishSpeaking: (app) => app.student.studentProfile?.englishProficiency?.speaking || '',
-      englishWriting: (app) => app.student.studentProfile?.englishProficiency?.writing || '',
-
-      // Courses
       courses: (app) => app.student.studentProfile?.courses?.map(course =>
         `${course.courseName} (${course.provider})`
       ).join('; ') || '',
 
-      // Open for roles
+      // Application Info
+      status: (app) => app.status,
+      appliedDate: (app) => app.createdAt.toISOString().split('T')[0],
+      currentRound: (app) => app.currentRound || 0,
+      feedback: (app) => app.feedback || '',
+
+      // Rest of the fields
+      professionalExperience: (app) => '', // Placeholder for future data
+      customModuleDescription: (app) => app.student.studentProfile?.customModuleDescription || '',
+      campus: (app) => app.student.campus?.name || '',
+      campusCode: (app) => app.student.campus?.code || '',
       openForRoles: (app) => app.student.studentProfile?.openForRoles?.join('; ') || '',
-
-      // Profile Links
-      linkedIn: (app) => app.student.studentProfile?.linkedIn || '',
-      github: (app) => app.student.studentProfile?.github || '',
-      portfolio: (app) => app.student.studentProfile?.portfolio || '',
-      resume: (app) => app.student.studentProfile?.resume || '',
-
-      // About & Expectations
       about: (app) => app.student.studentProfile?.about || '',
       expectedSalary: (app) => app.student.studentProfile?.expectedSalary || '',
-
-      // Profile Status
       profileStatus: (app) => app.student.studentProfile?.profileStatus || '',
-
-      // Job Info
       jobTitle: (app) => app.job.title,
       company: (app) => app.job.company.name,
       location: (app) => app.job.location,
       jobType: (app) => app.job.jobType,
       salary: (app) => app.job.salary?.min && app.job.salary?.max ? `${app.job.salary.min}-${app.job.salary.max}` : '',
-
-      // Application Info
-      status: (app) => app.status,
-      appliedDate: (app) => app.createdAt.toISOString().split('T')[0],
-      coverLetter: (app) => app.coverLetter || '',
-      feedback: (app) => app.feedback || '',
-      currentRound: (app) => app.currentRound || 0,
-
-      // Custom Requirements Responses
       customResponses: (app) => app.customResponses?.map(cr =>
         `${cr.requirement}: ${cr.response ? 'Yes' : 'No'}`
       ).join('; ') || '',
-
-      // Job Readiness Data
       jobReadinessCompleted: (app) => {
         const jrd = jobReadinessLookup[app.student._id.toString()];
         return jrd ? 'Yes' : 'No';
@@ -1594,24 +1539,45 @@ router.post('/:id/export', auth, authorize('coordinator', 'manager'), async (req
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="${job.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_applications_report.pdf"`);
 
+      // Handle orientation based on layout
+      const isLandscape = layout === 'table' && selectedFields.length > 5;
+      const pdfSize = isLandscape ? 'A4' : 'A4';
+      const pdfLayout = isLandscape ? 'landscape' : 'portrait';
+
+      const doc = new PDFDocument({
+        margin: 40,
+        size: pdfSize,
+        layout: pdfLayout,
+        info: {
+          Title: `Job Applications Report - ${job.title}`,
+          Author: 'NavGurukul Placement Dashboard',
+          Subject: `Applications for ${job.title} at ${job.company.name}`,
+          Creator: 'NavGurukul Placement System'
+        }
+      });
+
       doc.pipe(res);
 
+      const pageWidth = isLandscape ? 842 : 595;
+      const margin = 40;
+      const contentWidth = pageWidth - (margin * 2);
+
       // Add NavGurukul Header
-      doc.fontSize(24).fillColor('#1e40af').text('NavGurukul', 50, 50);
-      doc.fontSize(10).fillColor('#64748b').text('Placement Dashboard', 50, 78);
+      doc.fontSize(24).fillColor('#1e40af').font('Helvetica-Bold').text('NavGurukul', margin, 40);
+      doc.fontSize(10).fillColor('#64748b').font('Helvetica').text('Placement Dashboard', margin, 68);
 
       // Add title
-      doc.fontSize(18).fillColor('#000').text('Job Applications Report', 50, 110, { align: 'center' });
+      doc.fontSize(18).fillColor('#111827').font('Helvetica-Bold').text('Job Applications Report', margin, 100, { align: 'center' });
 
       // Add separator line
-      doc.moveTo(50, 140).lineTo(545, 140).strokeColor('#e5e7eb').stroke();
+      doc.moveTo(margin, 130).lineTo(pageWidth - margin, 130).strokeColor('#e5e7eb').lineWidth(1).stroke();
 
       // Add job details in a structured format
-      let yPosition = 160;
-      doc.fontSize(14).fillColor('#1f2937');
+      let yPosition = 150;
+      doc.fontSize(14).fillColor('#111827').font('Helvetica-Bold');
 
       // Job Information Section
-      doc.text('Job Information', 50, yPosition, { underline: true });
+      doc.text('Job Information', margin, yPosition);
       yPosition += 25;
 
       const jobInfo = [
@@ -1626,95 +1592,102 @@ router.post('/:id/export', auth, authorize('coordinator', 'manager'), async (req
       ];
 
       jobInfo.forEach(([label, value]) => {
-        doc.fontSize(10).fillColor('#6b7280').text(label, 50, yPosition, { continued: true, width: 120 });
-        doc.fillColor('#000').text(value, 170, yPosition);
+        doc.fontSize(10).fillColor('#6b7280').font('Helvetica').text(label, margin, yPosition);
+        doc.fillColor('#111827').font('Helvetica-Bold').text(value || '-', margin + 120, yPosition);
         yPosition += 18;
       });
 
       yPosition += 20;
 
-      // Applications Section - supports resume or table layout
+      // Applications Section
       if (applications.length === 0) {
-        doc.fontSize(12).fillColor('#ef4444').text('No applications found for this job.', 50, yPosition);
+        doc.fontSize(12).fillColor('#ef4444').text('No applications found for this job.', margin, yPosition);
       } else {
-        // Top-level heading only on first page
-        doc.fontSize(14).fillColor('#1f2937').text('Student Applications', 50, yPosition, { underline: true });
+        doc.fontSize(14).fillColor('#111827').font('Helvetica-Bold').text('Student Applications', margin, yPosition);
         yPosition += 30;
 
         if (layout === 'resume') {
           const { drawResumeCard } = require('../utils/pdfHelpers');
-
           const cardsPerPage = 2;
-          const pagePaddingTop = yPosition; // starting y for first card on each page
-          const availableHeight = doc.page.height - pagePaddingTop - 120; // leave space for footer
-          const cardHeight = Math.floor((availableHeight - 10) / cardsPerPage);
-          const cardWidth = 495; // 595 A4 width - margins 50*2 = 495
-          const totalPages = Math.ceil(applications.length / cardsPerPage);
-          let currentPage = 0;
+          const cardGap = 20;
+          const availableHeight = doc.page.height - yPosition - 80;
+          const cardHeight = Math.floor((availableHeight - cardGap) / cardsPerPage);
+          const cardWidth = contentWidth;
 
           applications.forEach((app, index) => {
             const isFirstOnPage = (index % cardsPerPage) === 0;
             if (isFirstOnPage && index !== 0) {
               doc.addPage();
-              currentPage += 1;
-              // small header on new pages
-              doc.fontSize(12).fillColor('#0b4cff').text(`${job.title} — Applications (Page ${currentPage + 1} of ${totalPages})`, 50, 50);
+              yPosition = 50;
             }
 
-            const startY = isFirstOnPage ? pagePaddingTop : pagePaddingTop + cardHeight + 10;
+            const startY = isFirstOnPage ? yPosition : yPosition + cardHeight + cardGap;
+            drawResumeCard(doc, app, margin, startY, cardWidth, cardHeight);
 
-            drawResumeCard(doc, app, 50, startY, cardWidth, cardHeight);
-
-            // If last card on page or last overall, add footer
-            const isLastOnPage = ((index % cardsPerPage) === (cardsPerPage - 1)) || (index === applications.length - 1);
-            if (isLastOnPage) {
-              const footerY = doc.page.height - 60;
-              doc.fontSize(8).fillColor('#9ca3af')
-                .text('Generated by NavGurukul Placement Dashboard', 50, footerY)
-                .text(new Date().toISOString().split('T')[0], 450, footerY);
+            // Add Footer
+            if ((index % cardsPerPage === cardsPerPage - 1) || index === applications.length - 1) {
+              doc.fontSize(8).fillColor('#9ca3af').font('Helvetica')
+                .text('Generated by NavGurukul Placement Dashboard', margin, doc.page.height - 40)
+                .text(new Date().toISOString().split('T')[0], pageWidth - margin - 100, doc.page.height - 40, { align: 'right' });
             }
           });
         } else {
-          // Compact table layout - one row per student, auto-paginate
+          // Compact Table Layout
           const headersRow = selectedFields.map(f => f.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()).trim());
-          const colWidth = Math.floor((495 - 20) / headersRow.length);
-          let tableY = yPosition;
+          const numFields = selectedFields.length;
 
-          // Draw table header
-          doc.fontSize(9).fillColor('#475569');
-          headersRow.forEach((h, i) => {
-            doc.text(h, 50 + i * colWidth, tableY, { width: colWidth, ellipsis: true });
-          });
-          tableY += 18;
+          // Dynamic font size based on column density
+          const tableFontSize = numFields > 15 ? 6 : numFields > 10 ? 7 : 8;
+          const colWidth = Math.floor(contentWidth / numFields);
 
-          applications.forEach((app, idx) => {
-            // New page if needed
-            if (tableY > doc.page.height - 120) {
-              doc.addPage();
-              tableY = 60;
+          // Draw Row Background and Text
+          const drawRow = (data, y, isHeader = false) => {
+            const rowHeight = isHeader ? 25 : 30;
+            if (isHeader) {
+              doc.rect(margin, y, contentWidth, rowHeight).fill('#f8fafc');
+            } else {
+              doc.rect(margin, y, contentWidth, rowHeight).fill(idx % 2 === 0 ? '#ffffff' : '#f9fafb');
             }
 
-            selectedFields.forEach((field, i) => {
-              const value = fieldMap[field] ? fieldMap[field](app) : '';
-              doc.fontSize(9).fillColor('#0f172a').text(String(value).slice(0, 80), 50 + i * colWidth, tableY, { width: colWidth, ellipsis: true });
+            data.forEach((val, i) => {
+              doc.fontSize(tableFontSize)
+                .fillColor(isHeader ? '#475569' : '#1e293b')
+                .font(isHeader ? 'Helvetica-Bold' : 'Helvetica')
+                .text(String(val || '-'), margin + (i * colWidth) + 5, y + (rowHeight / 2 - tableFontSize / 2), {
+                  width: colWidth - 10,
+                  ellipsis: true,
+                  height: rowHeight - 4
+                });
             });
-            tableY += 16;
 
-            // Footer per page when needed
-            if (tableY > doc.page.height - 120 || idx === applications.length - 1) {
-              const footerY = doc.page.height - 60;
-              doc.fontSize(8).fillColor('#9ca3af')
-                .text('Generated by NavGurukul Placement Dashboard', 50, footerY)
-                .text(new Date().toISOString().split('T')[0], 450, footerY);
+            // Row Border
+            doc.moveTo(margin, y + rowHeight).lineTo(pageWidth - margin, y + rowHeight).strokeColor('#e2e8f0').lineWidth(0.5).stroke();
+            return rowHeight;
+          };
+
+          // Draw Header
+          let tableY = yPosition;
+          tableY += drawRow(headersRow, tableY, true);
+
+          applications.forEach((app, idx) => {
+            if (tableY > doc.page.height - 100) {
+              doc.addPage({ layout: pdfLayout });
+              tableY = 50;
+              tableY += drawRow(headersRow, tableY, true);
+            }
+
+            const rowData = selectedFields.map(field => fieldMap[field] ? fieldMap[field](app) : '');
+            tableY += drawRow(rowData, tableY);
+
+            // Footer
+            if (idx === applications.length - 1 || tableY > doc.page.height - 100) {
+              doc.fontSize(8).fillColor('#9ca3af').font('Helvetica')
+                .text('Generated by NavGurukul Placement Dashboard', margin, doc.page.height - 40)
+                .text(new Date().toISOString().split('T')[0], pageWidth - margin - 100, doc.page.height - 40, { align: 'right' });
             }
           });
         }
       }
-
-      // Add footer
-      doc.fontSize(8).fillColor('#9ca3af')
-        .text('Generated by NavGurukul Placement Dashboard', 50, 780)
-        .text(new Date().toISOString().split('T')[0], 450, 780);
 
       doc.end();
       return;
