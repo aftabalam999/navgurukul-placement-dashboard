@@ -48,7 +48,17 @@ router.put('/', auth, authorize('manager', 'coordinator'), async (req, res) => {
       console.log('Failed to summarize settings payload', e && e.message);
     }
 
-    const { schoolModules, rolePreferences, technicalSkills, degreeOptions, softSkills, inactiveSchools, institutionOptions, higherEducationOptions, roleCategories } = req.body;
+    const { schoolModules, rolePreferences, technicalSkills, degreeOptions, softSkills, inactiveSchools, institutionOptions, higherEducationOptions, roleCategories, discordConfig } = req.body;
+
+    if (discordConfig) {
+      // Avoid logging sensitive token value; only log presence and channel counts
+      try {
+        const channels = discordConfig.channels ? Object.keys(discordConfig.channels).length : 0;
+        console.log('Saving discordConfig for user:', req.userId, 'enabled=', !!discordConfig.enabled, 'channels=', channels);
+      } catch (e) {
+        console.log('Error summarizing discordConfig', e && e.message);
+      }
+    }
 
     const settings = await Settings.updateSettings({
       schoolModules,
@@ -59,7 +69,8 @@ router.put('/', auth, authorize('manager', 'coordinator'), async (req, res) => {
       inactiveSchools,
       institutionOptions,
       higherEducationOptions,
-      roleCategories
+      roleCategories,
+      discordConfig
     }, req.userId);
 
     // Log post-update snapshot for diagnostics (only keys and lengths to avoid leaking data)
@@ -69,7 +80,9 @@ router.put('/', auth, authorize('manager', 'coordinator'), async (req, res) => {
         rolePreferencesLen: settings.rolePreferences ? settings.rolePreferences.length : 0,
         technicalSkillsLen: settings.technicalSkills ? settings.technicalSkills.length : 0,
         degreeOptionsLen: settings.degreeOptions ? settings.degreeOptions.length : 0,
-        softSkillsLen: settings.softSkills ? settings.softSkills.length : 0
+        softSkillsLen: settings.softSkills ? settings.softSkills.length : 0,
+        discordHasToken: !!(settings.discordConfig && settings.discordConfig.botToken),
+        discordChannelsCount: settings.discordConfig && settings.discordConfig.channels ? Object.keys(settings.discordConfig.channels).length : 0
       };
       console.log('Post-update settings snapshot by user:', req.userId, snapshot);
     } catch (e) {
@@ -86,7 +99,9 @@ router.put('/', auth, authorize('manager', 'coordinator'), async (req, res) => {
       inactiveSchools: settings.inactiveSchools || [],
       roleCategories: settings.roleCategories || [],
       institutionOptions: Object.fromEntries(settings.institutionOptions || new Map()),
-      higherEducationOptions: Object.fromEntries(settings.higherEducationOptions || new Map())
+      higherEducationOptions: Object.fromEntries(settings.higherEducationOptions || new Map()),
++      // Include discordConfig so frontend sees updated values (botToken is sensitive but returned here for UX)
++      discordConfig: settings.discordConfig || { enabled: false, channels: {} }
     };
 
     res.json({
