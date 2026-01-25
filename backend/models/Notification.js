@@ -49,7 +49,29 @@ const notificationSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
-  readAt: Date
+  readAt: Date,
+  // Discord Integration Tracking
+  discord: {
+    sent: {
+      type: Boolean,
+      default: false
+    },
+    sentAt: {
+      type: Date
+    },
+    messageId: {
+      type: String
+    },      // Discord message ID
+    threadId: {
+      type: String
+    },       // Discord thread ID (if applicable)
+    channelId: {
+      type: String
+    },      // Discord channel ID where sent
+    error: {
+      type: String
+    }           // Error message if failed to send
+  }
 }, {
   timestamps: true
 });

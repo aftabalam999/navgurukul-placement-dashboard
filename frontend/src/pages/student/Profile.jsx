@@ -7,7 +7,7 @@ import {
   User, Mail, Phone, GraduationCap, Upload, Save, Send,
   Linkedin, Github, Globe, BookOpen, Languages, Brain,
   MapPin, Calendar, Briefcase, CheckCircle, Clock, AlertCircle,
-  Plus, Trash2, Award, Building2, Search
+  Plus, Trash2, Award, Building2, Search, MessageSquare
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -41,19 +41,6 @@ const cefrDescriptions = {
   'C1': 'Advanced',
   'C2': 'Proficient'
 };
-
-const softSkillsList = [
-  { key: 'communication', label: 'Communication', description: 'Ability to express ideas clearly' },
-  { key: 'collaboration', label: 'Collaboration', description: 'Working effectively with others' },
-  { key: 'creativity', label: 'Creativity', description: 'Generating innovative ideas' },
-  { key: 'criticalThinking', label: 'Critical Thinking', description: 'Analyzing and evaluating information' },
-  { key: 'problemSolving', label: 'Problem Solving', description: 'Finding solutions to challenges' },
-  { key: 'adaptability', label: 'Adaptability', description: 'Adjusting to new situations' },
-  { key: 'timeManagement', label: 'Time Management', description: 'Organizing and prioritizing tasks' },
-  { key: 'leadership', label: 'Leadership', description: 'Guiding and motivating others' },
-  { key: 'teamwork', label: 'Teamwork', description: 'Contributing to team goals' },
-  { key: 'emotionalIntelligence', label: 'Emotional Intelligence', description: 'Understanding and managing emotions' }
-];
 
 const levelLabels = ['', 'Basic', 'Intermediate', 'Advanced', 'Expert'];
 const ratingLabels = ['', '1 - Basic', '2 - Intermediate', '3 - Advanced', '4 - Expert'];
@@ -95,7 +82,13 @@ const defaultSettings = {
     'HTML', 'CSS', 'Node.js', 'Express.js', 'MongoDB', 'SQL', 'Git', 'REST APIs', 'TypeScript'
   ],
   courseSkills: [],
-  courseProviders: ['Navgurukul', 'Coursera', 'Udemy', 'LinkedIn Learning', 'YouTube', 'Other']
+  courseProviders: ['Navgurukul', 'Coursera', 'Udemy', 'LinkedIn Learning', 'YouTube', 'Other'],
+  proficiencyRubrics: {
+    '1': { label: 'Basic', description: 'Has basic theoretical knowledge and can perform simple tasks with guidance.' },
+    '2': { label: 'Intermediate', description: 'Can work independently on routine tasks and understands core principles.' },
+    '3': { label: 'Advanced', description: 'Can handle complex problems, optimize workflows, and guide others.' },
+    '4': { label: 'Expert', description: 'Deep mastery of the subject with ability to architect systems and lead strategy.' }
+  }
 };
 
 const StudentProfile = () => {
@@ -134,16 +127,17 @@ const StudentProfile = () => {
     openForRoles: [],
     englishProficiency: { speaking: '', writing: '' },
     languages: [], // Multi-language proficiency
-    softSkills: {
-      communication: 0, collaboration: 0, creativity: 0, criticalThinking: 0,
-      problemSolving: 0, adaptability: 0, timeManagement: 0, leadership: 0,
-      teamwork: 0, emotionalIntelligence: 0
-    },
+    softSkills: [],
     technicalSkills: [],
+    officeSkills: [],
     profileStatus: 'draft',
     revisionNotes: '',
     resumeLink: '',
-    councilService: []
+    houseName: '',
+    resumeLink: '',
+    houseName: '',
+    councilService: [],
+    discord: { userId: '', username: '' }
   });
 
   const [newCourseSkill, setNewCourseSkill] = useState('');
@@ -168,8 +162,7 @@ const StudentProfile = () => {
 
   const fetchSkills = async () => {
     try {
-      // Fetch technical, domain, and other skills to ensure all options are available
-      const response = await skillAPI.getSkills({ category: 'technical,domain,other' });
+      const response = await skillAPI.getSkills();
       setAllSkills(response.data);
     } catch (error) {
       console.error('Error fetching skills:', error);
@@ -207,8 +200,8 @@ const StudentProfile = () => {
       setSelectedCampus(data.campus?._id || data.campus || '');
       setSelectedPlacementCycle(data.placementCycle?._id || data.placementCycle || '');
       // Merge technicalSkills with any pending legacy skills so students see their selected levels
-      const technicalFromProfile = data.studentProfile?.technicalSkills ? [...data.studentProfile.technicalSkills] : [];
-      const pendingLegacy = (data.studentProfile?.skills || []).filter(s => s.status === 'pending');
+      const technicalFromProfile = Array.isArray(data.studentProfile?.technicalSkills) ? [...data.studentProfile.technicalSkills] : [];
+      const pendingLegacy = Array.isArray(data.studentProfile?.skills) ? data.studentProfile.skills.filter(s => s.status === 'pending') : [];
       pendingLegacy.forEach(ps => {
         const key = (ps.skill && ps.skill._id) ? ps.skill._id.toString() : (ps.skillName || '');
         const exists = technicalFromProfile.find(ts => (ts.skillId && ts.skillId.toString() === key) || ts.skillName === (ps.skill?.name || ps.skillName));
@@ -242,17 +235,19 @@ const StudentProfile = () => {
         hometown: data.studentProfile?.hometown || { pincode: '', village: '', district: '', state: '' },
         openForRoles: data.studentProfile?.openForRoles || [],
         englishProficiency: data.studentProfile?.englishProficiency || { speaking: '', writing: '' },
-        languages: data.studentProfile?.languages || [],
-        softSkills: data.studentProfile?.softSkills || {
-          communication: 0, collaboration: 0, creativity: 0, criticalThinking: 0,
-          problemSolving: 0, adaptability: 0, timeManagement: 0, leadership: 0,
-          teamwork: 0, emotionalIntelligence: 0
-        },
+        languages: Array.isArray(data.studentProfile?.languages) ? data.studentProfile.languages : [],
+        softSkills: Array.isArray(data.studentProfile?.softSkills) ? data.studentProfile.softSkills : [],
         technicalSkills: technicalFromProfile,
+        officeSkills: Array.isArray(data.studentProfile?.officeSkills) ? data.studentProfile.officeSkills : [],
         profileStatus: data.studentProfile?.profileStatus || 'draft',
         revisionNotes: data.studentProfile?.revisionNotes || '',
         resumeLink: data.studentProfile?.resumeLink || '',
-        councilService: data.studentProfile?.councilService || []
+        houseName: data.studentProfile?.houseName || '',
+        councilService: data.studentProfile?.councilService || [],
+        discord: {
+          userId: data.discord?.userId || '',
+          username: data.discord?.username || ''
+        }
       });
 
       // If profile has a resume link, check accessibility (do this inside try so we can use `data` safely)
@@ -316,6 +311,24 @@ const StudentProfile = () => {
     } catch (error) {
       console.error('Error adding institution option:', error);
       toast.error('Failed to add new institution');
+    }
+    return false;
+  };
+
+  const handleAddCouncilPostOption = async (post) => {
+    try {
+      const response = await settingsAPI.addCouncilPostOption(post);
+      if (response.data.success) {
+        setSettings(prev => ({
+          ...prev,
+          councilPosts: response.data.data.councilPosts
+        }));
+        toast.success(`Added "${post}" to the list`);
+        return true;
+      }
+    } catch (error) {
+      console.error('Error adding council post option:', error);
+      toast.error('Failed to add new post');
     }
     return false;
   };
@@ -521,10 +534,37 @@ const StudentProfile = () => {
   };
 
   const handleSoftSkillChange = (skillKey, value) => {
-    setFormData({
-      ...formData,
-      softSkills: { ...formData.softSkills, [skillKey]: value }
-    });
+    // Legacy support or deprecated function - we now use the new skills handling logic
+  };
+
+  const handleSkillToggle = (category, skill) => {
+    const field = category === 'technical' ? 'technicalSkills' : (category === 'soft_skill' ? 'softSkills' : 'officeSkills');
+    const existing = formData[field].find(s => s.skillId === skill._id || s.skillName === skill.name);
+
+    if (existing) {
+      setFormData({
+        ...formData,
+        [field]: formData[field].filter(s => s.skillId !== skill._id && s.skillName !== skill.name)
+      });
+    } else {
+      setFormData({
+        ...formData,
+        [field]: [...formData[field], {
+          skillId: skill._id,
+          skillName: skill.name,
+          selfRating: 1,
+          addedAt: new Date()
+        }]
+      });
+    }
+  };
+
+  const handleRatingChange = (category, skillId, rating) => {
+    const field = category === 'technical' ? 'technicalSkills' : (category === 'soft_skill' ? 'softSkills' : 'officeSkills');
+    const updated = formData[field].map(s =>
+      (s.skillId === skillId || s.skillName === skillId) ? { ...s, selfRating: rating } : s
+    );
+    setFormData({ ...formData, [field]: updated });
   };
 
   const handleRoleToggle = (role) => {
@@ -688,6 +728,59 @@ const StudentProfile = () => {
                   </div>
                 </div>
 
+                <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-4 mt-6">
+                  <h3 className="text-md font-semibold flex items-center gap-2 text-indigo-900 mb-4">
+                    <MessageSquare className="w-5 h-5" />
+                    Discord Integration
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Discord User ID
+                        <span className="text-xs text-gray-500 ml-1 font-normal">(Required for notifications)</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.discord?.userId || ''}
+                        onChange={(e) => setFormData({
+                          ...formData,
+                          discord: { ...formData.discord, userId: e.target.value }
+                        })}
+                        placeholder="e.g. 748123456789012345"
+                        disabled={!canEdit}
+                        className="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      />
+                      <p className="text-[11px] text-gray-500 mt-1 leading-tight">
+                        To find this: In Discord, go to Settings → Advanced → Enable Developer Mode. Then right-click your profile and select "Copy User ID".
+                      </p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Discord Username</label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={formData.discord?.username || ''}
+                          onChange={(e) => setFormData({
+                            ...formData,
+                            discord: { ...formData.discord, username: e.target.value }
+                          })}
+                          placeholder="e.g. user_name"
+                          disabled={!canEdit}
+                          className="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                        />
+                        {profile?.discord?.verified && (
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2 text-green-600 flex items-center gap-1 text-xs font-medium bg-green-50 px-2 py-0.5 rounded border border-green-200">
+                            <CheckCircle className="w-3 h-3" /> Verified
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-gray-500 mt-1">
+                        Your username will be used for mentions in job updates.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 <h3 className="text-md font-semibold mt-6 flex items-center gap-2">
                   <Building2 className="w-5 h-5" />
                   Campus & Placement Cycle
@@ -814,6 +907,14 @@ const StudentProfile = () => {
                     <div>
                       <label className="text-sm font-medium text-gray-700 mb-1 flex items-center gap-1"><Calendar className="w-4 h-4" /> Joining Date</label>
                       <input type="date" value={formData.joiningDate} onChange={(e) => setFormData({ ...formData, joiningDate: e.target.value })} disabled={!canEdit} />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1 font-bold text-primary-700">House Name (Navgurukul)</label>
+                      <select value={formData.houseName || ''} onChange={(e) => setFormData({ ...formData, houseName: e.target.value })} disabled={!canEdit} className="border-primary-200 focus:ring-primary-500">
+                        <option value="">Select House</option>
+                        {['Bageshree', 'Bhairav', 'Malhar'].map(h => <option key={h} value={h}>{h}</option>)}
+                      </select>
+                      <p className="text-[10px] text-gray-400 mt-1 italic">Selecting a house helps in filtering house-specific opportunities.</p>
                     </div>
 
                     {formData.currentSchool && (
@@ -1363,120 +1464,180 @@ const StudentProfile = () => {
 
             {activeTab === 'skills' && (
               <div className="space-y-6">
+                {/* Technical Skills - School Specific */}
                 <div className="card">
-                  <h2 className="text-lg font-semibold mb-4 flex items-center gap-2"><Brain className="w-5 h-5" />Technical Skills (Self-Assessment)</h2>
-                  <p className="text-sm text-gray-500 mb-4">Select your technical skills and rate yourself (1 = Basic, 4 = Expert)</p>
+                  <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <Brain className="w-5 h-5" />
+                    {formData.currentSchool ? `${formData.currentSchool.replace('School of ', '')} Skills` : 'Technical Skills'} (Self-Assessment)
+                  </h2>
+                  <p className="text-sm text-gray-500 mb-4">Select your specialized skills and rate yourself (1 = Basic, 4 = Expert)</p>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {allSkills.map((skill) => {
-                      const existingSkill = formData.technicalSkills.find(s =>
-                        s.skillId === skill._id || s.skillName === skill.name
-                      );
-                      const isSelected = !!existingSkill;
-                      const rating = existingSkill?.selfRating || 0;
+                    {allSkills
+                      .filter(skill => skill.category === 'technical' && (skill.isCommon || (formData.currentSchool && skill.schools?.includes(formData.currentSchool))))
+                      .map((skill) => {
+                        const existingSkill = formData.technicalSkills.find(s => s.skillId === skill._id || s.skillName === skill.name);
+                        const isSelected = !!existingSkill;
+                        const rating = existingSkill?.selfRating || 0;
 
-                      return (
-                        <div key={skill._id} className={`p-3 rounded-lg border-2 transition ${isSelected ? 'bg-primary-50 border-primary-300' : 'bg-gray-50 border-transparent'}`}>
-                          <div className="flex items-center justify-between mb-2">
-                            <label className="flex items-center gap-2 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={(e) => {
-                                  if (e.target.checked) {
-                                    setFormData({
-                                      ...formData,
-                                      technicalSkills: [...formData.technicalSkills, {
-                                        skillId: skill._id,
-                                        skillName: skill.name,
-                                        selfRating: 1,
-                                        addedAt: new Date()
-                                      }]
-                                    });
-                                  } else {
-                                    setFormData({
-                                      ...formData,
-                                      technicalSkills: formData.technicalSkills.filter(s =>
-                                        s.skillId !== skill._id && s.skillName !== skill.name
-                                      )
-                                    });
-                                  }
-                                }}
-                                className="w-4 h-4 text-primary-600 rounded"
-                              />
-                              <span className={`font-medium ${isSelected ? 'text-primary-700' : 'text-gray-700'}`}>{skill.name}</span>
-                            </label>
+                        return (
+                          <div key={skill._id} className={`p-3 rounded-lg border-2 transition ${isSelected ? 'bg-primary-50 border-primary-300' : 'bg-gray-50 border-transparent'}`}>
+                            <div className="flex items-center justify-between mb-2">
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => handleSkillToggle('technical', skill)}
+                                  className="w-4 h-4 text-primary-600 rounded"
+                                />
+                                <span className={`font-medium ${isSelected ? 'text-primary-700' : 'text-gray-700'}`}>{skill.name}</span>
+                              </label>
+                              {isSelected && (
+                                <div className="flex items-center gap-2 group relative">
+                                  <span className="text-sm font-medium text-primary-600 cursor-help underline decoration-dotted">
+                                    {settings.proficiencyRubrics?.[rating]?.label || ratingLabels[rating]}
+                                  </span>
+                                  <div className="absolute bottom-full right-0 mb-2 w-48 p-2 bg-gray-900 text-white text-[10px] rounded shadow-xl opacity-0 group-hover:opacity-100 transition pointer-events-none z-10">
+                                    {settings.proficiencyRubrics?.[rating]?.description || 'Click to select level'}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
                             {isSelected && (
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm font-medium text-primary-600">{ratingLabels[rating]}</span>
-                                {existingSkill?.pendingApproval && (
-                                  <span className="text-xs text-yellow-600 ml-2">(pending approval)</span>
-                                )}
+                              <div className="flex gap-1 mt-2">
+                                {[1, 2, 3, 4].map((level) => (
+                                  <button
+                                    key={level}
+                                    type="button"
+                                    onClick={() => handleRatingChange('technical', skill._id, level)}
+                                    className={`flex-1 h-2 rounded-full transition ${level <= rating ? 'bg-primary-500' : 'bg-gray-200'}`}
+                                  />
+                                ))}
                               </div>
                             )}
                           </div>
-                          {isSelected && (
-                            <div className="flex gap-1 mt-2">
-                              {[1, 2, 3, 4].map((level) => (
-                                <button
-                                  key={level}
-                                  type="button"
-                                  onClick={() => {
-                                    const updated = formData.technicalSkills.map(s =>
-                                      (s.skillId === skill._id || s.skillName === skill.name)
-                                        ? { ...s, skillId: skill._id, skillName: skill.name, selfRating: level }
-                                        : s
-                                    );
-                                    setFormData({ ...formData, technicalSkills: updated });
-                                  }}
-                                  className={`flex-1 h-2 rounded-full transition ${level <= rating ? 'bg-primary-500' : 'bg-gray-200'}`}
-                                />
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
                   </div>
+                  {allSkills.filter(skill => skill.category === 'technical' && (skill.isCommon || (formData.currentSchool && skill.schools?.includes(formData.currentSchool)))).length === 0 && (
+                    <p className="text-sm text-gray-500 italic">No specific skills found for your school yet.</p>
+                  )}
                 </div>
 
+                {/* Office Skills - Common */}
                 <div className="card">
-                  <h2 className="text-lg font-semibold mb-4">Soft Skills Assessment</h2>
-                  <p className="text-sm text-gray-500 mb-4">Rate yourself on these soft skills (1 = Basic, 4 = Expert). Leave unselected if not applicable.</p>
+                  <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <Briefcase className="w-5 h-5" />
+                    Office/Professional Skills
+                  </h2>
+                  <p className="text-sm text-gray-500 mb-4">Rate your proficiency in common office tools and professional administration (1 = Basic, 4 = Expert)</p>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {softSkillsList.map((skill) => {
-                      const rating = formData.softSkills[skill.key] || 0;
-                      const isSelected = rating > 0;
-                      return (
-                        <div key={skill.key} className={`p-3 rounded-lg border-2 transition ${isSelected ? 'bg-purple-50 border-purple-300' : 'bg-gray-50 border-transparent'}`}>
-                          <div className="flex items-center justify-between mb-2">
-                            <label className="flex items-center gap-2 cursor-pointer">
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={(e) => {
-                                  handleSoftSkillChange(skill.key, e.target.checked ? 1 : 0);
-                                }}
-                                className="w-4 h-4 text-purple-600 rounded"
-                              />
-                              <div>
-                                <p className={`font-medium ${isSelected ? 'text-purple-700' : 'text-gray-700'}`}>{skill.label}</p>
-                                <p className="text-xs text-gray-500">{skill.description}</p>
+                    {allSkills
+                      .filter(skill => skill.category === 'office')
+                      .map((skill) => {
+                        const existingSkill = formData.officeSkills.find(s => s.skillId === skill._id || s.skillName === skill.name);
+                        const isSelected = !!existingSkill;
+                        const rating = existingSkill?.selfRating || 0;
+
+                        return (
+                          <div key={skill._id} className={`p-3 rounded-lg border-2 transition ${isSelected ? 'bg-teal-50 border-teal-300' : 'bg-gray-50 border-transparent'}`}>
+                            <div className="flex items-center justify-between mb-2">
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => handleSkillToggle('office', skill)}
+                                  className="w-4 h-4 text-teal-600 rounded"
+                                />
+                                <span className={`font-medium ${isSelected ? 'text-teal-700' : 'text-gray-700'}`}>{skill.name}</span>
+                              </label>
+                              <div className="flex items-center gap-2 group relative">
+                                <span className="text-sm font-medium text-teal-600 cursor-help underline decoration-dotted">
+                                  {settings.proficiencyRubrics?.[rating]?.label || ratingLabels[rating]}
+                                </span>
+                                <div className="absolute bottom-full right-0 mb-2 w-48 p-2 bg-gray-900 text-white text-[10px] rounded shadow-xl opacity-0 group-hover:opacity-100 transition pointer-events-none z-10">
+                                  {settings.proficiencyRubrics?.[rating]?.description || 'Click to select level'}
+                                </div>
                               </div>
-                            </label>
-                            {isSelected && <span className="text-sm font-medium text-purple-600">{ratingLabels[rating]}</span>}
-                          </div>
-                          {isSelected && (
-                            <div className="flex gap-1 mt-2">
-                              {[1, 2, 3, 4].map((level) => (
-                                <button key={level} type="button" onClick={() => handleSoftSkillChange(skill.key, level)} className={`flex-1 h-2 rounded-full transition ${level <= rating ? 'bg-purple-500' : 'bg-gray-200'}`} />
-                              ))}
                             </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                            {isSelected && (
+                              <div className="flex gap-1 mt-2">
+                                {[1, 2, 3, 4].map((level) => (
+                                  <button
+                                    key={level}
+                                    type="button"
+                                    onClick={() => handleRatingChange('office', skill._id, level)}
+                                    className={`flex-1 h-2 rounded-full transition ${level <= rating ? 'bg-teal-500' : 'bg-gray-200'}`}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                   </div>
+                  {allSkills.filter(skill => skill.category === 'office').length === 0 && (
+                    <p className="text-sm text-gray-500 italic text-center">No office skills defined in the system.</p>
+                  )}
+                </div>
+
+                {/* Soft Skills - Common */}
+                <div className="card">
+                  <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <Brain className="w-5 h-5" />
+                    Soft Skills
+                  </h2>
+                  <p className="text-sm text-gray-500 mb-4">Rate yourself on essential workplace behavioral skills (1 = Basic, 4 = Expert)</p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {allSkills
+                      .filter(skill => skill.category === 'soft_skill')
+                      .map((skill) => {
+                        const existingSkill = formData.softSkills.find(s => s.skillId === skill._id || s.skillName === skill.name);
+                        const isSelected = !!existingSkill;
+                        const rating = existingSkill?.selfRating || 0;
+
+                        return (
+                          <div key={skill._id} className={`p-3 rounded-lg border-2 transition ${isSelected ? 'bg-purple-50 border-purple-300' : 'bg-gray-50 border-transparent'}`}>
+                            <div className="flex items-center justify-between mb-2">
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => handleSkillToggle('soft_skill', skill)}
+                                  className="w-4 h-4 text-purple-600 rounded"
+                                />
+                                <span className={`font-medium ${isSelected ? 'text-purple-700' : 'text-gray-700'}`}>{skill.name}</span>
+                              </label>
+                              <div className="flex items-center gap-2 group relative">
+                                <span className="text-sm font-medium text-purple-600 cursor-help underline decoration-dotted">
+                                  {settings.proficiencyRubrics?.[rating]?.label || ratingLabels[rating]}
+                                </span>
+                                <div className="absolute bottom-full right-0 mb-2 w-48 p-2 bg-gray-900 text-white text-[10px] rounded shadow-xl opacity-0 group-hover:opacity-100 transition pointer-events-none z-10">
+                                  {settings.proficiencyRubrics?.[rating]?.description || 'Click to select level'}
+                                </div>
+                              </div>
+                            </div>
+                            {isSelected && (
+                              <div className="flex gap-1 mt-2">
+                                {[1, 2, 3, 4].map((level) => (
+                                  <button
+                                    key={level}
+                                    type="button"
+                                    onClick={() => handleRatingChange('soft_skill', skill._id, level)}
+                                    className={`flex-1 h-2 rounded-full transition ${level <= rating ? 'bg-purple-500' : 'bg-gray-200'}`}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                  </div>
+                  {allSkills.filter(skill => skill.category === 'soft_skill').length === 0 && (
+                    <p className="text-sm text-gray-500 italic text-center">No soft skills defined in the system.</p>
+                  )}
                 </div>
 
                 {canEdit && (
@@ -1554,42 +1715,20 @@ const StudentProfile = () => {
                       <h4 className="font-medium text-primary-800 text-sm">Add New Council Service</h4>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div className="relative">
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Post Name</label>
-                          <input
-                            type="text"
+                        <div>
+                          <SearchableSelect
+                            label="Post Name"
                             placeholder="e.g. General Secretary"
-                            className="w-full text-sm rounded border-gray-300"
+                            options={settings.councilPosts || []}
                             value={newCouncilService.post}
-                            onChange={(e) => {
-                              setNewCouncilService({ ...newCouncilService, post: e.target.value });
-                              setShowProfileCouncilSuggestions(true);
+                            onChange={(val) => setNewCouncilService({ ...newCouncilService, post: val })}
+                            onAdd={async (val) => {
+                              const success = await handleAddCouncilPostOption(val);
+                              if (success) {
+                                setNewCouncilService({ ...newCouncilService, post: val });
+                              }
                             }}
-                            onFocus={() => setShowProfileCouncilSuggestions(true)}
                           />
-                          {showProfileCouncilSuggestions && (
-                            <>
-                              <div className="fixed inset-0 z-10" onClick={() => setShowProfileCouncilSuggestions(false)}></div>
-                              <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
-                                {(settings.councilPosts || [])
-                                  .filter(p => p.toLowerCase().includes(newCouncilService.post.toLowerCase()))
-                                  .map(p => (
-                                    <button
-                                      key={p}
-                                      type="button"
-                                      onClick={() => {
-                                        setNewCouncilService({ ...newCouncilService, post: p });
-                                        setShowProfileCouncilSuggestions(false);
-                                      }}
-                                      className="w-full text-left px-3 py-2 hover:bg-gray-50 text-sm border-b last:border-0"
-                                    >
-                                      {p}
-                                    </button>
-                                  ))}
-                                {/* If not found, showing it will be added as new/pending is implicit by the logic that student adds what they did */}
-                              </div>
-                            </>
-                          )}
                         </div>
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">Months Served</label>
@@ -1624,10 +1763,16 @@ const StudentProfile = () => {
                         </button>
                         <button
                           type="button"
-                          onClick={() => {
+                          onClick={async () => {
                             if (!newCouncilService.post || !newCouncilService.monthsServed) {
                               return toast.error('Post name and months served are required');
                             }
+
+                            // If post is typed but not yet in the master list, add it first
+                            if (!(settings.councilPosts || []).includes(newCouncilService.post)) {
+                              await handleAddCouncilPostOption(newCouncilService.post);
+                            }
+
                             const entry = {
                               post: newCouncilService.post,
                               monthsServed: parseInt(newCouncilService.monthsServed),
@@ -1940,7 +2085,8 @@ const StudentProfile = () => {
                 { label: '10th Grade', done: formData.tenthGrade.percentage },
                 { label: '12th Grade', done: formData.twelfthGrade.percentage },
                 { label: 'Technical Skills', done: formData.technicalSkills.length > 0 },
-                { label: 'Soft Skills', done: Object.values(formData.softSkills).some(v => v > 0) },
+                { label: 'Soft Skills', done: formData.softSkills.length > 0 },
+                { label: 'Office/Professional Skills', done: formData.officeSkills.length > 0 },
                 { label: 'English Level', done: formData.englishProficiency.speaking },
                 { label: 'Open For Roles', done: formData.openForRoles.length > 0 },
                 { label: 'Resume', done: profile?.studentProfile?.resume || profile?.studentProfile?.resumeLink }

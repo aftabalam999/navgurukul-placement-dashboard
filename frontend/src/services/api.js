@@ -144,6 +144,10 @@ export const settingsAPI = {
   updateSettings: (data) => api.put('/settings', data),
   addHigherEducationOption: (data) => api.post('/settings/higher-education/add', data),
   addInstitutionOption: (institution, pincode = '') => api.post('/settings/institutions/add', { institution, pincode }),
+  addCouncilPostOption: (post) => api.post('/settings/council-posts/add', { post }),
+  addLocationOption: (location) => api.post('/settings/locations/add', { location }),
+  addCompanyOption: (companyData) => api.post('/settings/companies/add', companyData),
+  updateProficiencyRubrics: (rubrics) => api.put('/settings/proficiency-rubrics', { rubrics }),
   getEducationAnalytics: () => api.get('/settings/analytics/education'),
   renameEducationItem: (data) => api.post('/settings/education/rename', data)
 };

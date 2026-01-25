@@ -94,6 +94,29 @@ const userSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
   },
+  // Discord Integration
+  discord: {
+    userId: {
+      type: String,
+      default: '',
+      trim: true
+    },        // Discord User ID (e.g., "123456789012345678")
+    username: {
+      type: String,
+      default: '',
+      trim: true
+    },      // Discord username for display (e.g., "username#1234")
+    verified: {
+      type: Boolean,
+      default: false
+    },  // Whether Discord ID is verified
+    verifiedAt: {
+      type: Date
+    },
+    lastNotificationSent: {
+      type: Date
+    }  // Track last notification for rate limiting
+  },
   // Student-specific fields
   studentProfile: {
     // Profile approval status
@@ -114,6 +137,13 @@ const userSchema = new mongoose.Schema({
     },
     approvedAt: Date,
     lastSubmittedAt: Date,
+
+    // House Name (Navgurukul Specific)
+    houseName: {
+      type: String,
+      enum: ['', 'Bageshree', 'Bhairav', 'Malhar'],
+      default: ''
+    },
 
     // Snapshot of the last approved profile for diffing
     lastApprovedSnapshot: {
@@ -268,6 +298,24 @@ const userSchema = new mongoose.Schema({
 
     // Soft Skills with self-assessment (now using Skill model)
     softSkills: [{
+      skillId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Skill'
+      },
+      skillName: String,
+      selfRating: {
+        type: Number,
+        min: 0,
+        max: 4
+      },
+      addedAt: {
+        type: Date,
+        default: Date.now
+      }
+    }],
+
+    // Office Skills with self-assessment (using Skill model)
+    officeSkills: [{
       skillId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Skill'

@@ -11,6 +11,7 @@ const Application = require('../models/Application');
 const { auth, authorize } = require('../middleware/auth');
 const AIService = require('../services/aiService');
 const { calculateMatch, getJobsWithMatch } = require('../services/matchService');
+const discordService = require('../services/discordService');
 const multer = require('multer');
 
 // Get unique companies for autocomplete
@@ -232,12 +233,27 @@ router.get('/', auth, async (req, res) => {
       query.status = { $in: studentVisibleStatuses };
       query.applicationDeadline = { $gte: new Date() };
 
-      // Filter by student's campus
-      if (req.user.campus) {
-        query.$or = [
+      // Build eligibility filters
+      const campusFilter = req.user.campus ? {
+        $or: [
           { 'eligibility.campuses': { $size: 0 } },
           { 'eligibility.campuses': req.user.campus }
-        ];
+        ]
+      } : null;
+
+      const studentHouse = req.user.studentProfile?.houseName;
+      const houseFilter = {
+        $or: [
+          { 'eligibility.houses': { $size: 0 } },
+          ...(studentHouse ? [{ 'eligibility.houses': studentHouse }] : [])
+        ]
+      };
+
+      // Combine eligibility filters
+      if (campusFilter) {
+        query.$and = [campusFilter, houseFilter];
+      } else {
+        query.$or = houseFilter.$or;
       }
     } else {
       if (status) query.status = status;
@@ -394,7 +410,10 @@ router.get('/:id/match', auth, authorize('student'), async (req, res) => {
 
     const job = await Job.findById(req.params.id)
       .populate('requiredSkills.skill')
-      .populate('eligibility.campuses', 'name code');
+      .populate('eligibility.campuses', 'name code')
+      .populate('createdBy', 'firstName lastName email')
+      .populate('coordinator', 'firstName lastName email')
+      .populate('timeline.changedBy', 'firstName lastName');
 
     if (!job) {
       return res.status(404).json({ message: 'Job not found' });
@@ -500,6 +519,12 @@ router.post('/', auth, authorize('coordinator', 'manager'), [
       }));
 
       await Notification.insertMany(notifications);
+      const discordResult = await discordService.sendJobPosting(job, req.user, eligibleStudents);
+      if (discordResult && discordResult.threadId) {
+        job.discordThreadId = discordResult.threadId;
+        job.discordMessageId = discordResult.messageId;
+        await job.save();
+      }
     }
 
     res.status(201).json({ message: 'Job created successfully', job });
@@ -556,6 +581,12 @@ router.put('/:id', auth, authorize('coordinator', 'manager'), async (req, res) =
       }));
 
       await Notification.insertMany(notifications);
+      const discordResult = await discordService.sendJobPosting(job, req.user, eligibleStudents);
+      if (discordResult && discordResult.threadId) {
+        job.discordThreadId = discordResult.threadId;
+        job.discordMessageId = discordResult.messageId;
+        await job.save();
+      }
     }
 
     res.json({ message: 'Job updated successfully', job });
@@ -594,6 +625,24 @@ router.post('/:id/bulk-update', auth, authorize('coordinator', 'manager'), async
         // If status provided, update it; otherwise we may only be adding feedback without changing status
         if (status) {
           application.status = status;
+
+          // If moving to in_progress/interviewing, handle round setting
+          if ((status === 'in_progress' || status === 'interviewing') && req.body.targetRound !== undefined) {
+            application.currentRound = parseInt(req.body.targetRound);
+
+            // Ensure roundResults exists and has an entry for this round
+            application.roundResults = application.roundResults || [];
+            const existingRound = application.roundResults.find(r => r.round === application.currentRound);
+            if (!existingRound) {
+              application.roundResults.push({
+                round: application.currentRound,
+                roundName: req.body.roundName || `Round ${application.currentRound + 1}`,
+                status: 'pending',
+                evaluatedBy: req.userId,
+                evaluatedAt: new Date()
+              });
+            }
+          }
         }
 
         // Prefer per-application feedback when supplied, otherwise use section general feedback
@@ -602,13 +651,8 @@ router.post('/:id/bulk-update', auth, authorize('coordinator', 'manager'), async
           application.feedback = feedbackToApply;
           application.feedbackBy = req.userId;
         }
-
-        // If selected, increment placementsCount for job (we will reconcile later)
-        if (status === 'selected') {
-          // Side effects handled after loop
-        }
       } else if (action === 'advance_round') {
-        // Advance currentRound by `advanceBy` steps
+        // Legacy: Advance currentRound by `advanceBy` steps
         application.currentRound = (application.currentRound || 0) + parseInt(advanceBy || 1);
         application.status = 'in_progress';
 
@@ -618,11 +662,10 @@ router.post('/:id/bulk-update', auth, authorize('coordinator', 'manager'), async
           application.feedbackBy = req.userId;
         }
 
-        // Optionally append a roundResults placeholder
         application.roundResults = application.roundResults || [];
         application.roundResults.push({
           round: application.currentRound,
-          roundName: `Round ${application.currentRound + 1}`,
+          roundName: req.body.roundName || `Round ${application.currentRound + 1}`,
           status: 'pending',
           evaluatedBy: req.userId,
           evaluatedAt: new Date()
@@ -633,15 +676,33 @@ router.post('/:id/bulk-update', auth, authorize('coordinator', 'manager'), async
 
       await application.save();
 
-      // Notify student about bulk change
-      await Notification.create({
-        recipient: application.student._id,
-        type: 'application_update',
-        title: `Application Update for ${job.title}`,
-        message: generalFeedback ? `${generalFeedback}` : `Your application for ${job.title} has been updated to ${application.status}`,
-        link: `/applications/${application._id}`,
-        relatedEntity: { type: 'application', id: application._id }
-      });
+      // Notify student about bulk change (wrapped in try-catch to isolate errors)
+      try {
+        if (application.student?._id) {
+          const feedbackToUse = perApplicationFeedbacks && perApplicationFeedbacks[appId] ? perApplicationFeedbacks[appId] : generalFeedback;
+
+          let notificationMsg = '';
+          if (feedbackToUse) {
+            notificationMsg = feedbackToUse;
+          } else if (status) {
+            notificationMsg = `Your application for ${job.title} has been updated to ${application.status}`;
+          } else {
+            notificationMsg = `New feedback has been added to your application for ${job.title}`;
+          }
+
+          await Notification.create({
+            recipient: application.student._id,
+            type: 'application_update',
+            title: `Application Update: ${job.title}`,
+            message: notificationMsg,
+            link: `/applications/${application._id}`,
+            relatedEntity: { type: 'application', id: application._id }
+          });
+        }
+      } catch (notifErr) {
+        console.error(`Failed to send notification for application ${appId}:`, notifErr.message);
+        // Continue loop even if notification fails
+      }
 
       updated++;
     }
@@ -657,17 +718,41 @@ router.post('/:id/bulk-update', auth, authorize('coordinator', 'manager'), async
       job.statusHistory.push({ status: 'filled', changedAt: new Date(), changedBy: req.userId, notes: 'Positions filled by bulk action' });
     }
 
+    // Generate a natural language description for the timeline
+    let journeyDescription = `Batch update performed on ${updated} applicant${updated !== 1 ? 's' : ''}`;
+    if (action === 'set_status' && status) {
+      journeyDescription = `${updated} applicant${updated !== 1 ? 's' : ''} moved to ${status.replace('_', ' ')}`;
+    } else if (action === 'advance_round') {
+      journeyDescription = `${updated} applicant${updated !== 1 ? 's' : ''} advanced to Round ${req.body.advanceBy || 1}`;
+    }
+
     // Add a timeline event recording the bulk action
     job.timeline = job.timeline || [];
     job.timeline.push({
       event: 'custom',
-      description: `Bulk update performed: action=${action}, updated=${updated}`,
+      description: journeyDescription,
       changedBy: req.userId,
       changedAt: new Date(),
-      metadata: { action, updated }
+      metadata: {
+        action,
+        updated,
+        status,
+        targetRound: req.body.targetRound,
+        roundName: req.body.roundName
+      }
     });
 
     await job.save();
+
+    // Notify Discord (Summary)
+    if (updated > 0) {
+      await discordService.sendBulkUpdate(
+        job,
+        updated,
+        action === 'set_status' ? `Status: ${status}` : 'Advanced Round',
+        req.user
+      );
+    }
 
     res.json({ message: 'Bulk update completed', updated });
   } catch (error) {

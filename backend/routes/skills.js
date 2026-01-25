@@ -55,6 +55,7 @@ router.get('/categories', auth, async (req, res) => {
     const categories = [
       { value: 'technical', label: 'Technical Skills' },
       { value: 'soft_skill', label: 'Soft Skills' },
+      { value: 'office', label: 'Office Skills' },
       { value: 'language', label: 'Languages' },
       { value: 'certification', label: 'Certifications' },
       { value: 'domain', label: 'Domain Knowledge' },
@@ -88,7 +89,7 @@ router.get('/:id', auth, async (req, res) => {
 // Create skill (Coordinators only)
 router.post('/', auth, authorize('coordinator', 'manager', 'campus_poc'), [
   body('name').trim().notEmpty(),
-  body('category').isIn(['technical', 'soft_skill', 'language', 'certification', 'domain', 'other'])
+  body('category').isIn(['technical', 'soft_skill', 'office', 'language', 'certification', 'domain', 'other'])
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -103,18 +104,31 @@ router.post('/', auth, authorize('coordinator', 'manager', 'campus_poc'), [
 
     // Normalize name to prevent case-only collisions and check if skill already exists
     const normalized = (name || '').toString().trim().toLowerCase();
-    const existingSkill = await Skill.findOne({ normalizedName: normalized });
-    if (existingSkill) {
-      return res.status(400).json({ message: 'Skill already exists' });
+    let skill = await Skill.findOne({ normalizedName: normalized });
+
+    if (skill) {
+      if (skill.isActive) {
+        return res.status(400).json({ message: 'Skill already exists' });
+      }
+      // If it exists but is inactive, reactivate it and update with new data
+      skill.isActive = true;
+      skill.name = name;
+      skill.category = category;
+      skill.description = description;
+      skill.isCommon = Boolean(isCommon);
+      skill.schools = Array.isArray(schools) ? schools : [];
+      skill.createdBy = req.userId;
+      await skill.save();
+      return res.status(200).json({ message: 'Skill reactivated successfully', skill });
     }
 
-    const skill = new Skill({
+    skill = new Skill({
       name,
       normalizedName: normalized,
       category,
       description,
       isCommon: Boolean(isCommon),
-      schools: Array.isArray(schools) ? schools.filter(s => allowedSchools.includes(s)) : [],
+      schools: Array.isArray(schools) ? schools : [],
       createdBy: req.userId
     });
 

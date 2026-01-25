@@ -142,6 +142,12 @@ const jobSchema = new mongoose.Schema({
       default: 'yes'
     },
 
+    // House Specific (Navgurukul)
+    houses: {
+      type: [String],
+      default: [] // empty means all houses or no house specific
+    },
+
     // Legacy fields for backward compatibility
     minCgpa: { type: Number, default: null }, // Deprecated - keeping for backward compatibility
     departments: { type: [String], default: [] },
@@ -218,7 +224,10 @@ const jobSchema = new mongoose.Schema({
     askedAt: { type: Date, default: Date.now },
     answeredAt: Date,
     isPublic: { type: Boolean, default: true }
-  }]
+  }],
+  // Discord Integration
+  discordThreadId: { type: String, default: null },
+  discordMessageId: { type: String, default: null }
 }, {
   timestamps: true
 });

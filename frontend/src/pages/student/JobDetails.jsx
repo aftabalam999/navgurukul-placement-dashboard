@@ -313,8 +313,12 @@ const JobDetails = () => {
       <div className="card">
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
           <div className="flex items-start gap-4">
-            <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center shrink-0">
-              <Briefcase className="w-8 h-8 text-gray-400" />
+            <div className="w-16 h-16 bg-white border border-gray-100 shadow-sm rounded-lg flex items-center justify-center shrink-0 overflow-hidden">
+              {job.company?.logo ? (
+                <img src={job.company.logo} alt={job.company.name} className="w-10 h-10 object-contain" />
+              ) : (
+                <Briefcase className="w-8 h-8 text-gray-400" />
+              )}
             </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">{job.title}</h1>
@@ -349,6 +353,12 @@ const JobDetails = () => {
             {job.eligibility?.femaleOnly && (
               <span className="bg-pink-100 text-pink-700 px-2 py-1 rounded text-xs font-medium">
                 Female Only
+              </span>
+            )}
+            {job.eligibility?.houses?.length > 0 && (
+              <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs font-medium flex items-center gap-1">
+                <Home className="w-3 h-3" />
+                {job.eligibility.houses.join(', ')} Only
               </span>
             )}
           </div>
@@ -734,36 +744,88 @@ const JobDetails = () => {
             )}
           </div>
 
-          {/* Job Journey/Timeline */}
-          {job.timeline?.length > 0 && (
-            <div className="card">
-              <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                <History className="w-5 h-5" />
+          {/* Job Journey/Timeline - Grouped & Bento Style */}
+          {job.timeline && (
+            <div className="card border-none bg-gray-50/50">
+              <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-primary-100 flex items-center justify-center">
+                  <History className="w-5 h-5 text-primary-600" />
+                </div>
                 Job Journey
               </h2>
-              <div className="space-y-3">
-                {job.timeline.slice().reverse().map((event, idx) => (
-                  <div key={idx} className="flex gap-3 items-start">
-                    <div className="w-2 h-2 bg-primary-500 rounded-full mt-2"></div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">{event.description}</p>
-                      <p className="text-xs text-gray-500">
-                        {format(new Date(event.changedAt), 'MMM dd, yyyy')}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-                {/* Always show created date */}
-                <div className="flex gap-3 items-start">
-                  <div className="w-2 h-2 bg-green-500 rounded-full mt-2"></div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">Job Posted</p>
-                    <p className="text-xs text-gray-500">
-                      {job.createdBy && `by ${job.createdBy.firstName} ${job.createdBy.lastName} • `}
-                      {format(new Date(job.createdAt), 'MMM dd, yyyy')}
-                    </p>
-                  </div>
-                </div>
+
+              <div className="space-y-4">
+                {(() => {
+                  const timeline = [...(job.timeline || [])];
+
+                  // Add "Created" event if missing
+                  if (!timeline.find(t => t.event === 'created')) {
+                    timeline.push({
+                      event: 'created',
+                      description: 'Job Posted',
+                      changedAt: job.createdAt,
+                      changedBy: job.createdBy
+                    });
+                  }
+
+                  return timeline.sort((a, b) => new Date(b.changedAt) - new Date(a.changedAt)).map((event, idx) => {
+                    const isLast = idx === timeline.length - 1;
+                    const desc = event.description || '';
+
+                    let displayTitle = desc;
+                    let displayIcon = <div className="w-2 h-2 bg-primary-400 rounded-full" />;
+                    let meta = null;
+
+                    if (desc.includes('Bulk update performed')) {
+                      const actionMatch = desc.match(/action=([^,]+)/);
+                      const updatedMatch = desc.match(/updated=(\d+)/);
+                      const count = updatedMatch ? updatedMatch[1] : '0';
+                      const action = actionMatch ? actionMatch[1] : '';
+
+                      if (action === 'set_status') {
+                        const status = event.metadata?.status;
+                        const roundName = event.metadata?.roundName;
+                        if (status) {
+                          const label = (status === 'interviewing' || status === 'in_progress') && roundName ? roundName : getStatusLabel(status);
+                          displayTitle = `${count} student${count !== '1' ? 's' : ''} moved to ${label}`;
+                        } else {
+                          displayTitle = `${count} application${count !== '1' ? 's' : ''} reviewed by team`;
+                        }
+                        displayIcon = <Users className="w-3 h-3 text-primary-600" />;
+                      }
+                    } else if (event.event === 'created' || desc.toLowerCase().includes('posted')) {
+                      displayTitle = 'Job Opportunity Created';
+                      displayIcon = <CheckCircle className="w-3 h-3 text-green-500" />;
+                      const creator = event.changedBy || job.createdBy;
+                      if (creator?.firstName) {
+                        meta = `by ${creator.firstName} ${creator.lastName}`;
+                      }
+                    }
+
+                    return (
+                      <div key={idx} className="relative pl-8 pb-4">
+                        {!isLast && <div className="absolute left-[11px] top-4 bottom-0 w-0.5 bg-gray-200" />}
+                        <div className="absolute left-0 top-1 w-6 h-6 rounded-full border-2 border-white bg-white shadow-sm flex items-center justify-center z-10">
+                          {displayIcon}
+                        </div>
+                        <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm transition-all hover:shadow-md">
+                          <p className="text-sm font-bold text-gray-800">{displayTitle}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <p className="text-[10px] font-medium text-gray-400 uppercase tracking-tighter">
+                              {format(new Date(event.changedAt), 'MMM dd, yyyy')}
+                            </p>
+                            {meta && (
+                              <>
+                                <span className="text-gray-300">•</span>
+                                <p className="text-[10px] text-gray-500 font-medium">{meta}</p>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
               </div>
             </div>
           )}

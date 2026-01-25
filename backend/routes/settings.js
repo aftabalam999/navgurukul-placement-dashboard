@@ -18,6 +18,10 @@ router.get('/', auth, async (req, res) => {
       softSkills: settings.softSkills || [],
       inactiveSchools: settings.inactiveSchools || [],
       roleCategories: settings.roleCategories || [],
+      councilPosts: settings.councilPosts || [],
+      jobLocations: settings.jobLocations || [],
+      proficiencyRubrics: Object.fromEntries(settings.proficiencyRubrics || new Map()),
+      masterCompanies: Object.fromEntries(settings.masterCompanies || new Map()),
       institutionOptions: Object.fromEntries(settings.institutionOptions || new Map()),
       higherEducationOptions: Object.fromEntries(settings.higherEducationOptions || new Map())
     };
@@ -443,6 +447,36 @@ router.post('/council-posts', auth, authorize('manager', 'coordinator'), async (
   }
 });
 
+// Add council post dynamically (Any authenticated user)
+router.post('/council-posts/add', auth, async (req, res) => {
+  try {
+    const { post } = req.body;
+    if (!post || !post.trim()) {
+      return res.status(400).json({ success: false, message: 'Post name is required' });
+    }
+
+    const settings = await Settings.getSettings();
+    const normalizedPost = post.trim();
+
+    if (settings.councilPosts.includes(normalizedPost)) {
+      return res.json({ success: true, message: 'Post already exists', data: { councilPosts: settings.councilPosts } });
+    }
+
+    settings.councilPosts.push(normalizedPost);
+    settings.lastUpdatedBy = req.userId;
+    await settings.save();
+
+    res.json({
+      success: true,
+      message: 'Council post added successfully',
+      data: { councilPosts: settings.councilPosts }
+    });
+  } catch (error) {
+    console.error('Add council post dynamic error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 // Remove council post (manager/coordinator only)
 router.delete('/council-posts/:post', auth, authorize('manager', 'coordinator'), async (req, res) => {
   try {
@@ -717,6 +751,118 @@ router.post('/institutions/add', auth, async (req, res) => {
     res.json({ success: true, message: 'Institution added successfully', data: Object.fromEntries(currentInstitutions) });
   } catch (error) {
     console.error('Add institution error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Add job location dynamically (authenticated user)
+router.post('/locations/add', auth, async (req, res) => {
+  try {
+    const { location } = req.body;
+    if (!location || !location.trim()) {
+      return res.status(400).json({ success: false, message: 'Location name is required' });
+    }
+
+    const settings = await Settings.getSettings();
+    const normalized = location.trim();
+
+    if (settings.jobLocations.includes(normalized)) {
+      return res.json({ success: true, message: 'Location already exists', data: { jobLocations: settings.jobLocations } });
+    }
+
+    settings.jobLocations.push(normalized);
+    settings.lastUpdatedBy = req.userId;
+    await settings.save();
+
+    res.json({
+      success: true,
+      message: 'Location added successfully',
+      data: { jobLocations: settings.jobLocations }
+    });
+  } catch (error) {
+    console.error('Add location error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Update proficiency rubrics (manager only)
+router.put('/proficiency-rubrics', auth, authorize('manager'), async (req, res) => {
+  try {
+    const { rubrics } = req.body; // Expects object { "1": { label, description }, ... }
+    if (!rubrics || typeof rubrics !== 'object') {
+      return res.status(400).json({ success: false, message: 'Invalid rubrics data' });
+    }
+
+    const settings = await Settings.getSettings();
+    const current = settings.proficiencyRubrics || new Map();
+
+    Object.entries(rubrics).forEach(([level, data]) => {
+      if (['1', '2', '3', '4'].includes(level)) {
+        current.set(level, {
+          label: data.label || '',
+          description: data.description || ''
+        });
+      }
+    });
+
+    settings.proficiencyRubrics = current;
+    settings.lastUpdatedBy = req.userId;
+    await settings.save();
+
+    res.json({
+      success: true,
+      message: 'Proficiency rubrics updated successfully',
+      data: Object.fromEntries(current)
+    });
+  } catch (error) {
+    console.error('Update rubrics error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// Add/Update master company (authenticated user)
+router.post('/companies/add', auth, async (req, res) => {
+  try {
+    const { name, website, description, logo } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ success: false, message: 'Company name is required' });
+    }
+
+    const settings = await Settings.getSettings();
+    const current = settings.masterCompanies || new Map();
+    const normalizedName = name.trim();
+
+    // Auto-fetch logo if website is provided but logo is not
+    let logoUrl = logo;
+    if (website && !logoUrl) {
+      try {
+        const domain = website.replace(/^https?:\/\//, '').replace(/\/$/, '').split('/')[0];
+        logoUrl = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+      } catch (e) {
+        // ignore
+      }
+    }
+
+    current.set(normalizedName, {
+      name: normalizedName,
+      website: website || '',
+      description: description || '',
+      logo: logoUrl || '',
+      addedBy: req.userId
+    });
+
+    settings.masterCompanies = current;
+    settings.markModified('masterCompanies');
+    settings.lastUpdatedBy = req.userId;
+    await settings.save();
+
+    res.json({
+      success: true,
+      message: 'Company added/updated successfully',
+      data: Object.fromEntries(current)
+    });
+  } catch (error) {
+    console.error('Add company error:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });

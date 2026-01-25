@@ -7,6 +7,7 @@ const User = require('../models/User');
 const Notification = require('../models/Notification');
 const PlacementCycle = require('../models/PlacementCycle');
 const { StudentJobReadiness } = require('../models/JobReadiness');
+const discordService = require('../services/discordService');
 const { auth, authorize, sameCampus } = require('../middleware/auth');
 
 // Get applications (filtered by role)
@@ -222,7 +223,8 @@ router.put('/:id/status', auth, authorize('coordinator', 'manager'), async (req,
     const { status, feedback } = req.body;
 
     const application = await Application.findById(req.params.id)
-      .populate('job', 'title company.name');
+      .populate('job', 'title company.name')
+      .populate('student');
 
     if (!application) {
       return res.status(404).json({ message: 'Application not found' });
@@ -273,13 +275,16 @@ router.put('/:id/status', auth, authorize('coordinator', 'manager'), async (req,
 
     // Notify student
     await Notification.create({
-      recipient: application.student,
+      recipient: application.student._id,
       type: status === 'selected' ? 'placement_confirmed' : 'application_update',
       title: 'Application Status Update',
       message: `Your application for ${application.job.title} at ${application.job.company.name} has been ${status}`,
       link: `/applications/${application._id}`,
       relatedEntity: { type: 'application', id: application._id }
     });
+
+    // Send to Discord
+    await discordService.sendApplicationUpdate(application, application.job, application.student, req.user);
 
     res.json({ message: 'Application status updated', application });
   } catch (error) {

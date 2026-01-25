@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { skillAPI, settingsAPI } from '../../services/api';
 import { LoadingSpinner, EmptyState, Modal, ConfirmDialog } from '../../components/common/UIComponents';
-import { Search, Plus, Edit2, Trash2, Tag, Layers, Globe, School } from 'lucide-react';
+import { Search, Plus, Edit2, Trash2, Tag, Layers, Globe, School, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const Skills = () => {
@@ -33,12 +33,13 @@ const Skills = () => {
   }, []);
 
   const fetchCategoryOptions = async () => {
-    try {
-      const res = await skillAPI.getCategories();
-      setCategoryOptions(res.data || []);
-    } catch (e) {
-      // non-blocking; keep UI usable
-    }
+    // Simplified categories as requested: Technical, Soft Skills, Office Skills
+    const simplified = [
+      { value: 'technical', label: 'Technical Skills (School Specific)' },
+      { value: 'soft_skill', label: 'Soft Skills' },
+      { value: 'office', label: 'Office/Professional Skills' }
+    ];
+    setCategoryOptions(simplified);
   };
 
   const fetchSchools = async () => {
@@ -57,7 +58,7 @@ const Skills = () => {
       const response = await skillAPI.getSkills();
       const skillsData = response.data || [];
       setSkills(skillsData);
-      
+
       // Extract unique categories
       const uniqueCategories = [...new Set(skillsData.map(s => s.category).filter(Boolean))];
       setCategories(uniqueCategories);
@@ -127,7 +128,7 @@ const Skills = () => {
 
   const filteredSkills = skills.filter(skill => {
     const matchesSearch = skill.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         skill.category?.toLowerCase().includes(searchQuery.toLowerCase());
+      skill.category?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCategory = !selectedCategory || skill.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
@@ -138,25 +139,39 @@ const Skills = () => {
     return acc;
   }, {});
 
-  // Group skills by category
+  // Identify skills that are tagged as 'technical' but have no schools and aren't common
+  const untaggedTechnicalSkills = filteredSkills.filter(s =>
+    s.category === 'technical' &&
+    !s.isCommon &&
+    (!Array.isArray(s.schools) || s.schools.length === 0)
+  );
+
+  // Group skills by category label for display (excluding technical ones already shown above)
   const groupedSkills = filteredSkills.reduce((acc, skill) => {
-    const category = skill.category || 'Uncategorized';
-    if (!acc[category]) acc[category] = [];
-    acc[category].push(skill);
+    const categoryValue = skill.category || 'other';
+
+    // Skip technical skills and common skills as they are handled in specialized sections above
+    if (categoryValue === 'technical' || skill.isCommon) return acc;
+
+    const categoryLabel = categoryOptions.find(opt => opt.value === categoryValue)?.label || 'Uncategorized';
+    if (!acc[categoryLabel]) acc[categoryLabel] = [];
+    acc[categoryLabel].push(skill);
     return acc;
   }, {});
 
-  const categoryColors = {
-    'Programming Languages': 'bg-blue-100 text-blue-800 border-blue-200',
-    'Frameworks': 'bg-purple-100 text-purple-800 border-purple-200',
-    'Databases': 'bg-green-100 text-green-800 border-green-200',
-    'Cloud & DevOps': 'bg-orange-100 text-orange-800 border-orange-200',
-    'Soft Skills': 'bg-pink-100 text-pink-800 border-pink-200',
-    'Tools': 'bg-yellow-100 text-yellow-800 border-yellow-200',
-    'default': 'bg-gray-100 text-gray-800 border-gray-200'
+  const getCategoryColor = (categoryLabel) => {
+    const colors = {
+      'Technical Skills': 'bg-blue-100 text-blue-800 border-blue-200',
+      'Soft Skills': 'bg-pink-100 text-pink-800 border-pink-200',
+      'Office/Professional Skills': 'bg-teal-100 text-teal-800 border-teal-200',
+      'Languages': 'bg-indigo-100 text-indigo-800 border-indigo-200',
+      'Certifications': 'bg-orange-100 text-orange-800 border-orange-200',
+      'Domain Knowledge': 'bg-green-100 text-green-800 border-green-200',
+      'Other': 'bg-gray-100 text-gray-800 border-gray-200',
+      'Uncategorized': 'bg-gray-100 text-gray-800 border-gray-200'
+    };
+    return colors[categoryLabel] || colors['Other'];
   };
-
-  const getCategoryColor = (category) => categoryColors[category] || categoryColors['default'];
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -355,6 +370,41 @@ const Skills = () => {
         </div>
       </div>
 
+      {/* Untagged Technical Skills */}
+      {untaggedTechnicalSkills.length > 0 && (
+        <div className="card border-yellow-200 bg-yellow-50">
+          <div className="flex items-center gap-2 mb-4">
+            <AlertCircle className="w-5 h-5 text-yellow-600" />
+            <h2 className="text-lg font-semibold text-yellow-900">Untagged Technical Skills</h2>
+            <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full">
+              {untaggedTechnicalSkills.length} untagged
+            </span>
+          </div>
+          <p className="text-sm text-yellow-700 mb-4">
+            These technical skills are not common and have no school tags. They will not be visible to students in their primary technical skills section.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            {untaggedTechnicalSkills.map((skill) => (
+              <div
+                key={skill._id}
+                className="group relative px-4 py-2 rounded-lg border bg-white text-gray-800 border-yellow-300 flex items-center gap-3 shadow-sm"
+              >
+                <span className="font-medium">{skill.name}</span>
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+                  <button
+                    onClick={() => openEditModal(skill)}
+                    className="p-1 hover:bg-gray-100 rounded"
+                    title="Edit"
+                  >
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Skills List by Category */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
@@ -412,16 +462,37 @@ const Skills = () => {
         </div>
       )}
 
-      {/* Add/Edit Modal */}
       <Modal
         isOpen={showModal}
         onClose={() => {
           setShowModal(false);
           resetForm();
         }}
-        title={selectedSkill ? 'Edit Skill' : 'Add New Skill'}
+        title={selectedSkill ? 'Edit Skill Definition' : 'Define New Skill'}
       >
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 flex items-start gap-3">
+            <Layers className="w-5 h-5 text-blue-600 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-blue-900">Skill Category</p>
+              <div className="flex gap-2 mt-2">
+                {categoryOptions.map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, category: opt.value, isCommon: opt.value !== 'technical' })}
+                    className={`px-3 py-1.5 rounded-md text-xs font-medium transition ${formData.category === opt.value
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'bg-white text-gray-700 border border-gray-200 hover:border-blue-300'
+                      }`}
+                  >
+                    {opt.label.split(' (')[0]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Skill Name *
@@ -430,77 +501,89 @@ const Skills = () => {
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="e.g., JavaScript, Python, React"
-              required
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Category
-            </label>
-            <select
-              value={formData.category}
-              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-              required
-            >
-              <option value="">Select category</option>
-              {categoryOptions.map(opt => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
-          </div>
-          <div className="flex items-center gap-2">
-            <input
-              id="isCommon"
-              type="checkbox"
-              checked={formData.isCommon}
-              onChange={(e) => setFormData({ ...formData, isCommon: e.target.checked })}
-            />
-            <label htmlFor="isCommon" className="text-sm text-gray-700">Mark as Common Skill</label>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              School Tags
-            </label>
-            <select
-              multiple
-              value={formData.schools}
-              onChange={(e) => {
-                const options = Array.from(e.target.selectedOptions).map(opt => opt.value);
-                setFormData({ ...formData, schools: options });
-              }}
+              placeholder="e.g., JavaScript, React, Public Speaking"
               className="w-full"
-            >
-              {allowedSchools.map(school => (
-                <option key={school} value={school}>{school}</option>
-              ))}
-            </select>
-            <p className="text-xs text-gray-500 mt-1">Hold Cmd/Ctrl to select multiple schools</p>
+              required
+            />
           </div>
+
+          {formData.category === 'technical' ? (
+            <div className="space-y-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+                  <School className="w-4 h-4" />
+                  Target Schools
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.isCommon}
+                    onChange={(e) => setFormData({ ...formData, isCommon: e.target.checked })}
+                    className="w-4 h-4 text-blue-600 rounded"
+                  />
+                  <span className="text-xs font-medium text-gray-600">Available to all schools</span>
+                </label>
+              </div>
+
+              {!formData.isCommon && (
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  {allowedSchools.map(school => (
+                    <label key={school} className="flex items-center gap-2 p-2 rounded border border-transparent hover:bg-white hover:border-gray-200 cursor-pointer transition">
+                      <input
+                        type="checkbox"
+                        checked={formData.schools.includes(school)}
+                        onChange={(e) => {
+                          const updated = e.target.checked
+                            ? [...formData.schools, school]
+                            : formData.schools.filter(s => s !== school);
+                          setFormData({ ...formData, schools: updated });
+                        }}
+                        className="w-4 h-4 text-blue-600 rounded"
+                      />
+                      <span className="text-xs text-gray-700">{school}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+              {formData.isCommon && (
+                <p className="text-xs text-blue-600 italic mt-1">This skill will be displayed under "Common Technical Skills" for all students.</p>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 p-3 bg-green-50 rounded-lg border border-green-100">
+              <Globe className="w-4 h-4 text-green-600" />
+              <p className="text-xs text-green-800 font-medium">
+                {formData.category === 'soft_skill' ? 'Soft Skills' : 'Office/Professional Skills'} are automatically available to students across all schools.
+              </p>
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Description
+              Description (Optional)
             </label>
             <textarea
-              rows={3}
+              rows={2}
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder="Brief description of the skill"
+              placeholder="What does this skill cover?"
+              className="w-full text-sm"
             />
           </div>
-          <div className="flex justify-end gap-3 pt-4">
+
+          <div className="flex justify-end gap-3 pt-4 border-t">
             <button
               type="button"
               onClick={() => {
                 setShowModal(false);
                 resetForm();
               }}
-              className="btn btn-secondary"
+              className="btn btn-secondary px-6"
             >
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary">
-              {selectedSkill ? 'Update Skill' : 'Add Skill'}
+            <button type="submit" className="btn btn-primary px-6" disabled={!formData.category || !formData.name}>
+              {selectedSkill ? 'Save Changes' : 'Create Skill'}
             </button>
           </div>
         </form>

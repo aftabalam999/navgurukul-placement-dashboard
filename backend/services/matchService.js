@@ -432,6 +432,26 @@ function calculateEligibilityMatch(student, job) {
     details.monthsAtNavgurukul = { required: false, meets: true };
   }
 
+  // House Specific (Navgurukul)
+  const requiredHouses = eligibility.houses || [];
+  if (requiredHouses.length > 0) {
+    totalRequired++;
+    const studentHouse = profile.houseName || '';
+    const meets = requiredHouses.includes(studentHouse);
+    if (meets) passedCount++;
+    details.house = {
+      required: true,
+      meets,
+      studentValue: studentHouse || 'Not specified',
+      jobRequirement: requiredHouses.join(', '),
+      message: meets
+        ? `House: Eligible (${studentHouse})`
+        : `House: Requires ${requiredHouses.join('/')}`
+    };
+  } else {
+    details.house = { required: false, meets: true };
+  }
+
   return {
     passed: passedCount,
     total: totalRequired,

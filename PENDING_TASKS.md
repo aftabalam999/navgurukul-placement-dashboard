@@ -18,6 +18,7 @@ This file lists actionable, high-priority work discovered during the recent chan
 - Document test commands and examples in `DEV-SETUP.md` (add test commands & example Drive/Dropbox links).
 - Add CI workflow to run tests on PRs and pushes.
 - Add provider-specific helpers for Drive/Dropbox to handle large files and confirm content-type edge cases.
+- Performance: Check the loading time of the profile section and optimize if necessary.
 
 ## Low Priority / Nice-to-have
 - QA checklist with sample links for Drive/Dropbox/OneDrive (public/private/nonexistent).

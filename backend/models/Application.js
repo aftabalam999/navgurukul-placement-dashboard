@@ -13,8 +13,8 @@ const applicationSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['applied', 'shortlisted', 'in_progress', 'selected', 'rejected', 'withdrawn', 'interested'],
     default: 'applied'
+    // Status should ideally match one of the IDs in Settings.jobPipelineStages
   },
   applicationType: {
     type: String,

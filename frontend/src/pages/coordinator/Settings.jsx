@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { userAPI } from '../../services/api';
+import { userAPI, authAPI } from '../../services/api';
 import { Card, Button, LoadingSpinner, Alert } from '../../components/common/UIComponents';
-import { Key, Trash2, Eye, EyeOff, Plus, CheckCircle, XCircle } from 'lucide-react';
+import { Key, Trash2, Eye, EyeOff, Plus, CheckCircle, XCircle, MessageSquare } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const CoordinatorSettings = () => {
@@ -10,10 +10,28 @@ const CoordinatorSettings = () => {
   const [saving, setSaving] = useState(false);
   const [showAddKey, setShowAddKey] = useState(false);
   const [newKey, setNewKey] = useState({ key: '', label: '' });
+  const [discordData, setDiscordData] = useState({ userId: '', username: '', verified: false });
+  const [savingDiscord, setSavingDiscord] = useState(false);
 
   useEffect(() => {
     fetchAIKeys();
+    fetchProfile();
   }, []);
+
+  const fetchProfile = async () => {
+    try {
+      const res = await authAPI.getMe();
+      if (res.data.discord) {
+        setDiscordData({
+          userId: res.data.discord.userId || '',
+          username: res.data.discord.username || '',
+          verified: res.data.discord.verified || false
+        });
+      }
+    } catch (error) {
+      console.error('Error loading profile:', error);
+    }
+  };
 
   const fetchAIKeys = async () => {
     try {
@@ -25,6 +43,24 @@ const CoordinatorSettings = () => {
       toast.error('Failed to load AI keys');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUpdateDiscord = async () => {
+    try {
+      setSavingDiscord(true);
+      await userAPI.updateProfile({
+        discord: {
+          userId: discordData.userId,
+          username: discordData.username
+        }
+      });
+      toast.success('Discord settings updated');
+      fetchProfile();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to update Discord settings');
+    } finally {
+      setSavingDiscord(false);
     }
   };
 
@@ -85,8 +121,70 @@ const CoordinatorSettings = () => {
     <div className="space-y-6 animate-fadeIn">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-        <p className="text-gray-600">Manage your AI API keys for job description parsing</p>
+        <p className="text-gray-600">Manage your preferences and integrations</p>
       </div>
+
+      {/* Discord Integration Card */}
+      <Card>
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold flex items-center gap-2 text-indigo-900">
+            <MessageSquare className="w-5 h-5" />
+            Discord Integration
+          </h2>
+          <p className="text-sm text-gray-600 mt-1">
+            Configure your Discord account to receive real-time notifications about jobs and applications.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Discord User ID
+              <span className="text-xs text-gray-500 ml-1 font-normal">(Required)</span>
+            </label>
+            <input
+              type="text"
+              value={discordData.userId}
+              onChange={(e) => setDiscordData({ ...discordData, userId: e.target.value })}
+              placeholder="e.g. 748123456789012345"
+              className="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Enable Developer Mode in Discord → Right-click profile → Copy User ID
+            </p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Discord Username</label>
+            <div className="relative">
+              <input
+                type="text"
+                value={discordData.username}
+                onChange={(e) => setDiscordData({ ...discordData, username: e.target.value })}
+                placeholder="e.g. user_name"
+                className="w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+              />
+              {discordData.verified && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-green-600 flex items-center gap-1 text-xs font-medium bg-green-50 px-2 py-0.5 rounded border border-green-200">
+                  <CheckCircle className="w-3 h-3" /> Verified
+                </div>
+              )}
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Used for mentions in notifications
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 flex justify-end">
+          <Button
+            onClick={handleUpdateDiscord}
+            disabled={savingDiscord}
+            variant="primary"
+          >
+            {savingDiscord ? 'Saving...' : 'Save Discord Settings'}
+          </Button>
+        </div>
+      </Card>
 
       {/* AI API Keys Card */}
       <Card>
@@ -183,16 +281,14 @@ const CoordinatorSettings = () => {
             {aiKeys.map((key) => (
               <div
                 key={key._id}
-                className={`p-4 rounded-lg border-2 flex items-center justify-between ${
-                  key.isActive
+                className={`p-4 rounded-lg border-2 flex items-center justify-between ${key.isActive
                     ? 'border-green-200 bg-green-50'
                     : 'border-gray-200 bg-gray-50'
-                }`}
+                  }`}
               >
                 <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                    key.isActive ? 'bg-green-200' : 'bg-gray-200'
-                  }`}>
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${key.isActive ? 'bg-green-200' : 'bg-gray-200'
+                    }`}>
                     {key.isActive ? (
                       <CheckCircle className="w-5 h-5 text-green-700" />
                     ) : (
@@ -210,11 +306,10 @@ const CoordinatorSettings = () => {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => handleToggleActive(key._id, key.isActive)}
-                    className={`px-3 py-1 rounded text-sm ${
-                      key.isActive
+                    className={`px-3 py-1 rounded text-sm ${key.isActive
                         ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
                         : 'bg-green-100 text-green-700 hover:bg-green-200'
-                    }`}
+                      }`}
                   >
                     {key.isActive ? 'Disable' : 'Enable'}
                   </button>

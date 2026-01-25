@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { jobAPI, skillAPI, campusAPI, userAPI, settingsAPI } from '../../services/api';
 import { LoadingSpinner } from '../../components/common/UIComponents';
+import SearchableSelect from '../../components/common/SearchableSelect.jsx';
 import { ArrowLeft, Save, Plus, X, Sparkles, Upload, Link, FileText, AlertCircle, Users, CheckCircle, Search, Building, MapPin, Home } from 'lucide-react';
 import toast from 'react-hot-toast';
 
@@ -42,7 +43,7 @@ const JobForm = () => {
 
   const [formData, setFormData] = useState({
     title: '',
-    company: { name: '', website: '', description: '' },
+    company: { name: '', website: '', description: '', logo: '' },
     location: '',
     roleCategory: '',
     jobType: 'full_time',
@@ -69,22 +70,31 @@ const JobForm = () => {
       minMonthsAtNavgurukul: '',
       englishWriting: '',
       englishSpeaking: '',
-      hometown: '',
       homestate: '',
       councilPosts: [], // Array of { post: String, minMonths: Number }
-      readinessRequirement: 'yes'
+      readinessRequirement: 'yes',
+      houses: []
     },
     status: 'draft',
     interviewRounds: [{ name: 'Round 1', type: 'other' }] // Initialize with one round
   });
 
-  const proficiencyLevels = [
-    { value: 1, label: 'Beginner', description: 'Basic understanding' },
-    { value: 2, label: 'Elementary', description: 'Can perform simple tasks' },
-    { value: 3, label: 'Intermediate', description: 'Independent problem solving' },
-    { value: 4, label: 'Advanced', description: 'Deep knowledge and complexity' },
-    { value: 5, label: 'Expert', description: 'Mastery and leadership' }
-  ];
+  const [settings, setSettings] = useState({
+    jobLocations: [],
+    masterCompanies: {},
+    proficiencyRubrics: {
+      '1': { label: 'Basic', description: 'Has basic theoretical knowledge and can perform simple tasks with guidance.' },
+      '2': { label: 'Intermediate', description: 'Can work independently on routine tasks and understands core principles.' },
+      '3': { label: 'Advanced', description: 'Can handle complex problems, optimize workflows, and guide others.' },
+      '4': { label: 'Expert', description: 'Deep mastery of the subject with ability to architect systems and lead strategy.' }
+    }
+  });
+
+  const proficiencyLevels = [1, 2, 3, 4].map(l => ({
+    value: l,
+    label: settings.proficiencyRubrics?.[l]?.label || `Level ${l}`,
+    description: settings.proficiencyRubrics?.[l]?.description || ''
+  }));
 
   const cefrLevels = [
     { value: 'A1', label: 'A1 - Beginner' },
@@ -152,8 +162,10 @@ const JobForm = () => {
 
   const fetchCompanies = async () => {
     try {
-      const response = await jobAPI.getCompanies();
-      setAvailableCompanies(response.data);
+      const res = await settingsAPI.getSettings();
+      const master = res.data.data.masterCompanies || {};
+      setAvailableCompanies(Object.values(master));
+      setSettings(prev => ({ ...prev, ...res.data.data }));
     } catch (error) {
       console.error('Error fetching companies:', error);
     }
@@ -161,11 +173,41 @@ const JobForm = () => {
 
   const fetchLocations = async () => {
     try {
-      const response = await jobAPI.getLocations();
-      setAvailableLocations(response.data);
+      const res = await settingsAPI.getSettings();
+      setAvailableLocations(res.data.data.jobLocations || []);
     } catch (error) {
       console.error('Error fetching locations:', error);
     }
+  };
+
+  const handleAddCompany = async (name) => {
+    try {
+      const companyData = { name };
+      // Website is optional but good for favicon
+      const res = await settingsAPI.addCompanyOption(companyData);
+      if (res.data.success) {
+        toast.success(`Registered "${name}" as a company`);
+        await fetchCompanies();
+        return true;
+      }
+    } catch (err) {
+      console.error('Failed to add company', err);
+    }
+    return false;
+  };
+
+  const handleAddLocation = async (location) => {
+    try {
+      const res = await settingsAPI.addLocationOption(location);
+      if (res.data.success) {
+        toast.success(`Added "${location}" to available locations`);
+        await fetchLocations();
+        return true;
+      }
+    } catch (err) {
+      console.error('Failed to add location', err);
+    }
+    return false;
   };
 
   const fetchStudentLocations = async () => {
@@ -183,7 +225,7 @@ const JobForm = () => {
       setAllSkills(response.data);
       setSkills(response.data.filter(s => s.category === 'technical'));
       setDomainSkills(response.data.filter(s => s.category === 'domain'));
-      setOtherSkills(response.data.filter(s => s.category === 'other' || s.category === 'soft'));
+      setOtherSkills(response.data.filter(s => s.category === 'other' || s.category === 'soft' || s.category === 'soft_skill' || s.category === 'office' || s.category === 'language'));
     } catch (error) {
       console.error('Error fetching skills:', error);
     }
@@ -230,17 +272,31 @@ const JobForm = () => {
       // Pass eligibility details including new fields
       const params = {
         ...formData.eligibility,
-        schools: formData.eligibility.schools.join(','),
-        campuses: formData.eligibility.campuses.join(','),
-        certifications: formData.eligibility.certifications.join(','),
+        schools: formData.eligibility.schools?.length > 0 ? formData.eligibility.schools.join(',') : undefined,
+        campuses: formData.eligibility.campuses?.length > 0 ? formData.eligibility.campuses.join(',') : undefined,
+        houses: formData.eligibility.houses?.length > 0 ? formData.eligibility.houses.join(',') : undefined,
+        certifications: formData.eligibility.certifications?.length > 0 ? formData.eligibility.certifications.join(',') : undefined,
         // Council Post (taking the first one for count estimation if multiple, as API currently handles one 'councilPost' param simplicity)
         // ideally backend should support multiple, but for now let's send the first requirement if exists
         councilPost: formData.eligibility.councilPosts?.[0]?.post || undefined,
-        minCouncilMonths: formData.eligibility.councilPosts?.[0]?.minMonths || undefined
+        minCouncilMonths: formData.eligibility.councilPosts?.[0]?.minMonths || undefined,
+        // Academic requirements - send as booleans and values
+        tenthRequired: formData.eligibility.tenthGrade?.required ? 'true' : undefined,
+        tenthMinPercentage: formData.eligibility.tenthGrade?.minPercentage || undefined,
+        twelfthRequired: formData.eligibility.twelfthGrade?.required ? 'true' : undefined,
+        twelfthMinPercentage: formData.eligibility.twelfthGrade?.minPercentage || undefined,
+        higherEducationRequired: formData.eligibility.higherEducation?.required ? 'true' : undefined,
+        higherEducationMinPercentage: formData.eligibility.higherEducation?.minPercentage || undefined,
+        // Required Skills - send as JSON string for complex data structure
+        requiredSkills: formData.requiredSkills?.length > 0 ? JSON.stringify(formData.requiredSkills) : undefined
       };
 
-      // Clean undefined/null
-      Object.keys(params).forEach(key => !params[key] && delete params[key]);
+      // Clean undefined/null/empty values
+      Object.keys(params).forEach(key => {
+        if (params[key] === undefined || params[key] === null || params[key] === '') {
+          delete params[key];
+        }
+      });
 
       const response = await userAPI.getEligibleCount(params);
       setStudentCount(response.data);
@@ -257,15 +313,41 @@ const JobForm = () => {
 
       setFormData({
         ...job,
-        company: job.company || { name: '', website: '', description: '' },
-        salary: job.salary || { min: '', max: '', currency: 'INR' },
+        company: {
+          name: job.company?.name || '',
+          website: job.company?.website || '',
+          description: job.company?.description || '',
+          logo: job.company?.logo || ''
+        },
+        salary: {
+          min: job.salary?.min ?? '',
+          max: job.salary?.max ?? '',
+          currency: job.salary?.currency || 'INR'
+        },
         applicationDeadline: job.applicationDeadline ? new Date(job.applicationDeadline).toISOString().split('T')[0] : '',
         eligibility: {
           ...job.eligibility,
+          minCgpa: job.eligibility?.minCgpa ?? '',
+          minAttendance: job.eligibility?.minAttendance ?? '',
+          minMonthsAtNavgurukul: job.eligibility?.minMonthsAtNavgurukul ?? '',
           hometown: job.eligibility?.hometown || '',
-          homestate: job.eligibility?.homestate || ''
+          homestate: job.eligibility?.homestate || '',
+          tenthGrade: {
+            required: job.eligibility?.tenthGrade?.required || false,
+            minPercentage: job.eligibility?.tenthGrade?.minPercentage ?? ''
+          },
+          twelfthGrade: {
+            required: job.eligibility?.twelfthGrade?.required || false,
+            minPercentage: job.eligibility?.twelfthGrade?.minPercentage ?? ''
+          },
+          higherEducation: {
+            required: job.eligibility?.higherEducation?.required || false,
+            acceptedDegrees: job.eligibility?.higherEducation?.acceptedDegrees || [],
+            level: job.eligibility?.higherEducation?.level || '',
+            minPercentage: job.eligibility?.higherEducation?.minPercentage ?? ''
+          }
         },
-        interviewRounds: job.interviewRounds || [{ name: 'Round 1', type: 'other' }]
+        interviewRounds: job.interviewRounds?.length > 0 ? job.interviewRounds : [{ name: 'Round 1', type: 'other' }]
       });
     } catch (error) {
       toast.error('Failed to load job details');
@@ -452,18 +534,35 @@ const JobForm = () => {
 
   if (loading) return <LoadingSpinner />;
 
-  // Calculate hasEligibilityRestrictions
+  // Calculate hasEligibilityRestrictions - check if ANY filter/requirement is set
   const hasEligibilityRestrictions =
+    // Academic requirements
     formData.eligibility.tenthGrade?.required ||
     formData.eligibility.twelfthGrade?.required ||
     formData.eligibility.higherEducation?.required ||
+    // Navgurukul specific
     formData.eligibility.schools.length > 0 ||
     formData.eligibility.campuses.length > 0 ||
+    formData.eligibility.houses?.length > 0 ||
+    // Attendance and tenure
     formData.eligibility.minAttendance ||
     formData.eligibility.minMonthsAtNavgurukul ||
+    // Gender
     formData.eligibility.femaleOnly ||
+    // Geographic
     formData.eligibility.hometown ||
-    formData.eligibility.homestate;
+    formData.eligibility.homestate ||
+    // English proficiency (CEFR)
+    formData.eligibility.englishSpeaking ||
+    formData.eligibility.englishWriting ||
+    // Job readiness
+    (formData.eligibility.readinessRequirement && formData.eligibility.readinessRequirement !== 'no') ||
+    // Council posts
+    (formData.eligibility.councilPosts?.length > 0 && formData.eligibility.councilPosts.some(cp => cp.post)) ||
+    // Certifications
+    formData.eligibility.certifications?.length > 0 ||
+    // Required Skills
+    formData.requiredSkills.length > 0;
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
@@ -572,82 +671,63 @@ const JobForm = () => {
 
             {/* Company Autocomplete */}
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Company Name <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  required
-                  value={formData.company.name}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setFormData(prev => ({ ...prev, company: { ...prev.company, name: val } }));
-                    setShowCompanySuggestions(true);
-                  }}
-                  onFocus={() => setShowCompanySuggestions(true)}
-                  placeholder="e.g. Google, Microsoft"
-                  className="w-full pl-10 rounded-lg border-gray-300 focus:border-primary-500 focus:ring-primary-500"
-                />
-                <Search className="absolute left-3 top-2.5 w-5 h-5 text-gray-400" />
-
-                {showCompanySuggestions && (
-                  <>
-                    <div className="fixed inset-0 z-10" onClick={() => setShowCompanySuggestions(false)}></div>
-                    <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                      {availableCompanies
-                        .filter(c => c.name.toLowerCase().includes(formData.company.name.toLowerCase()))
-                        .map((company, index) => (
-                          <button
-                            key={index}
-                            type="button"
-                            onClick={() => {
-                              setFormData(prev => ({
-                                ...prev,
-                                company: {
-                                  name: company.name,
-                                  website: company.website || '',
-                                  description: company.description || ''
-                                }
-                              }));
-                              setShowCompanySuggestions(false);
-                            }}
-                            className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2 border-b last:border-0"
-                          >
-                            <Building className="w-4 h-4 text-gray-400" />
-                            <div className="flex-1">
-                              <p className="text-sm font-medium text-gray-900">{company.name}</p>
-                              {company.website && <p className="text-xs text-gray-500 truncate">{company.website}</p>}
-                            </div>
-                          </button>
-                        ))
-                      }
-
-                      {/* Add New Option */}
-                      {formData.company.name && !availableCompanies.some(c => c.name.toLowerCase() === formData.company.name.toLowerCase()) && (
-                        <button
-                          type="button"
-                          onClick={() => setShowCompanySuggestions(false)}
-                          className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2 text-primary-600 bg-primary-50"
-                        >
-                          <Plus className="w-4 h-4" />
-                          <span className="text-sm font-medium">Add "{formData.company.name}" as new company</span>
-                        </button>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
+              <SearchableSelect
+                label="Company Name"
+                required
+                placeholder="e.g. Google, Microsoft"
+                options={availableCompanies.map(c => c.name)}
+                value={formData.company.name}
+                onChange={(val) => {
+                  const company = availableCompanies.find(c => c.name === val);
+                  setFormData(prev => ({
+                    ...prev,
+                    company: {
+                      name: val,
+                      website: company?.website || prev.company.website || '',
+                      description: company?.description || prev.company.description || '',
+                      logo: company?.logo || prev.company.logo || ''
+                    }
+                  }));
+                }}
+                onAdd={handleAddCompany}
+              />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Company Website</label>
-              <input
-                type="url"
-                value={formData.company.website}
-                onChange={(e) => setFormData({ ...formData, company: { ...formData.company, website: e.target.value } })}
-                placeholder="https://..."
-              />
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Company Website</label>
+                <input
+                  type="url"
+                  value={formData.company.website}
+                  onChange={(e) => {
+                    const website = e.target.value;
+                    let logo = formData.company.logo;
+
+                    // Only try to fetch favicon if website contains a dot and is not just "www." or similar
+                    if (website && website.includes('.') && website.length > 5 && !logo) {
+                      try {
+                        const domain = website.replace(/^https?:\/\//, '').split('/')[0];
+                        if (domain && domain.includes('.')) {
+                          logo = `https://www.google.com/s2/favicons?domain=${domain}&sz=128`;
+                        }
+                      } catch (e) { /* ignore */ }
+                    }
+
+                    setFormData({ ...formData, company: { ...formData.company, website, logo } });
+                  }}
+                  placeholder="https://..."
+                />
+              </div>
+              <div className="w-20">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Logo</label>
+                <div className="w-full h-[38px] flex items-center justify-center bg-gray-50 border rounded-lg overflow-hidden">
+                  {formData.company.logo ? (
+                    <img src={formData.company.logo} alt="Logo" className="w-6 h-6 object-contain" />
+                  ) : (
+                    <Building className="w-4 h-4 text-gray-400" />
+                  )}
+                </div>
+              </div>
             </div>
 
             <div>
@@ -681,58 +761,15 @@ const JobForm = () => {
 
             {/* Location Autocomplete */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Location *</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  required
-                  value={formData.location}
-                  onChange={(e) => {
-                    setFormData({ ...formData, location: e.target.value });
-                    setShowLocationSuggestions(true);
-                  }}
-                  onFocus={() => setShowLocationSuggestions(true)}
-                  placeholder="e.g., Bangalore, Remote"
-                  className="w-full pl-10 rounded-lg border-gray-300 focus:border-primary-500 focus:ring-primary-500"
-                />
-                <MapPin className="absolute left-3 top-2.5 w-5 h-5 text-gray-400" />
-
-                {showLocationSuggestions && (
-                  <>
-                    <div className="fixed inset-0 z-10" onClick={() => setShowLocationSuggestions(false)}></div>
-                    <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                      {availableLocations
-                        .filter(l => l.toLowerCase().includes(formData.location.toLowerCase()))
-                        .map((loc, index) => (
-                          <button
-                            key={index}
-                            type="button"
-                            onClick={() => {
-                              setFormData(prev => ({ ...prev, location: loc }));
-                              setShowLocationSuggestions(false);
-                            }}
-                            className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2 border-b last:border-0"
-                          >
-                            <MapPin className="w-4 h-4 text-gray-400" />
-                            <span className="text-sm font-medium text-gray-900">{loc}</span>
-                          </button>
-                        ))
-                      }
-                      {/* Add New Option */}
-                      {formData.location && !availableLocations.some(l => l.toLowerCase() === formData.location.toLowerCase()) && (
-                        <button
-                          type="button"
-                          onClick={() => setShowLocationSuggestions(false)}
-                          className="w-full text-left px-4 py-2 hover:bg-gray-50 flex items-center gap-2 text-primary-600 bg-primary-50"
-                        >
-                          <Plus className="w-4 h-4" />
-                          <span className="text-sm font-medium">Use "{formData.location}"</span>
-                        </button>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
+              <SearchableSelect
+                label="Location"
+                placeholder="e.g., Bangalore, Remote"
+                options={availableLocations}
+                value={formData.location}
+                onChange={(val) => setFormData({ ...formData, location: val })}
+                onAdd={handleAddLocation}
+                required
+              />
             </div>
 
             <div>
@@ -1334,6 +1371,31 @@ const JobForm = () => {
                       className={`px-2 py-1 rounded text-xs transition ${(formData.eligibility.campuses || []).includes(campus._id) ? 'bg-purple-500 text-white' : 'bg-gray-100 text-gray-600'}`}
                     >
                       {campus.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className={`p-3 rounded-lg border-2 transition-all ${(formData.eligibility.houses || []).length > 0 ? 'border-purple-500 bg-purple-50' : 'border-gray-200 bg-white'}`}>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-medium text-gray-900 text-sm">House Specific?</span>
+                  <div className="group relative">
+                    <AlertCircle className="w-3 h-3 text-gray-400 cursor-help" />
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block w-48 p-2 bg-gray-900 text-white text-[10px] rounded shadow-xl z-30 leading-tight">
+                      If selected, this job will only be visible to students belonging to the chosen houses. By default, it's off (visible to all).
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {['Bageshree', 'Bhairav', 'Malhar'].map(house => (
+                    <button key={house} type="button"
+                      onClick={() => {
+                        const current = formData.eligibility.houses || [];
+                        const newHouses = current.includes(house) ? current.filter(h => h !== house) : [...current, house];
+                        setFormData({ ...formData, eligibility: { ...formData.eligibility, houses: newHouses } });
+                      }}
+                      className={`px-2 py-1 rounded text-xs transition ${(formData.eligibility.houses || []).includes(house) ? 'bg-purple-500 text-white' : 'bg-gray-100 text-gray-600'}`}
+                    >
+                      {house}
                     </button>
                   ))}
                 </div>

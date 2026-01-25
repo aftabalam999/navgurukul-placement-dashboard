@@ -304,8 +304,8 @@ const StudentJobs = () => {
           <button
             onClick={() => setFilters({ ...filters, roleCategory: '' })}
             className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${!filters.roleCategory
-                ? 'bg-primary-600 text-white shadow-sm'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              ? 'bg-primary-600 text-white shadow-sm'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
           >
             All
@@ -315,8 +315,8 @@ const StudentJobs = () => {
               key={category}
               onClick={() => setFilters({ ...filters, roleCategory: category })}
               className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${filters.roleCategory === category
-                  ? 'bg-primary-600 text-white shadow-sm'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                ? 'bg-primary-600 text-white shadow-sm'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
             >
               {category}
@@ -359,12 +359,14 @@ const StudentJobs = () => {
               <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                 <div className="flex-1">
                   <div className="flex items-start gap-3">
-                    <div className={`w-12 h-12 rounded-lg flex items-center justify-center shrink-0 ${job.jobType === 'internship' ? 'bg-purple-100' : 'bg-gray-100'
-                      }`}>
-                      {job.jobType === 'internship'
-                        ? <GraduationCap className="w-6 h-6 text-purple-500" />
-                        : <Briefcase className="w-6 h-6 text-gray-400" />
-                      }
+                    <div className={`w-12 h-12 rounded-lg flex items-center justify-center shrink-0 border border-gray-100 bg-white shadow-sm overflow-hidden`}>
+                      {job.company?.logo ? (
+                        <img src={job.company.logo} alt={job.company.name} className="w-8 h-8 object-contain" />
+                      ) : job.jobType === 'internship' ? (
+                        <GraduationCap className="w-6 h-6 text-purple-500" />
+                      ) : (
+                        <Briefcase className="w-6 h-6 text-gray-400" />
+                      )}
                     </div>
                     <div>
                       <h3 className="font-semibold text-gray-900">{job.title}</h3>

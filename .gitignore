@@ -30,3 +30,4 @@ backend/uploads/documents/*
 !backend/uploads/avatars/.gitkeep
 !backend/uploads/resumes/.gitkeep
 !backend/uploads/documents/.gitkeep
+.agent/

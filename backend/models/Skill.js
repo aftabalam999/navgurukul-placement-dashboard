@@ -17,7 +17,7 @@ const skillSchema = new mongoose.Schema({
   category: {
     type: String,
     required: true,
-    enum: ['technical', 'soft_skill', 'language', 'certification', 'domain', 'other']
+    enum: ['technical', 'soft_skill', 'office', 'language', 'certification', 'domain', 'other']
   },
   // Marks skills available to all schools (common pool)
   isCommon: {
@@ -43,7 +43,7 @@ const skillSchema = new mongoose.Schema({
 });
 
 // Ensure normalizedName is set from name
-skillSchema.pre('save', function(next) {
+skillSchema.pre('save', function (next) {
   if (this.isModified('name') && this.name) {
     this.normalizedName = this.name.toString().trim().toLowerCase();
   }

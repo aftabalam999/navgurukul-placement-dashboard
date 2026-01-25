@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { settingsAPI, placementCycleAPI, campusAPI } from '../../services/api';
 import { Card, Button, Badge, LoadingSpinner, Alert } from '../../components/common/UIComponents';
 import toast from 'react-hot-toast';
-import { Plus } from 'lucide-react';
+import { Plus, MessageSquare } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 const Settings = () => {
@@ -37,6 +37,11 @@ const Settings = () => {
   const [aiConfig, setAiConfig] = useState({ hasApiKey: false, enabled: true, apiKeyPreview: null });
   const [newApiKey, setNewApiKey] = useState('');
   const [savingAiConfig, setSavingAiConfig] = useState(false);
+
+  // New Dynamic Lists states
+  const [newLocation, setNewLocation] = useState('');
+  const [editingRubric, setEditingRubric] = useState({}); // Stores local edits before save
+  const [companyFilters, setCompanyFilters] = useState({ search: '' });
 
   useEffect(() => {
     fetchSettings();
@@ -415,9 +420,13 @@ node scripts/promote_normalized_index_unique.js`;
     { id: 'institutions', label: 'Institutions', icon: '🏛️' },
     { id: 'analytics', label: 'Education Analytics', icon: '📊' },
     { id: 'softskills', label: 'Soft Skills', icon: '🤝' },
+    { id: 'rubrics', label: 'Proficiency Rubrics', icon: '💎' },
+    { id: 'locations', label: 'Locations', icon: '📍' },
+    { id: 'companies', label: 'Company Registry', icon: '🏢' },
     { id: 'cycles', label: 'Placement Cycles', icon: '📅' },
     { id: 'campuses', label: 'Campuses', icon: '🏫' },
-    { id: 'ai', label: 'AI Integration', icon: '🤖' }
+    { id: 'ai', label: 'AI Integration', icon: '🤖' },
+    { id: 'discord', label: 'Discord Integration', icon: <MessageSquare className="w-4 h-4" /> }
   ];
 
   if (loading) {
@@ -1366,6 +1375,351 @@ node scripts/promote_normalized_index_unique.js`;
             </div>
           </Card>
         </div>
+      )}
+
+      {/* Proficiency Rubrics Tab */}
+      {activeTab === 'rubrics' && (
+        <Card>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Skill Proficiency Rubrics</h3>
+              <p className="text-sm text-gray-600">Define what each level (1-4) means for student self-assessments.</p>
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                const rubrics = settings.proficiencyRubrics || {};
+                settingsAPI.updateProficiencyRubrics(rubrics)
+                  .then(() => toast.success('Rubrics updated'))
+                  .catch(() => toast.error('Failed to update'));
+              }}
+            >
+              Update Mastery Labels
+            </Button>
+          </div>
+
+          <div className="space-y-6">
+            {[1, 2, 3, 4].map(level => {
+              const rubric = settings.proficiencyRubrics?.[level.toString()] || { label: '', description: '' };
+              return (
+                <div key={level} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="flex items-center">
+                      <span className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-lg mr-3">
+                        {level}
+                      </span>
+                      <input
+                        type="text"
+                        className="flex-1 font-semibold text-gray-900 bg-transparent border-b border-transparent focus:border-blue-500 outline-none"
+                        value={rubric.label}
+                        onChange={(e) => {
+                          const updated = { ...settings.proficiencyRubrics };
+                          updated[level.toString()] = { ...rubric, label: e.target.value };
+                          setSettings({ ...settings, proficiencyRubrics: updated });
+                        }}
+                        placeholder={`Label for Level ${level}`}
+                      />
+                    </div>
+                    <div className="md:col-span-3">
+                      <textarea
+                        className="w-full text-sm text-gray-600 border border-gray-200 rounded p-2 focus:ring-1 focus:ring-blue-500 outline-none"
+                        rows={2}
+                        value={rubric.description}
+                        onChange={(e) => {
+                          const updated = { ...settings.proficiencyRubrics };
+                          updated[level.toString()] = { ...rubric, description: e.target.value };
+                          setSettings({ ...settings, proficiencyRubrics: updated });
+                        }}
+                        placeholder={`Detailed description of what Level ${level} expertise looks like...`}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
+
+      {/* Locations Tab */}
+      {activeTab === 'locations' && (
+        <Card>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Job Locations</h3>
+          <p className="text-sm text-gray-600 mb-4">Manage the master list of cities and regions available for job postings.</p>
+
+          <div className="flex gap-2 mb-6">
+            <input
+              type="text"
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="e.g. Noida, Gurgaon, London..."
+              value={newLocation}
+              onChange={(e) => setNewLocation(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && (async () => {
+                if (!newLocation.trim()) return;
+                const updated = [...(settings.jobLocations || []), newLocation.trim().split(',')[0].trim()];
+                setSettings({ ...settings, jobLocations: [...new Set(updated)] });
+                setNewLocation('');
+              })()}
+            />
+            <Button
+              variant="primary"
+              onClick={() => {
+                if (!newLocation.trim()) return;
+                const updated = [...(settings.jobLocations || []), newLocation.trim().split(',')[0].trim()];
+                setSettings({ ...settings, jobLocations: [...new Set(updated)] });
+                setNewLocation('');
+              }}
+            >
+              Add Location
+            </Button>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {(settings.jobLocations || []).sort().map((loc) => (
+              <span
+                key={loc}
+                className="inline-flex items-center px-3 py-1.5 bg-teal-100 text-teal-800 rounded-full text-sm"
+              >
+                {loc}
+                <button
+                  onClick={() => {
+                    const updated = settings.jobLocations.filter(l => l !== loc);
+                    setSettings({ ...settings, jobLocations: updated });
+                  }}
+                  className="ml-2 text-teal-600 hover:text-teal-800"
+                >
+                  <Plus className="w-4 h-4 rotate-45" />
+                </button>
+              </span>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Companies Tab */}
+      {activeTab === 'companies' && (
+        <Card>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Company Registry</h3>
+              <p className="text-sm text-gray-600">Master list of registered hiring partners.</p>
+            </div>
+            <div className="w-64">
+              <input
+                type="text"
+                placeholder="Search companies..."
+                className="w-full text-sm px-3 py-1.5 border border-gray-300 rounded"
+                value={companyFilters.search}
+                onChange={(e) => setCompanyFilters({ ...companyFilters, search: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {Object.entries(settings.masterCompanies || {})
+              .filter(([name]) => name.toLowerCase().includes((companyFilters.search || '').toLowerCase()))
+              .map(([name, data]) => (
+                <div key={name} className="p-4 border border-gray-200 rounded-lg flex items-start gap-4 hover:shadow-sm transition">
+                  <div className="flex-shrink-0 w-12 h-12 rounded border bg-gray-50 flex items-center justify-center overflow-hidden">
+                    {data.logo ? (
+                      <img src={data.logo} alt={name} className="w-8 h-8 object-contain" />
+                    ) : (
+                      <span className="text-gray-400 font-bold text-xl">{name[0]}</span>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-semibold text-gray-900 truncate">{name}</h4>
+                    {data.website && (
+                      <a href={data.website} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:underline truncate block">
+                        {data.website.replace(/^https?:\/\//, '')}
+                      </a>
+                    )}
+                    <button
+                      onClick={() => {
+                        if (confirm(`Remove "${name}" from registry?`)) {
+                          const updated = { ...settings.masterCompanies };
+                          delete updated[name];
+                          setSettings({ ...settings, masterCompanies: updated });
+                        }
+                      }}
+                      className="mt-2 text-xs text-red-500 hover:underline"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+          </div>
+          {Object.keys(settings.masterCompanies || {}).length === 0 && (
+            <p className="text-center py-12 text-gray-500 italic">No companies registered yet. They will appear here when added via Job Forms.</p>
+          )}
+        </Card>
+      )}
+
+      {/* Discord Integration Tab */}
+      {activeTab === 'discord' && (
+        <Card>
+          <div className="mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <MessageSquare className="w-5 h-5 text-indigo-600" />
+              Discord Integration
+            </h3>
+            <p className="text-sm text-gray-600 mt-1">
+              Configure the Discord bot for notifications and automation.
+            </p>
+          </div>
+
+          <div className="space-y-6">
+            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div>
+                <h4 className="font-medium text-gray-900">Enable Discord Integration</h4>
+                <p className="text-sm text-gray-500">Send notifications to Discord channels.</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={settings.discordConfig?.enabled || false}
+                  onChange={(e) => setSettings({
+                    ...settings,
+                    discordConfig: { ...settings.discordConfig, enabled: e.target.checked }
+                  })}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+              </label>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Bot Token</label>
+                <input
+                  type="password"
+                  value={settings.discordConfig?.botToken || ''}
+                  onChange={(e) => setSettings({
+                    ...settings,
+                    discordConfig: { ...settings.discordConfig, botToken: e.target.value }
+                  })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  placeholder="Sensitive token..."
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Server (Guild) ID</label>
+                <input
+                  type="text"
+                  value={settings.discordConfig?.guildId || ''}
+                  onChange={(e) => setSettings({
+                    ...settings,
+                    discordConfig: { ...settings.discordConfig, guildId: e.target.value }
+                  })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                  placeholder="Server ID"
+                />
+              </div>
+            </div>
+
+            <div className="border-t pt-4">
+              <h4 className="text-sm font-medium text-gray-900 mb-3">Channel Configuration (IDs)</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">New Job Postings</label>
+                  <input
+                    type="text"
+                    value={settings.discordConfig?.channels?.jobPostings || ''}
+                    onChange={(e) => setSettings({
+                      ...settings,
+                      discordConfig: {
+                        ...settings.discordConfig,
+                        channels: { ...settings.discordConfig?.channels, jobPostings: e.target.value }
+                      }
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                    placeholder="Channel ID"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Application Updates</label>
+                  <input
+                    type="text"
+                    value={settings.discordConfig?.channels?.applicationUpdates || ''}
+                    onChange={(e) => setSettings({
+                      ...settings,
+                      discordConfig: {
+                        ...settings.discordConfig,
+                        channels: { ...settings.discordConfig?.channels, applicationUpdates: e.target.value }
+                      }
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                    placeholder="Channel ID"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Profile Updates</label>
+                  <input
+                    type="text"
+                    value={settings.discordConfig?.channels?.profileUpdates || ''}
+                    onChange={(e) => setSettings({
+                      ...settings,
+                      discordConfig: {
+                        ...settings.discordConfig,
+                        channels: { ...settings.discordConfig?.channels, profileUpdates: e.target.value }
+                      }
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                    placeholder="Channel ID"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">General Notifications</label>
+                  <input
+                    type="text"
+                    value={settings.discordConfig?.channels?.general || ''}
+                    onChange={(e) => setSettings({
+                      ...settings,
+                      discordConfig: {
+                        ...settings.discordConfig,
+                        channels: { ...settings.discordConfig?.channels, general: e.target.value }
+                      }
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                    placeholder="Channel ID"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t pt-4">
+              <h4 className="text-sm font-medium text-gray-900 mb-3">Preferences</h4>
+              <div className="flex gap-6">
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={settings.discordConfig?.useThreads ?? true}
+                    onChange={(e) => setSettings({
+                      ...settings,
+                      discordConfig: { ...settings.discordConfig, useThreads: e.target.checked }
+                    })}
+                    className="rounded text-indigo-600 focus:ring-indigo-500"
+                  />
+                  Use Threads for Updates
+                </label>
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={settings.discordConfig?.mentionUsers ?? true}
+                    onChange={(e) => setSettings({
+                      ...settings,
+                      discordConfig: { ...settings.discordConfig, mentionUsers: e.target.checked }
+                    })}
+                    className="rounded text-indigo-600 focus:ring-indigo-500"
+                  />
+                  Mention Users (@)
+                </label>
+              </div>
+            </div>
+          </div>
+        </Card>
       )}
 
       {/* Save reminder */}

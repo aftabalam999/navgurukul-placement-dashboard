@@ -111,44 +111,44 @@ router.get('/google/callback', (req, res, next) => {
   // Delegate to passport
   passport.authenticate('google', { session: false })(req, res, next);
 }, async (req, res) => {
-    try {
-      // If passport rejected the user (e.g., non-navgurukul email), redirect to frontend with error
-      if (!req.user) {
-        const frontendBase = getFrontendBase();
-        return res.redirect(`${frontendBase}/login?error=domain_not_allowed`);
-      }
-
-      const user = req.user;
+  try {
+    // If passport rejected the user (e.g., non-navgurukul email), redirect to frontend with error
+    if (!req.user) {
       const frontendBase = getFrontendBase();
-
-      // If the account is not active, treat it as pending approval and redirect accordingly
-      if (!user.isActive) {
-        return res.redirect(`${frontendBase}/auth/pending-approval?email=${encodeURIComponent(user.email)}`);
-      }
-
-      // Generate JWT token
-      const token = jwt.sign(
-        { 
-          userId: user._id, 
-          email: user.email, 
-          role: user.role 
-        },
-        process.env.JWT_SECRET,
-        { expiresIn: '7d' }
-      );
-
-      // Create a short-lived, single-use code and redirect the user with the code
-      const code = createTokenEntry({ token, user: { id: user._id, email: user.email, role: user.role } }, 2 * 60 * 1000);
-      const redirectUrl = `${frontendBase}/auth/callback?code=${code}`;
-      res.redirect(redirectUrl);
-
-    } catch (error) {
-      console.error('Google callback error:', error);
-      const frontendBase = getFrontendBase();
-      // Redirect to the canonical frontend login path
-      res.redirect(`${frontendBase}/login?error=authentication_failed`);
+      return res.redirect(`${frontendBase}/login?error=domain_not_allowed`);
     }
+
+    const user = req.user;
+    const frontendBase = getFrontendBase();
+
+    // If the account is not active, treat it as pending approval and redirect accordingly
+    if (!user.isActive) {
+      return res.redirect(`${frontendBase}/auth/pending-approval?email=${encodeURIComponent(user.email)}`);
+    }
+
+    // Generate JWT token
+    const token = jwt.sign(
+      {
+        userId: user._id,
+        email: user.email,
+        role: user.role
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    // Create a short-lived, single-use code and redirect the user with the code
+    const code = createTokenEntry({ token, user: { id: user._id, email: user.email, role: user.role } }, 2 * 60 * 1000);
+    const redirectUrl = `${frontendBase}/auth/callback?code=${code}`;
+    res.redirect(redirectUrl);
+
+  } catch (error) {
+    console.error('Google callback error:', error);
+    const frontendBase = getFrontendBase();
+    // Redirect to the canonical frontend login path
+    res.redirect(`${frontendBase}/login?error=authentication_failed`);
   }
+}
 );
 
 // Logout (clear cookie)
@@ -188,17 +188,17 @@ router.post('/debug/verify-token', async (req, res) => {
 router.post('/approve-user', auth, async (req, res) => {
   try {
     const { userId, approvedRole } = req.body;
-    
+
     // Check if current user is manager
     if (req.user.role !== 'manager') {
       return res.status(403).json({ message: 'Only managers can approve users' });
     }
-    
+
     const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-    
+
     // Normalize approvedRole to accept both underscore and hyphen variants (frontend may send campus_poc)
     const normalizedRole = approvedRole ? String(approvedRole).replace('_', '-').trim() : undefined;
 
@@ -211,7 +211,7 @@ router.post('/approve-user', auth, async (req, res) => {
       user.role = approvedRole === 'campus_poc' ? 'campus-poc' : approvedRole;
     }
     await user.save();
-    
+
     // Create notification for approved user
     const Notification = require('../models/Notification');
     await Notification.create({
@@ -220,9 +220,9 @@ router.post('/approve-user', auth, async (req, res) => {
       title: 'Account Approved',
       message: `Your account has been approved with ${user.role} role. You can now access the platform.`,
     });
-    
-    res.json({ 
-      message: 'User approved successfully', 
+
+    res.json({
+      message: 'User approved successfully',
       user: {
         id: user._id,
         email: user.email,
@@ -230,7 +230,7 @@ router.post('/approve-user', auth, async (req, res) => {
         isActive: user.isActive
       }
     });
-    
+
   } catch (error) {
     console.error('User approval error:', error);
     res.status(500).json({ message: 'Server error during user approval' });
@@ -243,14 +243,14 @@ router.get('/pending-approvals', auth, async (req, res) => {
     if (req.user.role !== 'manager') {
       return res.status(403).json({ message: 'Only managers can view pending approvals' });
     }
-    
-    const pendingUsers = await User.find({ 
+
+    const pendingUsers = await User.find({
       isActive: false,
       authProvider: 'google'
     }).select('firstName lastName email role createdAt');
-    
+
     res.json(pendingUsers);
-    
+
   } catch (error) {
     console.error('Fetch pending approvals error:', error);
     res.status(500).json({ message: 'Server error fetching pending approvals' });
@@ -444,22 +444,6 @@ router.get('/me', auth, async (req, res) => {
 
     // Normalize softSkills for frontend convenience (return as object map key->rating)
     const userObj = user.toObject ? user.toObject() : user;
-    if (Array.isArray(userObj.studentProfile?.softSkills)) {
-      const toKey = (name) => {
-        if (!name) return '';
-        return name.split(/\s+/).map((w, i) => i === 0 ? w.toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1)).join('');
-      };
-      const map = {};
-      userObj.studentProfile.softSkills.forEach(s => {
-        if (!s) return;
-        const key = s.skillName ? toKey(s.skillName) : (s.skillId ? s.skillId.toString() : '');
-        if (key) map[key] = s.selfRating || 0;
-      });
-      // Expose both representations: array stays on userObj.studentProfile.softSkillsArray, and map on softSkills
-      userObj.studentProfile.softSkillsArray = userObj.studentProfile.softSkills;
-      userObj.studentProfile.softSkills = map;
-    }
-
     res.json(userObj);
   } catch (error) {
     console.error('Get user error:', error);

@@ -23,59 +23,11 @@ const jobReadinessRoutes = require('./routes/jobReadiness');
 const bulkUploadRoutes = require('./routes/bulkUpload');
 const utilsRoutes = require('./routes/utils');
 const questionRoutes = require('./routes/questions');
+const discordRoutes = require('./routes/discord');
 
 const app = express();
 
-// Middleware - CORS Configuration
-const allowedOrigins = [
-  'https://navgurukul-placement-frontend.onrender.com',
-  'http://localhost:3000',
-  'http://localhost:5173'
-];
-
-app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-
-    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
-      callback(null, true);
-    } else {
-      callback(null, true); // Allow all origins for now during testing
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
-}));
-
-// Handle preflight requests
-app.options('*', cors());
-
-// Session configuration for Passport
-app.use(session({
-  secret: process.env.SESSION_SECRET || 'your-secret-key',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
-  }
-}));
-
-// Initialize cookie parser and Passport
-app.use(cookieParser());
-app.use(passport.initialize());
-app.use(passport.session());
-
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-
-// Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/placement_dashboard')
-  .then(() => console.log('MongoDB connected successfully'))
-  .catch(err => console.error('MongoDB connection error:', err));
+// ... existing middleware ...
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -93,6 +45,7 @@ app.use('/api/job-readiness', jobReadinessRoutes);
 app.use('/api/bulk-upload', bulkUploadRoutes);
 app.use('/api/utils', utilsRoutes);
 app.use('/api/questions', questionRoutes);
+app.use('/api/discord', discordRoutes);
 
 // Health check with detailed status
 app.get('/api/health', async (req, res) => {

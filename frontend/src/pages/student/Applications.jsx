@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { applicationAPI } from '../../services/api';
 import { LoadingSpinner, StatusBadge, Pagination, EmptyState, ConfirmModal } from '../../components/common/UIComponents';
-import { FileText, ChevronRight, XCircle, Building, Calendar, CheckCircle, Clock, AlertCircle, GraduationCap, Briefcase } from 'lucide-react';
+import { FileText, ChevronRight, XCircle, Building, Calendar, CheckCircle, Clock, AlertCircle, GraduationCap, Briefcase, MessageCircle, ArrowRight, User } from 'lucide-react';
 import { format, formatDistanceToNow, differenceInDays, isPast, isFuture } from 'date-fns';
 import toast from 'react-hot-toast';
 
@@ -37,7 +37,7 @@ const StudentApplications = () => {
 
   const handleWithdraw = async () => {
     if (!withdrawingId) return;
-    
+
     try {
       await applicationAPI.withdraw(withdrawingId);
       toast.success('Application withdrawn successfully');
@@ -75,16 +75,16 @@ const StudentApplications = () => {
     if (!app.job?.interviewRounds || app.job.interviewRounds.length === 0) {
       return null;
     }
-    
+
     // Find the next pending round
     const nextRoundIndex = app.currentRound;
     if (nextRoundIndex >= app.job.interviewRounds.length) {
       return null;
     }
-    
+
     const nextRound = app.job.interviewRounds[nextRoundIndex];
     const roundResult = app.roundResults?.find(r => r.round === nextRoundIndex);
-    
+
     return {
       roundNumber: nextRoundIndex + 1,
       roundName: nextRound?.name || `Round ${nextRoundIndex + 1}`,
@@ -99,7 +99,7 @@ const StudentApplications = () => {
     const targetDate = new Date(date);
     const today = new Date();
     const days = differenceInDays(targetDate, today);
-    
+
     if (isPast(targetDate) && days !== 0) {
       return { text: `${Math.abs(days)} days ago`, isPast: true, days: Math.abs(days) };
     } else if (days === 0) {
@@ -117,63 +117,23 @@ const StudentApplications = () => {
         <p className="text-gray-600">Track your applications, upcoming rounds, and read feedback for each job</p>
       </div>
 
-      {/* Quick status counts */}
-      <div className="flex flex-wrap gap-3 items-center">
-        <div className="text-sm px-3 py-2 bg-gray-100 rounded">Applied: <strong>{applications.filter(a => a.status === 'applied').length}</strong></div>
-        <div className="text-sm px-3 py-2 bg-purple-100 rounded">Shortlisted: <strong>{applications.filter(a => a.status === 'shortlisted').length}</strong></div>
-        <div className="text-sm px-3 py-2 bg-yellow-100 rounded">In process: <strong>{applications.filter(a => a.status === 'in_progress').length}</strong></div>
-        <div className="text-sm px-3 py-2 bg-green-100 rounded">Selected: <strong>{applications.filter(a => a.status === 'selected').length}</strong></div>
-        <div className="text-sm px-3 py-2 bg-red-100 rounded">Rejected: <strong>{applications.filter(a => a.status === 'rejected').length}</strong></div>
+      {/* Quick status counts - Gen Z Pills */}
+      <div className="flex flex-wrap gap-4 items-center">
+        {[
+          { label: 'Applied', count: 'applied', color: 'bg-blue-50 text-blue-600 ring-blue-100' },
+          { label: 'Shortlisted', count: 'shortlisted', color: 'bg-purple-50 text-purple-600 ring-purple-100' },
+          { label: 'In Process', count: 'in_progress', color: 'bg-yellow-50 text-yellow-600 ring-yellow-100' },
+          { label: 'Selected', count: 'selected', color: 'bg-green-50 text-green-600 ring-green-100' },
+          { label: 'Rejected', count: 'rejected', color: 'bg-red-50 text-red-600 ring-red-100' },
+        ].map((pill) => (
+          <div key={pill.label} className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold ring-1 transition-all ${pill.color}`}>
+            {pill.label}
+            <span className="bg-white px-2 rounded-full text-[10px] shadow-sm">{applications.filter(a => a.status === pill.count).length}</span>
+          </div>
+        ))}
       </div>
 
-      {/* Feedback & comments grouped by company */}
-      {(() => {
-        const feedbackByCompany = applications.reduce((acc, app) => {
-          const company = app.job?.company?.name || 'Unknown';
-          const entries = [];
-          if (app.feedback) entries.push({ source: 'Application', text: app.feedback, date: app.feedbackAt });
-          if (app.roundResults && app.roundResults.length > 0) {
-            app.roundResults.forEach(r => {
-              if (r.feedback) entries.push({ source: r.roundName || `Round ${r.round + 1}`, text: r.feedback, date: r.evaluatedAt });
-            });
-          }
-          if (entries.length > 0) {
-            acc[company] = acc[company] || [];
-            acc[company].push({ jobTitle: app.job?.title, entries });
-          }
-          return acc;
-        }, {});
 
-        if (Object.keys(feedbackByCompany).length === 0) return null;
-
-        return (
-          <div className="card">
-            <h3 className="text-lg font-semibold mb-3">Feedback & Comments</h3>
-            <div className="space-y-4">
-              {Object.entries(feedbackByCompany).map(([company, jobs]) => (
-                <div key={company}>
-                  <h4 className="font-medium mb-2">{company}</h4>
-                  <div className="space-y-2">
-                    {jobs.map(j => (
-                      <div key={j.jobTitle} className="p-3 border rounded bg-white">
-                        <div className="font-medium">{j.jobTitle}</div>
-                        <div className="mt-2 space-y-1 text-sm text-gray-700">
-                          {j.entries.map((e, idx) => (
-                            <div key={idx} className="p-2 bg-gray-50 rounded">
-                              <div className="text-xs text-gray-500">{e.source}</div>
-                              <div>{e.text}</div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-      })()}
 
       {/* Applications List */}
       {loading ? (
@@ -186,161 +146,178 @@ const StudentApplications = () => {
             const nextStep = getNextStep(app);
             const daysInfo = nextStep?.scheduledDate ? getDaysInfo(nextStep.scheduledDate) : null;
             const isInternship = app.job?.jobType === 'internship';
-            
+
             return (
-            <div key={app._id} className="card hover:shadow-md transition-shadow">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex items-start gap-4">
-                  <div className={`w-12 h-12 rounded-lg flex items-center justify-center shrink-0 ${
-                    isInternship ? 'bg-purple-100' : 'bg-gray-100'
+              <div
+                key={app._id}
+                onClick={() => viewDetails(app._id)}
+                className={`group relative card overflow-hidden border-2 transition-all hover:shadow-2xl hover:-translate-y-1 cursor-pointer ${app.status === 'selected' ? 'border-green-400 bg-green-50 shadow-green-100' :
+                  app.status === 'rejected' ? 'border-red-100' : 'border-white hover:border-primary-100'
                   }`}>
-                    {isInternship 
-                      ? <GraduationCap className="w-6 h-6 text-purple-500" />
-                      : <Briefcase className="w-6 h-6 text-gray-400" />
-                    }
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-gray-900">{app.job?.title}</h3>
-                      {isInternship && (
-                        <span className="text-xs px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full">
-                          Internship
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-gray-600">{app.job?.company?.name}</p>
-                    <div className="flex items-center gap-3 mt-2 text-sm text-gray-500">
-                      <span className="flex items-center gap-1">
-                        <Calendar className="w-4 h-4" />
-                        Applied: {format(new Date(app.createdAt), 'MMM dd, yyyy')}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+                {app.status === 'selected' && <div className="absolute top-0 right-0 w-32 h-32 bg-green-200 blur-3xl opacity-20 -mr-16 -mt-16 pointer-events-none" />}
 
-                <div className="flex items-center gap-3">
-                  <StatusBadge status={app.status} />
-                  <Link to={`/student/jobs/${app.job?._id}`} className="p-2 hover:bg-gray-100 rounded-lg">
-                    <ChevronRight className="w-5 h-5" />
-                  </Link>
-                </div>
-              </div>
-
-              {/* Progress Bar with Round Details */}
-              {['applied', 'shortlisted', 'in_progress'].includes(app.status) && app.job?.interviewRounds && app.job.interviewRounds.length > 0 && (
-                <div className="mt-4 pt-4 border-t">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-sm font-medium text-gray-700">Interview Progress</span>
-                    <span className="text-sm font-medium">
-                      Round {app.currentRound} of {app.job.interviewRounds.length}
-                    </span>
-                  </div>
-                  
-                  {/* Visual Progress Steps */}
-                  <div className="flex items-center gap-1 mb-4">
-                    {app.job.interviewRounds.map((round, index) => {
-                      const roundResult = app.roundResults?.find(r => r.round === index);
-                      const isPassed = roundResult?.status === 'passed';
-                      const isFailed = roundResult?.status === 'failed';
-                      const isCurrent = index === app.currentRound;
-                      const isScheduled = roundResult?.status === 'scheduled';
-                      
-                      return (
-                        <div key={index} className="flex-1 flex flex-col items-center">
-                          <div className={`w-full h-2 rounded-full ${
-                            isPassed ? 'bg-green-500' :
-                            isFailed ? 'bg-red-500' :
-                            isScheduled ? 'bg-yellow-500' :
-                            isCurrent ? 'bg-blue-300' : 'bg-gray-200'
-                          }`} />
-                          <span className="text-xs text-gray-500 mt-1 truncate max-w-full" title={round.name}>
-                            {round.name || `R${index + 1}`}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+                  <div className="flex items-start gap-4">
+                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-inner transition-transform group-hover:scale-110 ${isInternship ? 'bg-purple-100' : 'bg-blue-50'
+                      }`}>
+                      {isInternship
+                        ? <GraduationCap className="w-7 h-7 text-purple-600" />
+                        : <Briefcase className="w-7 h-7 text-blue-500" />
+                      }
+                    </div>
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <h3 className="text-xl font-bold text-gray-900 tracking-tight">{app.job?.title}</h3>
+                        {isInternship && (
+                          <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 bg-purple-600 text-white rounded">
+                            Intern
                           </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {/* Next Step Info */}
-                  {nextStep && (
-                    <div className={`p-3 rounded-lg ${
-                      daysInfo?.isToday ? 'bg-yellow-50 border border-yellow-200' :
-                      daysInfo?.isPast ? 'bg-red-50 border border-red-200' :
-                      'bg-blue-50 border border-blue-200'
-                    }`}>
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-start gap-2">
-                          <Clock className={`w-4 h-4 mt-0.5 ${
-                            daysInfo?.isToday ? 'text-yellow-600' :
-                            daysInfo?.isPast ? 'text-red-600' : 'text-blue-600'
-                          }`} />
-                          <div>
-                            <p className="font-medium text-gray-900">
-                              Next: {nextStep.roundName}
-                              {nextStep.roundType && (
-                                <span className="text-gray-500 font-normal"> ({nextStep.roundType.replace('_', ' ')})</span>
-                              )}
-                            </p>
-                            {nextStep.scheduledDate ? (
-                              <p className="text-sm text-gray-600">
-                                Scheduled: {format(new Date(nextStep.scheduledDate), 'MMM dd, yyyy h:mm a')}
-                              </p>
-                            ) : (
-                              <p className="text-sm text-gray-500">Date to be announced</p>
-                            )}
-                          </div>
-                        </div>
-                        {daysInfo && (
-                          <div className={`text-right ${
-                            daysInfo.isToday ? 'text-yellow-700' :
-                            daysInfo.isPast ? 'text-red-700' : 'text-blue-700'
-                          }`}>
-                            <p className="font-semibold text-lg">{daysInfo.days}</p>
-                            <p className="text-xs">{daysInfo.isToday ? 'Today!' : daysInfo.isPast ? 'days overdue' : 'days left'}</p>
-                          </div>
+                        )}
+                        {app.status === 'selected' && (
+                          <span className="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 bg-green-600 text-white rounded animate-pulse">
+                            Hired!
+                          </span>
                         )}
                       </div>
+                      <p className="text-gray-500 font-medium flex items-center gap-1.5">
+                        <Building className="w-4 h-4" />
+                        {app.job?.company?.name}
+                      </p>
+                      <div className="flex items-center gap-3 mt-3">
+                        <span className="flex items-center gap-1.5 text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded border border-gray-100 uppercase tracking-tighter font-bold">
+                          {app.status}
+                        </span>
+                        <span className="flex items-center gap-1.5 text-xs text-gray-400">
+                          <Clock className="w-3 h-3" />
+                          Applied {format(new Date(app.createdAt), 'MMM dd')}
+                        </span>
+                      </div>
                     </div>
-                  )}
-                </div>
-              )}
+                  </div>
 
-              {/* Completed Rounds Summary */}
-              {app.roundResults && app.roundResults.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {app.roundResults.map((result, idx) => (
-                    <span key={idx} className={`text-xs px-2 py-1 rounded-full flex items-center gap-1 ${
-                      result.status === 'passed' ? 'bg-green-100 text-green-700' :
-                      result.status === 'failed' ? 'bg-red-100 text-red-700' :
-                      result.status === 'scheduled' ? 'bg-yellow-100 text-yellow-700' :
-                      'bg-gray-100 text-gray-600'
-                    }`}>
-                      {result.status === 'passed' && <CheckCircle className="w-3 h-3" />}
-                      {result.status === 'failed' && <XCircle className="w-3 h-3" />}
-                      {result.status === 'scheduled' && <Clock className="w-3 h-3" />}
-                      {result.roundName || `Round ${result.round + 1}`}
-                    </span>
-                  ))}
+                  <div className="flex items-center justify-between md:justify-end gap-3 border-t md:border-none pt-4 md:pt-0">
+                    <Link
+                      to={`/student/jobs/${app.job?._id}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-10 h-10 flex items-center justify-center bg-white border border-gray-100 text-gray-400 hover:bg-primary-600 hover:text-white rounded-xl transition-all shadow-sm"
+                    >
+                      <ChevronRight className="w-5 h-5" />
+                    </Link>
+                  </div>
                 </div>
-              )}
 
-              {/* Actions */}
-              {['applied', 'shortlisted', 'in_progress'].includes(app.status) && (
-                <div className="mt-4 pt-4 border-t flex justify-end">
-                  <button
-                    onClick={() => {
-                      setWithdrawingId(app._id);
-                      setShowWithdrawModal(true);
-                    }}
-                    className="text-sm text-red-600 hover:text-red-700 flex items-center gap-1"
-                  >
-                    <XCircle className="w-4 h-4" />
-                    Withdraw Application
-                  </button>
-                </div>
-              )}
-            </div>
-          )})}
+                {/* Progress Bar with Round Details */}
+                {['applied', 'shortlisted', 'in_progress'].includes(app.status) && app.job?.interviewRounds && app.job.interviewRounds.length > 0 && (
+                  <div className="mt-4 pt-4 border-t">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-sm font-medium text-gray-700">Interview Progress</span>
+                      <span className="text-sm font-medium">
+                        Round {app.currentRound} of {app.job.interviewRounds.length}
+                      </span>
+                    </div>
+
+                    {/* Visual Progress Steps */}
+                    <div className="flex items-center gap-1 mb-4">
+                      {app.job.interviewRounds.map((round, index) => {
+                        const roundResult = app.roundResults?.find(r => r.round === index);
+                        const isPassed = roundResult?.status === 'passed';
+                        const isFailed = roundResult?.status === 'failed';
+                        const isCurrent = index === app.currentRound;
+                        const isScheduled = roundResult?.status === 'scheduled';
+
+                        return (
+                          <div key={index} className="flex-1 flex flex-col items-center">
+                            <div className={`w-full h-2 rounded-full ${isPassed ? 'bg-green-500' :
+                              isFailed ? 'bg-red-500' :
+                                isScheduled ? 'bg-yellow-500' :
+                                  isCurrent ? 'bg-blue-300' : 'bg-gray-200'
+                              }`} />
+                            <span className="text-xs text-gray-500 mt-1 truncate max-w-full" title={round.name}>
+                              {round.name || `R${index + 1}`}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Next Step Info */}
+                    {nextStep && (
+                      <div className={`p-3 rounded-lg ${daysInfo?.isToday ? 'bg-yellow-50 border border-yellow-200' :
+                        daysInfo?.isPast ? 'bg-red-50 border border-red-200' :
+                          'bg-blue-50 border border-blue-200'
+                        }`}>
+                        <div className="flex items-start justify-between">
+                          <div className="flex items-start gap-2">
+                            <Clock className={`w-4 h-4 mt-0.5 ${daysInfo?.isToday ? 'text-yellow-600' :
+                              daysInfo?.isPast ? 'text-red-600' : 'text-blue-600'
+                              }`} />
+                            <div>
+                              <p className="font-medium text-gray-900">
+                                Next: {nextStep.roundName}
+                                {nextStep.roundType && (
+                                  <span className="text-gray-500 font-normal"> ({nextStep.roundType.replace('_', ' ')})</span>
+                                )}
+                              </p>
+                              {nextStep.scheduledDate ? (
+                                <p className="text-sm text-gray-600">
+                                  Scheduled: {format(new Date(nextStep.scheduledDate), 'MMM dd, yyyy h:mm a')}
+                                </p>
+                              ) : (
+                                <p className="text-sm text-gray-500">Date to be announced</p>
+                              )}
+                            </div>
+                          </div>
+                          {daysInfo && (
+                            <div className={`text-right ${daysInfo.isToday ? 'text-yellow-700' :
+                              daysInfo.isPast ? 'text-red-700' : 'text-blue-700'
+                              }`}>
+                              <p className="font-semibold text-lg">{daysInfo.days}</p>
+                              <p className="text-xs">{daysInfo.isToday ? 'Today!' : daysInfo.isPast ? 'days overdue' : 'days left'}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Completed Rounds Summary */}
+                {app.roundResults && app.roundResults.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {app.roundResults.map((result, idx) => (
+                      <span key={idx} className={`text-xs px-2 py-1 rounded-full flex items-center gap-1 ${result.status === 'passed' ? 'bg-green-100 text-green-700' :
+                        result.status === 'failed' ? 'bg-red-100 text-red-700' :
+                          result.status === 'scheduled' ? 'bg-yellow-100 text-yellow-700' :
+                            'bg-gray-100 text-gray-600'
+                        }`}>
+                        {result.status === 'passed' && <CheckCircle className="w-3 h-3" />}
+                        {result.status === 'failed' && <XCircle className="w-3 h-3" />}
+                        {result.status === 'scheduled' && <Clock className="w-3 h-3" />}
+                        {result.roundName || `Round ${result.round + 1}`}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Actions */}
+                {['applied', 'shortlisted', 'in_progress'].includes(app.status) && (
+                  <div className="mt-4 pt-4 border-t flex justify-end">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setWithdrawingId(app._id);
+                        setShowWithdrawModal(true);
+                      }}
+                      className="text-sm text-red-600 hover:text-red-700 flex items-center gap-1"
+                    >
+                      <XCircle className="w-4 h-4" />
+                      Withdraw Application
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          })}
 
           <Pagination
             current={pagination.current}
@@ -361,140 +338,101 @@ const StudentApplications = () => {
         />
       )}
 
-      {/* Application Details Modal */}
-      {showDetails && selectedApp && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-fadeIn">
-            <div className="p-6 border-b sticky top-0 bg-white">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold">{selectedApp.job?.title}</h3>
-                  <p className="text-gray-600">{selectedApp.job?.company?.name}</p>
-                </div>
-                <StatusBadge status={selectedApp.status} />
+      {/* Application Details Side Drawer */}
+      <div className={`fixed inset-0 z-50 transition-opacity duration-300 ${showDetails ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+        <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" onClick={() => setShowDetails(false)} />
+        <div className={`absolute right-0 top-0 bottom-0 w-full max-w-md bg-white shadow-2xl transform transition-transform duration-300 flex flex-col ${showDetails ? 'translate-x-0' : 'translate-x-full'}`}>
+          <div className="p-6 border-b flex items-center justify-between bg-gray-50">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-white rounded-xl border flex items-center justify-center">
+                <Building className="w-5 h-5 text-gray-400" />
+              </div>
+              <div>
+                <h3 className="font-bold text-gray-900">{selectedApp?.job?.title}</h3>
+                <p className="text-xs text-gray-500">{selectedApp?.job?.company?.name}</p>
               </div>
             </div>
+            <button onClick={() => setShowDetails(false)} className="p-2 hover:bg-gray-200 rounded-full text-gray-400"><XCircle className="w-6 h-6" /></button>
+          </div>
 
-            <div className="p-6 space-y-6">
-              {/* Timeline */}
-              <div>
-                <h4 className="font-semibold mb-4">Application Timeline</h4>
-                <div className="space-y-4">
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center shrink-0">
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                    </div>
-                    <div>
-                      <p className="font-medium">Applied</p>
-                      <p className="text-sm text-gray-500">
-                        {format(new Date(selectedApp.createdAt), 'MMMM dd, yyyy')}
-                      </p>
-                    </div>
-                  </div>
-
-                  {selectedApp.roundResults?.map((round, index) => (
-                    <div key={index} className="flex items-start gap-3">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                        round.status === 'passed' ? 'bg-green-100' :
-                        round.status === 'failed' ? 'bg-red-100' :
-                        round.status === 'scheduled' ? 'bg-yellow-100' : 'bg-blue-100'
-                      }`}>
-                        <span className={`text-sm font-medium ${
-                          round.status === 'passed' ? 'text-green-600' :
-                          round.status === 'failed' ? 'text-red-600' :
-                          round.status === 'scheduled' ? 'text-yellow-600' : 'text-blue-600'
-                        }`}>
-                          {index + 1}
-                        </span>
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <p className="font-medium">{round.roundName || `Round ${round.round}`}</p>
-                          <StatusBadge status={round.status} />
-                        </div>
-                        {round.scheduledDate && (
-                          <p className="text-sm text-gray-500 mt-1 flex items-center gap-1">
-                            <Calendar className="w-3 h-3" />
-                            {round.status === 'scheduled' ? 'Scheduled: ' : 'Completed: '}
-                            {format(new Date(round.scheduledDate), 'MMM dd, yyyy h:mm a')}
-                            {round.status === 'scheduled' && (
-                              <span className="ml-2 text-yellow-600 font-medium">
-                                ({formatDistanceToNow(new Date(round.scheduledDate), { addSuffix: true })})
-                              </span>
-                            )}
-                          </p>
-                        )}
-                        {round.feedback && (
-                          <p className="text-sm text-gray-600 mt-1">{round.feedback}</p>
-                        )}
-                        {round.score && (
-                          <p className="text-sm text-gray-500 mt-1">Score: {round.score}</p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-
-                  {selectedApp.status === 'selected' && (
-                    <div className="p-4 rounded-lg bg-green-50 border border-green-200 relative overflow-hidden">
-                      <span className="absolute top-2 right-3 text-2xl animate-pop">🎉</span>
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-green-500 rounded-full flex items-center justify-center shrink-0">
-                          <CheckCircle className="w-6 h-6 text-white" />
-                        </div>
-                        <div>
-                          <p className="font-semibold text-green-700 text-lg">You've been selected! 🎉</p>
-                          <p className="text-sm text-gray-700">Congratulations on your placement. We'll send next steps and contact details shortly.</p>
-                          {selectedApp.feedback && (
-                            <p className="text-sm text-gray-700 mt-2">Feedback: {selectedApp.feedback}</p>
-                          )}
-                        </div>
-                        <div className="ml-auto">
-                          <button className="px-4 py-2 bg-green-600 text-white rounded">View Next Steps</button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {selectedApp.status === 'rejected' && (
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center shrink-0">
-                        <XCircle className="w-4 h-4 text-red-600" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-red-600">Not Selected</p>
-                        {selectedApp.feedback && (
-                          <p className="text-sm text-gray-600 mt-1">{selectedApp.feedback}</p>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
+          <div className="flex-1 overflow-y-auto p-6 space-y-8">
+            {/* Status Hero */}
+            <div className="text-center space-y-2 py-4">
+              <div className="inline-block px-4 py-1.5 rounded-full bg-primary-100 text-primary-700 text-xs font-black uppercase tracking-widest mb-2">
+                {selectedApp?.status}
               </div>
-
-              {/* Special Recommendation */}
-              {selectedApp.specialRecommendation?.isRecommended && (
-                <div className="p-4 bg-purple-50 rounded-lg">
-                  <p className="font-medium text-purple-700">Special Recommendation</p>
-                  <p className="text-sm text-purple-600 mt-1">
-                    You've received a recommendation from your Campus POC!
-                  </p>
-                  {selectedApp.specialRecommendation.reason && (
-                    <p className="text-sm text-gray-600 mt-2">
-                      "{selectedApp.specialRecommendation.reason}"
-                    </p>
-                  )}
-                </div>
+              {selectedApp?.status === 'selected' ? (
+                <h4 className="text-2xl font-black text-green-600">Congratulations! 🎉</h4>
+              ) : selectedApp?.status === 'rejected' ? (
+                <h4 className="text-2xl font-black text-red-600">Not This Time</h4>
+              ) : (
+                <h4 className="text-2xl font-black text-gray-900">Application Active</h4>
               )}
             </div>
 
-            <div className="p-6 border-t bg-gray-50 flex justify-end">
-              <button onClick={() => setShowDetails(false)} className="btn btn-secondary">
-                Close
-              </button>
+            {/* Conversational Timeline */}
+            <div className="space-y-6">
+              <h5 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest border-b pb-2">Application Journey</h5>
+
+              <div className="space-y-6 relative">
+                <div className="absolute left-4 top-2 bottom-2 w-0.5 bg-gray-100" />
+
+                {/* Latest Message (Conversational Style) */}
+                {selectedApp?.feedback && (
+                  <div className="relative pl-10">
+                    <div className="absolute left-0 w-8 h-8 rounded-full bg-primary-600 flex items-center justify-center z-10 shadow-lg shadow-primary-100">
+                      <MessageCircle className="w-4 h-4 text-white" />
+                    </div>
+                    <div className="bg-primary-50 p-4 rounded-2xl rounded-tl-none border border-primary-100">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10px] font-bold text-primary-700 uppercase">Latest Note from Team</span>
+                      </div>
+                      <p className="text-sm text-gray-800 leading-relaxed italic italic font-medium">"{selectedApp.feedback}"</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Round Results */}
+                {selectedApp?.roundResults?.slice().reverse().map((round, idx) => (
+                  <div key={idx} className="relative pl-10">
+                    <div className={`absolute left-0 w-8 h-8 rounded-full flex items-center justify-center z-10 border-2 bg-white ${round.status === 'passed' ? 'border-green-500 text-green-500' :
+                      round.status === 'failed' ? 'border-red-500 text-red-500' : 'border-blue-500 text-blue-500'
+                      }`}>
+                      {round.status === 'passed' ? <CheckCircle className="w-4 h-4" /> :
+                        round.status === 'failed' ? <XCircle className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
+                    </div>
+                    <div className="bg-white border rounded-2xl p-4 shadow-sm hover:shadow-md transition-shadow">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-bold text-gray-900">{round.roundName || `Round ${round.round + 1}`}</span>
+                        <span className={`text-[10px] font-bold uppercase tracking-tighter px-2 py-0.5 rounded-full ${round.status === 'passed' ? 'bg-green-100 text-green-700' :
+                          round.status === 'failed' ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'
+                          }`}>{round.status}</span>
+                      </div>
+                      {round.feedback && <p className="text-xs text-gray-500 mt-2 bg-gray-50 p-2 rounded-lg italic">"{round.feedback}"</p>}
+                      {round.evaluatedAt && <p className="text-[10px] text-gray-400 mt-2">{format(new Date(round.evaluatedAt), 'MMM dd, yyyy')}</p>}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Initial Application */}
+                <div className="relative pl-10">
+                  <div className="absolute left-0 w-8 h-8 rounded-full bg-gray-100 border-2 border-white flex items-center justify-center z-10">
+                    <FileText className="w-4 h-4 text-gray-400" />
+                  </div>
+                  <div className="bg-gray-50 p-4 rounded-2xl">
+                    <span className="text-sm font-bold text-gray-700">Application Submitted</span>
+                    <p className="text-[10px] text-gray-400 mt-1">{selectedApp && format(new Date(selectedApp.createdAt), 'MMM dd, yyyy')}</p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
+
+          <div className="p-6 border-t bg-gray-50">
+            <button onClick={() => setShowDetails(false)} className="w-full btn btn-secondary py-3 rounded-xl font-bold">Close Drawer</button>
+          </div>
         </div>
-      )}
+      </div>
 
       {/* Withdraw Confirmation Modal */}
       <ConfirmModal

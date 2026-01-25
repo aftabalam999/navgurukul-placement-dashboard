@@ -81,6 +81,32 @@ const settingsSchema = new mongoose.Schema({
     type: [pipelineStageSchema],
     default: []
   },
+  // Master list of companies
+  masterCompanies: {
+    type: Map,
+    of: {
+      name: String,
+      website: String,
+      description: String,
+      logo: String, // Favicon/Logo URL
+      addedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+    },
+    default: new Map()
+  },
+  // Dynamic job locations
+  jobLocations: {
+    type: [String],
+    default: ['Bangalore', 'Pune', 'New Delhi', 'Mumbai', 'Hyderabad', 'Remote']
+  },
+  // Skill proficiency descriptions (Levels 1-4)
+  proficiencyRubrics: {
+    type: Map,
+    of: {
+      label: String,
+      description: String
+    },
+    default: new Map()
+  },
   // AI Integration Settings
   aiConfig: {
     googleApiKeys: [{
@@ -92,6 +118,21 @@ const settingsSchema = new mongoose.Schema({
       isActive: { type: Boolean, default: true }
     }],
     enabled: { type: Boolean, default: true }
+  },
+  // Discord Integration Settings
+  discordConfig: {
+    enabled: { type: Boolean, default: false },
+    botToken: { type: String, default: '' },
+    guildId: { type: String, default: '' },      // Server ID
+    channels: {
+      jobPostings: { type: String, default: '' },           // Channel ID for new jobs
+      applicationUpdates: { type: String, default: '' },    // Channel ID for app updates
+      profileUpdates: { type: String, default: '' },        // Channel ID for profile changes
+      general: { type: String, default: '' }                // General notifications
+    },
+    useThreads: { type: Boolean, default: true },   // Create threads for each job/student
+    mentionUsers: { type: Boolean, default: true }, // @mention users in notifications
+    testMode: { type: Boolean, default: false }     // Test mode (don't send actual notifications)
   },
   // Last updated by
   lastUpdatedBy: {
@@ -183,6 +224,17 @@ const DEFAULT_ROLE_CATEGORIES = [
   'Software Developer',
   'Teaching'
 ];
+
+// Default Proficiency Rubrics
+const DEFAULT_PROFICIENCY_RUBRICS = new Map([
+  ['1', { label: 'Basic', description: 'Has basic theoretical knowledge and can perform simple tasks with guidance.' }],
+  ['2', { label: 'Intermediate', description: 'Can work independently on routine tasks and understands core principles.' }],
+  ['3', { label: 'Advanced', description: 'Can handle complex problems, optimize workflows, and guide others.' }],
+  ['4', { label: 'Expert', description: 'Deep mastery of the subject with ability to architect systems and lead strategy.' }]
+]);
+
+// Default Job Locations
+const DEFAULT_JOB_LOCATIONS = ['Bangalore', 'Pune', 'New Delhi', 'Mumbai', 'Hyderabad', 'Remote'];
 
 // Ensure only one settings document exists
 settingsSchema.statics.getSettings = async function () {
@@ -310,6 +362,30 @@ settingsSchema.statics.getSettings = async function () {
       schoolsChanged = true;
     }
 
+    // Ensure proficiencyRubrics is a Map and initialized
+    if (!settings.proficiencyRubrics || typeof settings.proficiencyRubrics.has !== 'function') {
+      console.log('Warning: settings.proficiencyRubrics is not a Map. Initializing...');
+      const source = settings.proficiencyRubrics && typeof settings.proficiencyRubrics === 'object' ? settings.proficiencyRubrics : {};
+      const entries = (source instanceof Map) ? source : Object.entries(source);
+      settings.proficiencyRubrics = new Map(entries.length > 0 ? entries : DEFAULT_PROFICIENCY_RUBRICS);
+      schoolsChanged = true;
+    } else if (settings.proficiencyRubrics.size === 0) {
+      settings.proficiencyRubrics = DEFAULT_PROFICIENCY_RUBRICS;
+      schoolsChanged = true;
+    }
+
+    // Ensure jobLocations exists
+    if (!settings.jobLocations || settings.jobLocations.length === 0) {
+      settings.jobLocations = DEFAULT_JOB_LOCATIONS;
+      schoolsChanged = true;
+    }
+
+    // Ensure masterCompanies is initialized
+    if (!settings.masterCompanies) {
+      settings.masterCompanies = new Map();
+      schoolsChanged = true;
+    }
+
     if (schoolsChanged) {
       console.log('Saving settings changes...');
       await settings.save();
@@ -351,6 +427,7 @@ settingsSchema.statics.updateSettings = async function (updates, userId) {
   if (updates.inactiveSchools) settings.inactiveSchools = updates.inactiveSchools;
   if (updates.jobPipelineStages) settings.jobPipelineStages = updates.jobPipelineStages;
   if (updates.roleCategories) settings.roleCategories = updates.roleCategories;
+  if (updates.discordConfig) settings.discordConfig = updates.discordConfig;
   if (updates.higherEducationOptions) {
     if (!(updates.higherEducationOptions instanceof Map)) {
       settings.higherEducationOptions = new Map(Object.entries(updates.higherEducationOptions));

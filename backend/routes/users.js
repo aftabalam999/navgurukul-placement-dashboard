@@ -3,6 +3,7 @@ const router = express.Router();
 const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
+const discordService = require('../services/discordService');
 const { auth, authorize, sameCampus } = require('../middleware/auth');
 const upload = require('../middleware/upload');
 
@@ -174,6 +175,24 @@ router.put('/profile', auth, authorize('student'), upload.single('resume'), asyn
     if (updates.lastName) user.lastName = updates.lastName;
     if (updates.phone) user.phone = updates.phone;
 
+    // Update Discord info
+    if (updates.discord) {
+      if (!user.discord) user.discord = { userId: '', username: '', verified: false };
+
+      // If ID changes, reset verification
+      if (updates.discord.userId !== undefined) {
+        if (user.discord.userId !== updates.discord.userId) {
+          user.discord.verified = false;
+          user.discord.verifiedAt = null;
+        }
+        user.discord.userId = updates.discord.userId;
+      }
+
+      if (updates.discord.username !== undefined) {
+        user.discord.username = updates.discord.username;
+      }
+    }
+
     // Update campus
     if (updates.campus) {
       user.campus = updates.campus;
@@ -183,7 +202,7 @@ router.put('/profile', auth, authorize('student'), upload.single('resume'), asyn
     if (user.role === 'student') {
       const profileUpdates = [
         'linkedIn', 'github', 'portfolio', 'about',
-        'currentSchool', 'currentModule', 'customModuleDescription', 'resumeLink'
+        'currentSchool', 'currentModule', 'customModuleDescription', 'resumeLink', 'houseName'
       ];
 
       // Validate resume link if present before applying
@@ -242,39 +261,15 @@ router.put('/profile', auth, authorize('student'), upload.single('resume'), asyn
       }
 
       if (updates.softSkills !== undefined) {
-        // Accept both object mapping (from frontend) and array (legacy/new clients)
-        const existing = user.studentProfile.softSkills || [];
-
-        if (Array.isArray(updates.softSkills)) {
-          // Replace or merge arrays (incoming array expected to have objects { skillName, selfRating })
-          // We'll merge by skillName to avoid duplicates
-          const map = new Map(existing.map(s => [s.skillName, s]));
-          updates.softSkills.forEach(s => {
-            if (!s) return;
-            const key = s.skillName || (s.skillId && s.skillId.toString());
-            const prev = map.get(key) || {};
-            map.set(key, { ...prev, ...s });
-          });
-          user.studentProfile.softSkills = Array.from(map.values());
-        } else if (typeof updates.softSkills === 'object' && updates.softSkills !== null) {
-          // Incoming is an object mapping keys -> rating. Convert to array entries.
-          const arr = Array.isArray(existing) ? existing.slice() : [];
-          const toLabel = (key) => key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase()).trim();
-          for (const [k, v] of Object.entries(updates.softSkills)) {
-            const label = toLabel(k);
-            const found = arr.find(s => (s.skillName && s.skillName.toLowerCase() === label.toLowerCase()));
-            if (found) {
-              found.selfRating = Number(v) || 0;
-            } else {
-              arr.push({ skillName: label, selfRating: Number(v) || 0 });
-            }
-          }
-          user.studentProfile.softSkills = arr;
-        }
+        user.studentProfile.softSkills = Array.isArray(updates.softSkills) ? updates.softSkills : [];
       }
 
-      if (updates.technicalSkills) {
-        user.studentProfile.technicalSkills = updates.technicalSkills;
+      if (updates.technicalSkills !== undefined) {
+        user.studentProfile.technicalSkills = Array.isArray(updates.technicalSkills) ? updates.technicalSkills : [];
+      }
+
+      if (updates.officeSkills !== undefined) {
+        user.studentProfile.officeSkills = Array.isArray(updates.officeSkills) ? updates.officeSkills : [];
       }
 
       // Handle higher education
@@ -406,7 +401,7 @@ router.put('/students/:studentId/profile/approve', auth, authorize('campus_poc',
       return res.status(400).json({ message: 'Invalid status' });
     }
 
-    const student = await User.findById(studentId);
+    const student = await User.findById(studentId).populate('campus');
     if (!student) {
       return res.status(404).json({ message: 'Student not found' });
     }
@@ -436,6 +431,9 @@ router.put('/students/:studentId/profile/approve', auth, authorize('campus_poc',
       link: '/profile',
       relatedEntity: { type: 'user', id: studentId }
     });
+
+    // Send to Discord
+    await discordService.sendProfileUpdate(student, status, req.user);
 
     res.json({ message: `Profile ${status === 'approved' ? 'approved' : 'sent for revision'} successfully` });
   } catch (error) {
@@ -555,8 +553,16 @@ router.put('/students/:studentId/profile', auth, authorize('campus_poc', 'coordi
       student.studentProfile.englishProficiency = { ...student.studentProfile.englishProficiency, ...updates.englishProficiency };
     }
 
-    if (updates.softSkills) {
-      student.studentProfile.softSkills = { ...student.studentProfile.softSkills, ...updates.softSkills };
+    if (updates.technicalSkills !== undefined) {
+      student.studentProfile.technicalSkills = Array.isArray(updates.technicalSkills) ? updates.technicalSkills : [];
+    }
+
+    if (updates.softSkills !== undefined) {
+      student.studentProfile.softSkills = Array.isArray(updates.softSkills) ? updates.softSkills : [];
+    }
+
+    if (updates.officeSkills !== undefined) {
+      student.studentProfile.officeSkills = Array.isArray(updates.officeSkills) ? updates.officeSkills : [];
     }
 
     await student.save();
@@ -776,26 +782,36 @@ router.get('/eligible-count', auth, authorize('coordinator', 'manager'), async (
       currentModule,
       hometown,
       homestate,
-      gender
+      gender,
+      femaleOnly,
+      minAttendance,
+      minMonthsAtNavgurukul,
+      readinessRequirement,
+      houses,
+      englishSpeaking,
+      englishWriting,
+      certifications,
+      requiredSkills
     } = req.query;
 
     // Build query for students
     let query = {
       role: 'student',
-      'studentProfile.profileStatus': 'approved'
+      'studentProfile.profileStatus': 'approved',
+      isActive: true
     };
 
     // Academic requirements
     if (tenthRequired === 'true' && tenthMinPercentage) {
-      query['studentProfile.tenthMarks'] = { $gte: parseFloat(tenthMinPercentage) };
+      query['studentProfile.tenthGrade.percentage'] = { $gte: parseFloat(tenthMinPercentage) };
     }
 
     if (twelfthRequired === 'true' && twelfthMinPercentage) {
-      query['studentProfile.twelfthMarks'] = { $gte: parseFloat(twelfthMinPercentage) };
+      query['studentProfile.twelfthGrade.percentage'] = { $gte: parseFloat(twelfthMinPercentage) };
     }
 
     if (higherEducationRequired === 'true' && higherEducationMinPercentage) {
-      query['studentProfile.higherEducationMarks'] = { $gte: parseFloat(higherEducationMinPercentage) };
+      query['studentProfile.higherEducation.percentage'] = { $gte: parseFloat(higherEducationMinPercentage) };
     }
 
     // Navgurukul specific filters
@@ -817,7 +833,7 @@ router.get('/eligible-count', auth, authorize('coordinator', 'manager'), async (
       query['studentProfile.currentModule'] = currentModule;
     }
 
-    // New Filters
+    // Geographic filters
     if (hometown) {
       // Case insensitive match for hometown district
       query['studentProfile.hometown.district'] = { $regex: new RegExp(`^${hometown}$`, 'i') };
@@ -827,26 +843,116 @@ router.get('/eligible-count', auth, authorize('coordinator', 'manager'), async (
       query['studentProfile.hometown.state'] = { $regex: new RegExp(`^${homestate}$`, 'i') };
     }
 
-    if (gender && gender !== 'any') {
+    // Gender filters
+    if (femaleOnly === 'true') {
+      query.gender = 'female';
+    } else if (gender && gender !== 'any') {
       query.gender = gender;
     }
 
-    // Checking for Council Post Eligibility
-    // (This requires looking into user's councilService array)
-    // format of query parameter: councilPost=PostName,minMonths=6
-    // But typically passed as separate params or json
-    // Let's assume passed as `councilPost` and `minCouncilMonths`
+    // House filter
+    if (houses) {
+      const houseList = houses.split(',').filter(h => h.trim());
+      if (houseList.length > 0) {
+        query['studentProfile.houseName'] = { $in: houseList };
+      }
+    }
+
+    // Attendance filter
+    if (minAttendance) {
+      query['studentProfile.attendance'] = { $gte: parseFloat(minAttendance) };
+    }
+
+    // Minimum months at Navgurukul
+    if (minMonthsAtNavgurukul) {
+      const minDate = new Date();
+      minDate.setMonth(minDate.getMonth() - parseInt(minMonthsAtNavgurukul));
+      query['studentProfile.joiningDate'] = { $lte: minDate };
+    }
+
+    // English proficiency (CEFR levels)
+    const cefrOrder = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+
+    if (englishSpeaking) {
+      const minIndex = cefrOrder.indexOf(englishSpeaking);
+      if (minIndex !== -1) {
+        const acceptableLevels = cefrOrder.slice(minIndex);
+        query['studentProfile.englishProficiency.speaking'] = { $in: acceptableLevels };
+      }
+    }
+
+    if (englishWriting) {
+      const minIndex = cefrOrder.indexOf(englishWriting);
+      if (minIndex !== -1) {
+        const acceptableLevels = cefrOrder.slice(minIndex);
+        query['studentProfile.englishProficiency.writing'] = { $in: acceptableLevels };
+      }
+    }
+
+    // Certifications filter
+    if (certifications) {
+      const certList = certifications.split(',').filter(c => c.trim());
+      if (certList.length > 0) {
+        query['studentProfile.certifications'] = { $all: certList };
+      }
+    }
+
+    // Job Readiness Requirement
+    if (readinessRequirement === 'yes') {
+      // Student must be 100% ready (all criteria met)
+      query['studentProfile.jobReadiness.overallStatus'] = 'ready';
+    } else if (readinessRequirement === 'in_progress') {
+      // Student must be at least 30% ready (in progress or ready)
+      query['studentProfile.jobReadiness.overallStatus'] = { $in: ['in_progress', 'ready'] };
+    }
+    // If 'no' or not specified, no filter applied
+
+    // Council Post Eligibility
     const { councilPost, minCouncilMonths } = req.query;
 
     if (councilPost) {
       // Using $elemMatch to find students who have the specific post with enough months and approved status
-      query.studentProfile.councilService = {
+      query['studentProfile.councilService'] = {
         $elemMatch: {
-          post: councilPost, // Exact match
+          post: councilPost,
           monthsServed: { $gte: parseInt(minCouncilMonths || 0) },
           status: 'approved'
         }
       };
+    }
+
+    // Required Skills Filter
+    // This is more complex - we need to check if students have ALL required skills at the minimum proficiency
+    if (requiredSkills) {
+      try {
+        const skillsArray = JSON.parse(requiredSkills);
+
+        if (Array.isArray(skillsArray) && skillsArray.length > 0) {
+          // Build conditions for each required skill
+          const skillConditions = skillsArray.map(reqSkill => {
+            const skillId = reqSkill.skill?._id || reqSkill.skill;
+            const minProficiency = reqSkill.proficiencyLevel || 1;
+
+            return {
+              'studentProfile.technicalSkills': {
+                $elemMatch: {
+                  skillId: skillId,
+                  selfRating: { $gte: minProficiency }
+                }
+              }
+            };
+          });
+
+          // Student must match ALL skill requirements
+          if (!query.$and) {
+            query.$and = [];
+          }
+          query.$and.push(...skillConditions);
+        }
+      } catch (parseError) {
+        console.error('Error parsing requiredSkills:', parseError);
+        // Continue without skills filter if parsing fails
+      }
     }
 
     const count = await User.countDocuments(query);
