@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 
 const Settings = () => {
   const [settings, setSettings] = useState(null);
+  const [initialSettings, setInitialSettings] = useState(null); // snapshot of fetched settings to detect accidental wipes
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
@@ -184,6 +185,8 @@ const Settings = () => {
       setLoading(true);
       const response = await settingsAPI.getSettings();
       setSettings(response.data.data);
+      // Keep a snapshot to detect accidental overwrites
+      setInitialSettings(JSON.parse(JSON.stringify(response.data.data)));
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to fetch settings');
     } finally {
@@ -214,10 +217,25 @@ node scripts/promote_normalized_index_unique.js`;
 
   const saveSettings = async () => {
     try {
+      // Detect accidental wipes: compare lengths of major arrays to the initial snapshot
+      if (initialSettings) {
+        const keysToCheck = ['rolePreferences', 'technicalSkills', 'degreeOptions', 'softSkills', 'inactiveSchools'];
+        const emptied = keysToCheck.filter(k => {
+          const before = initialSettings[k] || [];
+          const after = settings[k] || [];
+          return before.length > 0 && after.length === 0;
+        });
+        if (emptied.length > 0) {
+          const confirmMsg = `The following settings are about to be cleared: ${emptied.join(', ')}. Are you sure you want to continue?`;
+          if (!window.confirm(confirmMsg)) return;
+        }
+      }
+
       setSaving(true);
       setError(null);
       await settingsAPI.updateSettings(settings, user?._id);
       setSuccess('Settings saved successfully');
+      setInitialSettings(JSON.parse(JSON.stringify(settings)));
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to save settings');
