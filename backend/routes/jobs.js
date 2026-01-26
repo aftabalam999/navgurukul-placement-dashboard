@@ -1421,6 +1421,16 @@ router.post('/:id/export', auth, authorize('coordinator', 'manager'), async (req
       jobReadinessLookup[jrd.student._id.toString()] = jrd;
     });
 
+    // Helper for skill rating to labels
+    const ratingToLevel = (rating) => {
+      const num = parseInt(rating);
+      if (num >= 4) return 'Expert';
+      if (num >= 3) return 'Advanced';
+      if (num >= 2) return 'Intermediate';
+      if (num >= 1) return 'Basic';
+      return '';
+    };
+
     // Enhanced field mapping with all student data
     const fieldMap = {
       // 1. Basic Student Info
@@ -1475,19 +1485,19 @@ router.post('/:id/export', auth, authorize('coordinator', 'manager'), async (req
       // 5. Skills
       technicalSkills: (app) => {
         const skills = app.student?.studentProfile?.technicalSkills || [];
-        return skills.map(s => `${s.skillName} (${s.selfRating}/4)`).join('; ');
+        return skills.map(s => `${s.skillName} - ${ratingToLevel(s.selfRating)}`).filter(s => !s.endsWith(' - ')).join('; ');
       },
       communication: (app) => {
         const skill = app.student?.studentProfile?.softSkills?.find(s => s.skillName?.toLowerCase().includes('communication'));
-        return skill ? `${skill.selfRating}/4` : '';
+        return skill ? ratingToLevel(skill.selfRating) : '';
       },
       collaboration: (app) => {
         const skill = app.student?.studentProfile?.softSkills?.find(s => s.skillName?.toLowerCase().includes('collaboration'));
-        return skill ? `${skill.selfRating}/4` : '';
+        return skill ? ratingToLevel(skill.selfRating) : '';
       },
       problemSolving: (app) => {
         const skill = app.student?.studentProfile?.softSkills?.find(s => s.skillName?.toLowerCase().includes('problem solving'));
-        return skill ? `${skill.selfRating}/4` : '';
+        return skill ? ratingToLevel(skill.selfRating) : '';
       },
       languages: (app) => {
         const langs = app.student?.studentProfile?.languages || [];
