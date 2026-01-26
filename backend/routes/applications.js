@@ -494,12 +494,11 @@ router.post('/export/xls', auth, authorize('coordinator', 'manager'), async (req
     }
 
     const applications = await Application.find(query)
-      .populate('student', 'firstName lastName email phone gender studentProfile campus')
       .populate({
         path: 'student',
         populate: [
-          { path: 'campus', select: 'name' },
-          { path: 'studentProfile.skills.skill' }
+          { path: 'campus', select: 'name code' },
+          { path: 'studentProfile.skills.skill', select: 'name' }
         ]
       })
       .populate('job', 'title company.name location jobType salary')
@@ -508,40 +507,86 @@ router.post('/export/xls', auth, authorize('coordinator', 'manager'), async (req
     // Available fields mapping (Ordered for exports)
     const fieldMap = {
       // 1. Basic Student Info
-      studentName: (app) => `${app.student.firstName} ${app.student.lastName}`,
-      email: (app) => app.student.email,
-      phone: (app) => app.student.phone || '',
-      gender: (app) => app.student.gender || '',
+      studentName: (app) => `${app.student?.firstName || ''} ${app.student?.lastName || ''}`.trim(),
+      email: (app) => app.student?.email || '',
+      phone: (app) => app.student?.phone || '',
+      gender: (app) => app.student?.gender || '',
+      hometown: (app) => {
+        const h = app.student?.studentProfile?.hometown;
+        if (!h) return '';
+        return [h.village, h.district, h.state, h.pincode].filter(p => p).join(', ');
+      },
+      about: (app) => app.student?.studentProfile?.about || '',
 
       // 2. Education (Navgurukul)
-      school: (app) => app.student.studentProfile?.currentSchool || '',
-      joiningDate: (app) => app.student.studentProfile?.dateOfJoining ? new Date(app.student.studentProfile.dateOfJoining).toLocaleDateString() : '',
-      currentModule: (app) => app.student.studentProfile?.currentModule || '',
-      attendance: (app) => app.student.studentProfile?.attendancePercentage || '',
+      school: (app) => app.student?.studentProfile?.currentSchool || '',
+      joiningDate: (app) => app.student?.studentProfile?.joiningDate ? new Date(app.student.studentProfile.joiningDate).toLocaleDateString() : '',
+      currentModule: (app) => app.student?.studentProfile?.currentModule || '',
+      attendance: (app) => app.student?.studentProfile?.attendancePercentage || '',
 
       // 3. Profile Links
-      resume: (app) => app.student.studentProfile?.resume || '',
-      github: (app) => app.student.studentProfile?.github || '',
-      portfolio: (app) => app.student.studentProfile?.portfolio || '',
-      linkedIn: (app) => app.student.studentProfile?.linkedIn || '',
+      resume: (app) => {
+        const profile = app.student?.studentProfile;
+        const link = app.resume || profile?.resumeLink || '';
+        if (link && (link.startsWith('http'))) return link;
+        if (profile?.resume) {
+          const baseUrl = process.env.VITE_API_URL ? process.env.VITE_API_URL.replace('/api', '') : '';
+          return `${baseUrl}/${profile.resume}`.replace(/\/+/g, '/').replace(':/', '://');
+        }
+        return link || '';
+      },
+      github: (app) => app.student?.studentProfile?.github || '',
+      portfolio: (app) => app.student?.studentProfile?.portfolio || '',
+      linkedIn: (app) => app.student?.studentProfile?.linkedIn || '',
 
       // 4. Academic Background
-      higherEducation: (app) => app.student.studentProfile?.higherEducation?.map(edu =>
-        `${edu.degree} in ${edu.fieldOfStudy} from ${edu.institution} (${edu.startYear}-${edu.endYear})`
-      ).join('; ') || '',
-      tenthPercentage: (app) => app.student.studentProfile?.tenthGrade?.percentage || '',
-      twelfthPercentage: (app) => app.student.studentProfile?.twelfthGrade?.percentage || '',
+      professionalExperience: (app) => app.student?.studentProfile?.professionalExperience || '',
+      higherEducation: (app) => {
+        const eduList = app.student?.studentProfile?.higherEducation || [];
+        return eduList.map(edu =>
+          `${edu.degree || 'Degree'} - ${edu.institution || 'N/A'} (${edu.startYear || '?'}-${edu.endYear || '?'})`
+        ).join('; ');
+      },
+      tenthBoard: (app) => app.student?.studentProfile?.tenthGrade?.board || '',
+      tenthPercentage: (app) => app.student?.studentProfile?.tenthGrade?.percentage || '',
+      tenthPassingYear: (app) => app.student?.studentProfile?.tenthGrade?.passingYear || '',
+      twelfthBoard: (app) => app.student?.studentProfile?.twelfthGrade?.board || '',
+      twelfthPercentage: (app) => app.student?.studentProfile?.twelfthGrade?.percentage || '',
+      twelfthPassingYear: (app) => app.student?.studentProfile?.twelfthGrade?.passingYear || '',
 
       // 5. Skills & Rest
-      jobTitle: (app) => app.job.title,
-      company: (app) => app.job.company.name,
-      location: (app) => app.job.location,
-      jobType: (app) => app.job.jobType,
-      salary: (app) => app.job.salary?.min && app.job.salary?.max ? `${app.job.salary.min}-${app.job.salary.max}` : '',
-      status: (app) => app.status,
-      appliedDate: (app) => app.createdAt.toISOString().split('T')[0],
+      technicalSkills: (app) => {
+        const skills = app.student?.studentProfile?.technicalSkills || [];
+        return skills.map(s => `${s.skillName} (${s.selfRating}/4)`).join('; ');
+      },
+      communication: (app) => {
+        const skill = app.student?.studentProfile?.softSkills?.find(s => s.skillName?.toLowerCase().includes('communication'));
+        return skill ? `${skill.selfRating}/4` : '';
+      },
+      collaboration: (app) => {
+        const skill = app.student?.studentProfile?.softSkills?.find(s => s.skillName?.toLowerCase().includes('collaboration'));
+        return skill ? `${skill.selfRating}/4` : '';
+      },
+      problemSolving: (app) => {
+        const skill = app.student?.studentProfile?.softSkills?.find(s => s.skillName?.toLowerCase().includes('problem solving'));
+        return skill ? `${skill.selfRating}/4` : '';
+      },
+      languages: (app) => {
+        const langs = app.student?.studentProfile?.languages || [];
+        return langs.map(l => `${l.language} (S:${l.speaking}, W:${l.writing})`).join('; ');
+      },
+      courses: (app) => {
+        const courses = app.student?.studentProfile?.courses || [];
+        return courses.map(c => `${c.courseName} (${c.provider})`).join('; ');
+      },
+      jobTitle: (app) => app.job?.title || '',
+      company: (app) => app.job?.company?.name || '',
+      location: (app) => app.job?.location || '',
+      status: (app) => app.status || '',
+      appliedDate: (app) => app.createdAt ? new Date(app.createdAt).toISOString().split('T')[0] : '',
+      expectedSalary: (app) => app.student?.studentProfile?.expectedSalary || '',
       coverLetter: (app) => app.coverLetter || '',
-      feedback: (app) => app.feedback || ''
+      feedback: (app) => app.feedback || app.coordinatorFeedback || ''
     };
 
     // Maintain consistent column order based on fieldMap indices

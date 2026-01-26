@@ -1401,7 +1401,6 @@ router.post('/:id/export', auth, authorize('coordinator', 'manager'), async (req
     const applications = await Application.find({ job: id })
       .populate({
         path: 'student',
-        select: 'firstName lastName email phone gender studentProfile campus',
         populate: [
           { path: 'campus', select: 'name code' },
           { path: 'studentProfile.skills.skill', select: 'name' }
@@ -1424,102 +1423,99 @@ router.post('/:id/export', auth, authorize('coordinator', 'manager'), async (req
 
     // Enhanced field mapping with all student data
     const fieldMap = {
-      // Basic Student Info
-      studentName: (app) => `${app.student.firstName} ${app.student.lastName}`,
-      email: (app) => app.student.email,
-      phone: (app) => app.student.phone || '',
-      gender: (app) => app.student.gender || '',
+      // 1. Basic Student Info
+      studentName: (app) => `${app.student?.firstName || ''} ${app.student?.lastName || ''}`.trim(),
+      email: (app) => app.student?.email || '',
+      phone: (app) => app.student?.phone || '',
+      gender: (app) => app.student?.gender || '',
       hometown: (app) => {
-        const hometown = app.student.studentProfile?.hometown;
+        const hometown = app.student?.studentProfile?.hometown;
         if (!hometown) return '';
-        return `${hometown.village || ''}, ${hometown.district || ''}, ${hometown.state || ''} - ${hometown.pincode || ''}`.replace(/^,\s*|,\s*$/g, '');
+        const parts = [hometown.village, hometown.district, hometown.state, hometown.pincode].filter(p => p);
+        return parts.join(', ');
       },
+      about: (app) => app.student?.studentProfile?.about || '',
 
       // 2. Navgurukul Education
-      currentSchool: (app) => app.student.studentProfile?.currentSchool || '',
-      joiningDate: (app) => app.student.studentProfile?.dateOfJoining ? new Date(app.student.studentProfile.dateOfJoining).toLocaleDateString() : '',
-      currentModule: (app) => app.student.studentProfile?.currentModule || '',
-      attendance: (app) => app.student.studentProfile?.attendancePercentage || '',
+      currentSchool: (app) => app.student?.studentProfile?.currentSchool || '',
+      joiningDate: (app) => app.student?.studentProfile?.joiningDate ? new Date(app.student.studentProfile.joiningDate).toLocaleDateString() : '',
+      currentModule: (app) => app.student?.studentProfile?.currentModule || '',
+      attendance: (app) => app.student?.studentProfile?.attendancePercentage || '',
 
       // 3. Profile Links
-      resume: (app) => app.student.studentProfile?.resume || '',
-      github: (app) => app.student.studentProfile?.github || '',
-      portfolio: (app) => app.student.studentProfile?.portfolio || '',
-      linkedIn: (app) => app.student.studentProfile?.linkedIn || '',
+      resume: (app) => {
+        const profile = app.student?.studentProfile;
+        const link = app.resume || profile?.resumeLink || '';
+        if (link && (link.startsWith('http'))) return link;
+        if (profile?.resume) {
+          const baseUrl = process.env.VITE_API_URL ? process.env.VITE_API_URL.replace('/api', '') : '';
+          return `${baseUrl}/${profile.resume}`.replace(/\/+/g, '/').replace(':/', '://');
+        }
+        return link || '';
+      },
+      github: (app) => app.student?.studentProfile?.github || '',
+      portfolio: (app) => app.student?.studentProfile?.portfolio || '',
+      linkedIn: (app) => app.student?.studentProfile?.linkedIn || '',
 
-      // Academic Background
-      higherEducation: (app) => app.student.studentProfile?.higherEducation?.map(edu =>
-        `${edu.degree} in ${edu.fieldOfStudy} from ${edu.institution} (${edu.startYear}-${edu.endYear})`
-      ).join('; ') || '',
-      tenthBoard: (app) => app.student.studentProfile?.tenthGrade?.board || '',
-      tenthPercentage: (app) => app.student.studentProfile?.tenthGrade?.percentage || '',
-      tenthPassingYear: (app) => app.student.studentProfile?.tenthGrade?.passingYear || '',
-      tenthState: (app) => app.student.studentProfile?.tenthGrade?.state || '',
-      twelfthBoard: (app) => app.student.studentProfile?.twelfthGrade?.board || '',
-      twelfthPercentage: (app) => app.student.studentProfile?.twelfthGrade?.percentage || '',
-      twelfthPassingYear: (app) => app.student.studentProfile?.twelfthGrade?.passingYear || '',
-      twelfthState: (app) => app.student.studentProfile?.twelfthGrade?.state || '',
+      // 4. Academic Background
+      professionalExperience: (app) => app.student?.studentProfile?.professionalExperience || '',
+      higherEducation: (app) => {
+        const eduList = app.student?.studentProfile?.higherEducation || [];
+        return eduList.map(edu =>
+          `${edu.degree || 'Degree'} - ${edu.institution || 'N/A'} (${edu.startYear || '?'}-${edu.endYear || '?'})`
+        ).join('; ');
+      },
+      tenthBoard: (app) => app.student?.studentProfile?.tenthGrade?.board || '',
+      tenthPercentage: (app) => app.student?.studentProfile?.tenthGrade?.percentage || '',
+      tenthPassingYear: (app) => app.student?.studentProfile?.tenthGrade?.passingYear || '',
+      twelfthBoard: (app) => app.student?.studentProfile?.twelfthGrade?.board || '',
+      twelfthPercentage: (app) => app.student?.studentProfile?.twelfthGrade?.percentage || '',
+      twelfthPassingYear: (app) => app.student?.studentProfile?.twelfthGrade?.passingYear || '',
 
-      // Skills
-      technicalSkills: (app) => app.student.studentProfile?.technicalSkills?.map(skill =>
-        `${skill.skillName} (${skill.selfRating}/4)`
-      ).join('; ') || '',
-      communication: (app) => app.student.studentProfile?.softSkills?.communication || '',
-      collaboration: (app) => app.student.studentProfile?.softSkills?.collaboration || '',
-      creativity: (app) => app.student.studentProfile?.softSkills?.creativity || '',
-      criticalThinking: (app) => app.student.studentProfile?.softSkills?.criticalThinking || '',
-      problemSolving: (app) => app.student.studentProfile?.softSkills?.problemSolving || '',
-      languages: (app) => app.student.studentProfile?.languages?.map(lang =>
-        `${lang.language} (S:${lang.speaking}, W:${lang.writing})`
-      ).join('; ') || '',
-      courses: (app) => app.student.studentProfile?.courses?.map(course =>
-        `${course.courseName} (${course.provider})`
-      ).join('; ') || '',
+      // 5. Skills
+      technicalSkills: (app) => {
+        const skills = app.student?.studentProfile?.technicalSkills || [];
+        return skills.map(s => `${s.skillName} (${s.selfRating}/4)`).join('; ');
+      },
+      communication: (app) => {
+        const skill = app.student?.studentProfile?.softSkills?.find(s => s.skillName?.toLowerCase().includes('communication'));
+        return skill ? `${skill.selfRating}/4` : '';
+      },
+      collaboration: (app) => {
+        const skill = app.student?.studentProfile?.softSkills?.find(s => s.skillName?.toLowerCase().includes('collaboration'));
+        return skill ? `${skill.selfRating}/4` : '';
+      },
+      problemSolving: (app) => {
+        const skill = app.student?.studentProfile?.softSkills?.find(s => s.skillName?.toLowerCase().includes('problem solving'));
+        return skill ? `${skill.selfRating}/4` : '';
+      },
+      languages: (app) => {
+        const langs = app.student?.studentProfile?.languages || [];
+        return langs.map(l => `${l.language} (S:${l.speaking}, W:${l.writing})`).join('; ');
+      },
+      courses: (app) => {
+        const courses = app.student?.studentProfile?.courses || [];
+        return courses.map(c => `${c.courseName} (${c.provider})`).join('; ');
+      },
 
-      // Application Info
-      status: (app) => app.status,
-      appliedDate: (app) => app.createdAt.toISOString().split('T')[0],
+      // 6. Application Info & Rest
+      jobTitle: (app) => app.job?.title || '',
+      company: (app) => app.job?.company?.name || '',
+      status: (app) => app.status || '',
+      appliedDate: (app) => app.createdAt ? new Date(app.createdAt).toISOString().split('T')[0] : '',
       currentRound: (app) => app.currentRound || 0,
       feedback: (app) => app.feedback || '',
-
-      // Rest of the fields
-      professionalExperience: (app) => '', // Placeholder for future data
-      customModuleDescription: (app) => app.student.studentProfile?.customModuleDescription || '',
-      campus: (app) => app.student.campus?.name || '',
-      campusCode: (app) => app.student.campus?.code || '',
-      openForRoles: (app) => app.student.studentProfile?.openForRoles?.join('; ') || '',
-      about: (app) => app.student.studentProfile?.about || '',
-      expectedSalary: (app) => app.student.studentProfile?.expectedSalary || '',
-      profileStatus: (app) => app.student.studentProfile?.profileStatus || '',
-      jobTitle: (app) => app.job.title,
-      company: (app) => app.job.company.name,
-      location: (app) => app.job.location,
-      jobType: (app) => app.job.jobType,
-      salary: (app) => app.job.salary?.min && app.job.salary?.max ? `${app.job.salary.min}-${app.job.salary.max}` : '',
-      customResponses: (app) => app.customResponses?.map(cr =>
-        `${cr.requirement}: ${cr.response ? 'Yes' : 'No'}`
-      ).join('; ') || '',
-      jobReadinessCompleted: (app) => {
-        const jrd = jobReadinessLookup[app.student._id.toString()];
-        return jrd ? 'Yes' : 'No';
-      },
+      expectedSalary: (app) => app.student?.studentProfile?.expectedSalary || '',
       jobReadinessStatus: (app) => {
-        const jrd = jobReadinessLookup[app.student._id.toString()];
-        return jrd?.status || 'Not Started';
-      },
-      jobReadinessCriteria: (app) => {
-        const jrd = jobReadinessLookup[app.student._id.toString()];
-        if (!jrd?.criteria) return '';
-        return jrd.criteria.map(c =>
-          `${c.name}: ${c.studentResponse || c.studentLink || (c.completed ? 'Completed' : 'Pending')}`
-        ).join('; ');
+        const jrd = jobReadinessLookup[app.student?._id?.toString()];
+        return jrd?.status || 'Pending';
       }
     };
 
     // Priority fields that must always come first if selected
     const fixedPriority = [
-      'studentName', 'campus', 'currentSchool', 
-      'resume', 'github', 'portfolio', 'linkedIn', 
+      'studentName', 'campus', 'currentSchool',
+      'resume', 'github', 'portfolio', 'linkedIn',
       'about'
     ];
 
@@ -1527,10 +1523,10 @@ router.post('/:id/export', auth, authorize('coordinator', 'manager'), async (req
     // 1. Extract selected fields that are in the priority list (keep priority order)
     // 2. Extract remaining fields (keep user's selection order)
     const incomingFields = fields?.length > 0 ? fields : Object.keys(fieldMap);
-    
+
     const prioritizedSelection = fixedPriority.filter(pk => incomingFields.includes(pk));
     const dynamicSelection = incomingFields.filter(ik => !fixedPriority.includes(ik));
-    
+
     const selectedFields = [...prioritizedSelection, ...dynamicSelection];
     const layout = req.body.layout || 'resume'; // 'resume' or 'table'
 
