@@ -48,11 +48,11 @@ const CoordinatorForum = () => {
         }
     };
 
-    // Group questions by company
+    // Group questions by company conversation
     const groupedQuestions = questions.reduce((acc, q) => {
-        const company = q.companyName || q.jobTitle || 'General Inquiry';
-        if (!acc[company]) acc[company] = [];
-        acc[company].push(q);
+        const groupKey = q.companyName || q.jobTitle || 'General Inquiry';
+        if (!acc[groupKey]) acc[groupKey] = [];
+        acc[groupKey].push(q);
         return acc;
     }, {});
 
@@ -77,9 +77,13 @@ const CoordinatorForum = () => {
                                 <Building className="w-6 h-6" />
                             </div>
                             <div className="text-left overflow-hidden">
-                                <h3 className="font-bold text-gray-900 truncate">{company}</h3>
+                                <h3 className="font-bold text-gray-900 truncate">
+                                    {lastQuestion.companyName || lastQuestion.jobTitle || 'General Inquiry'}
+                                </h3>
                                 <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight mt-0.5">
-                                    {lastQuestion.jobTitle} • {format(new Date(lastQuestion.createdAt), 'MMM d, yyyy')}
+                                    {(lastQuestion.companyName && lastQuestion.jobTitle && lastQuestion.companyName !== lastQuestion.jobTitle) ? lastQuestion.jobTitle : ''}
+                                    {(lastQuestion.companyName && lastQuestion.jobTitle && lastQuestion.companyName !== lastQuestion.jobTitle) && ' • '}
+                                    {format(new Date(lastQuestion.createdAt), 'MMM d, yyyy')}
                                 </p>
                                 <p className="text-xs text-indigo-600 truncate mt-1 font-semibold">
                                     {unanswered > 0 ? `⚠️ ${unanswered} pending` : '✅ All resolved'}

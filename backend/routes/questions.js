@@ -29,10 +29,9 @@ router.get('/', auth, async (req, res) => {
             answer: q.answer,
             answeredAt: q.answeredAt,
             createdAt: q.createdAt,
+            companyName: q.companyName,
             jobTitle: q.job?.title,
             jobDeadline: q.job?.applicationDeadline,
-            // Hide askedBy for anonymity unless answered (optional, but requested "anonymous")
-            // We will never send askedBy name to frontend for public view
         }));
 
         res.json(result);
