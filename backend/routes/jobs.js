@@ -1529,16 +1529,10 @@ router.post('/:id/export', auth, authorize('coordinator', 'manager'), async (req
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="${job.title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}_applications_report.pdf"`);
 
-      // Handle orientation based on layout
-      const isLandscape = layout === 'table' && selectedFields.length > 5;
-      const pdfSize = isLandscape ? 'A4' : 'A4';
-      const pdfLayout = isLandscape ? 'landscape' : 'portrait';
-
-
       const doc = new PDFDocument({
         margin: 40,
-        size: pdfSize,
-        layout: pdfLayout,
+        size: 'A4',
+        layout: 'portrait',
         info: {
           Title: `Job Applications Report - ${job.title}`,
           Author: 'NavGurukul Placement Dashboard',
@@ -1549,135 +1543,57 @@ router.post('/:id/export', auth, authorize('coordinator', 'manager'), async (req
 
       doc.pipe(res);
 
-      const pageWidth = isLandscape ? 842 : 595;
+      const pageWidth = 595;
       const margin = 40;
       const contentWidth = pageWidth - (margin * 2);
 
-      // Add NavGurukul Header
-      doc.fontSize(24).fillColor('#1e40af').font('Helvetica-Bold').text('NavGurukul', margin, 40);
-      doc.fontSize(10).fillColor('#64748b').font('Helvetica').text('Placement Dashboard', margin, 68);
+      // 1. Cover Page - Job Information
+      doc.fontSize(28).fillColor('#1e40af').font('Helvetica-Bold').text('NavGurukul', margin, 60);
+      doc.fontSize(12).fillColor('#64748b').font('Helvetica').text('Placement Dashboard', margin, 95);
 
-      // Add title
-      doc.fontSize(18).fillColor('#111827').font('Helvetica-Bold').text('Job Applications Report', margin, 100, { align: 'center' });
+      doc.fontSize(24).fillColor('#0f172a').font('Helvetica-Bold').text('Job Applications Report', margin, 200, { align: 'center' });
+      doc.moveTo(margin + 120, 240).lineTo(pageWidth - margin - 120, 240).strokeColor('#e2e8f0').lineWidth(2).stroke();
 
-      // Add separator line
-      doc.moveTo(margin, 130).lineTo(pageWidth - margin, 130).strokeColor('#e5e7eb').lineWidth(1).stroke();
+      let yPos = 300;
+      doc.fontSize(14).fillColor('#1e40af').font('Helvetica-Bold').text('OFFICIAL JOB DETAILS', margin, yPos);
+      yPos += 40;
 
-      // Add job details in a structured format
-      let yPosition = 150;
-      doc.fontSize(14).fillColor('#111827').font('Helvetica-Bold');
-
-      // Job Information Section
-      doc.text('Job Information', margin, yPosition);
-      yPosition += 25;
-
-      const jobInfo = [
-        ['Position:', job.title],
-        ['Company:', job.company.name],
-        ['Location:', job.location],
-        ['Job Type:', job.jobType.replace('_', ' ').toUpperCase()],
-        ['Total Applications:', applications.length.toString()],
-        ['Report Generated:', new Date().toLocaleDateString('en-IN', {
-          year: 'numeric', month: 'long', day: 'numeric'
-        })]
+      const jobSpecs = [
+        ['POSITION', job.title],
+        ['COMPANY', job.company.name],
+        ['LOCATION', job.location],
+        ['JOB TYPE', job.jobType.replace('_', ' ').toUpperCase()],
+        ['TOTAL APPLICANTS', applications.length.toString()],
+        ['DATE GENERATED', new Date().toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })]
       ];
 
-      jobInfo.forEach(([label, value]) => {
-        doc.fontSize(10).fillColor('#6b7280').font('Helvetica').text(label, margin, yPosition);
-        doc.fillColor('#111827').font('Helvetica-Bold').text(value || '-', margin + 120, yPosition);
-        yPosition += 18;
+      jobSpecs.forEach(([label, value]) => {
+        doc.fontSize(9).fillColor('#64748b').font('Helvetica-Bold').text(label, margin, yPos);
+        doc.fontSize(11).fillColor('#1e293b').font('Helvetica').text(value || '-', margin + 160, yPos);
+        yPos += 30;
       });
 
-      yPosition += 20;
+      doc.fontSize(8).fillColor('#94a3b8').font('Helvetica')
+        .text('© NavGurukul Foundation for Social Welfare', margin, doc.page.height - 60, { align: 'center', width: contentWidth });
 
-      // Applications Section
-      if (applications.length === 0) {
-        doc.fontSize(12).fillColor('#ef4444').text('No applications found for this job.', margin, yPosition);
-      } else {
-        doc.fontSize(14).fillColor('#111827').font('Helvetica-Bold').text('Student Applications', margin, yPosition);
-        yPosition += 30;
+      // 2. Student Profile Pages (1 Per Page)
+      if (applications.length > 0) {
+        const { drawPortfolioProfile } = require('../utils/pdfHelpers');
 
-        if (layout === 'resume') {
-          const { drawResumeCard } = require('../utils/pdfHelpers');
-          const cardsPerPage = 2;
-          const cardGap = 20;
-          const availableHeight = doc.page.height - yPosition - 80;
-          const cardHeight = Math.floor((availableHeight - cardGap) / cardsPerPage);
-          const cardWidth = contentWidth;
+        applications.forEach((app, index) => {
+          doc.addPage({ layout: 'portrait', margin: 40 });
 
-          applications.forEach((app, index) => {
-            const isFirstOnPage = (index % cardsPerPage) === 0;
-            if (isFirstOnPage && index !== 0) {
-              doc.addPage();
-              yPosition = 50;
-            }
+          // Header on profile pages
+          doc.fontSize(7).fillColor('#cbd5e1').font('Helvetica-Bold')
+            .text(`APPLICANT ${index + 1} OF ${applications.length} | ${job.title.toUpperCase()}`, margin, 25);
 
-            const startY = isFirstOnPage ? yPosition : yPosition + cardHeight + cardGap;
-            drawResumeCard(doc, app, margin, startY, cardWidth, cardHeight);
+          drawPortfolioProfile(doc, app, margin, 55, contentWidth, doc.page.height - 110);
 
-            // Add Footer
-            if ((index % cardsPerPage === cardsPerPage - 1) || index === applications.length - 1) {
-              doc.fontSize(8).fillColor('#9ca3af').font('Helvetica')
-                .text('Generated by NavGurukul Placement Dashboard', margin, doc.page.height - 40)
-                .text(new Date().toISOString().split('T')[0], pageWidth - margin - 100, doc.page.height - 40, { align: 'right' });
-            }
-          });
-        } else {
-          // Compact Table Layout
-          const headersRow = selectedFields.map(f => f.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase()).trim());
-          const numFields = selectedFields.length;
-
-          // Dynamic font size based on column density
-          const tableFontSize = numFields > 15 ? 6 : numFields > 10 ? 7 : 8;
-          const colWidth = Math.floor(contentWidth / numFields);
-
-          // Draw Row Background and Text
-          const drawRow = (data, y, isHeader = false) => {
-            const rowHeight = isHeader ? 25 : 30;
-            if (isHeader) {
-              doc.rect(margin, y, contentWidth, rowHeight).fill('#f8fafc');
-            } else {
-              doc.rect(margin, y, contentWidth, rowHeight).fill(idx % 2 === 0 ? '#ffffff' : '#f9fafb');
-            }
-
-            data.forEach((val, i) => {
-              doc.fontSize(tableFontSize)
-                .fillColor(isHeader ? '#475569' : '#1e293b')
-                .font(isHeader ? 'Helvetica-Bold' : 'Helvetica')
-                .text(String(val || '-'), margin + (i * colWidth) + 5, y + (rowHeight / 2 - tableFontSize / 2), {
-                  width: colWidth - 10,
-                  ellipsis: true,
-                  height: rowHeight - 4
-                });
-            });
-
-            // Row Border
-            doc.moveTo(margin, y + rowHeight).lineTo(pageWidth - margin, y + rowHeight).strokeColor('#e2e8f0').lineWidth(0.5).stroke();
-            return rowHeight;
-          };
-
-          // Draw Header
-          let tableY = yPosition;
-          tableY += drawRow(headersRow, tableY, true);
-
-          applications.forEach((app, idx) => {
-            if (tableY > doc.page.height - 100) {
-              doc.addPage({ layout: pdfLayout });
-              tableY = 50;
-              tableY += drawRow(headersRow, tableY, true);
-            }
-
-            const rowData = selectedFields.map(field => fieldMap[field] ? fieldMap[field](app) : '');
-            tableY += drawRow(rowData, tableY);
-
-            // Footer
-            if (idx === applications.length - 1 || tableY > doc.page.height - 100) {
-              doc.fontSize(8).fillColor('#9ca3af').font('Helvetica')
-                .text('Generated by NavGurukul Placement Dashboard', margin, doc.page.height - 40)
-                .text(new Date().toISOString().split('T')[0], pageWidth - margin - 100, doc.page.height - 40, { align: 'right' });
-            }
-          });
-        }
+          // Footer
+          doc.fontSize(7).fillColor('#94a3b8').font('Helvetica')
+            .text('NAVURUKUL PLACEMENT SYSTEM', margin, doc.page.height - 35)
+            .text(`Page ${index + 2}`, pageWidth - margin - 50, doc.page.height - 35, { align: 'right' });
+        });
       }
 
       doc.end();
