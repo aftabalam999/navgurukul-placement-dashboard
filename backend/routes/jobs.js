@@ -1524,16 +1524,6 @@ router.post('/:id/export', auth, authorize('coordinator', 'manager'), async (req
     if (format === 'pdf') {
       // Generate PDF export
       const PDFDocument = require('pdfkit');
-      const doc = new PDFDocument({
-        margin: 50,
-        size: 'A4',
-        info: {
-          Title: `Job Applications Report - ${job.title}`,
-          Author: 'NavGurukul Placement Dashboard',
-          Subject: `Applications for ${job.title} at ${job.company.name}`,
-          Creator: 'NavGurukul Placement System'
-        }
-      });
 
       // Set response headers for PDF
       res.setHeader('Content-Type', 'application/pdf');
@@ -1543,6 +1533,7 @@ router.post('/:id/export', auth, authorize('coordinator', 'manager'), async (req
       const isLandscape = layout === 'table' && selectedFields.length > 5;
       const pdfSize = isLandscape ? 'A4' : 'A4';
       const pdfLayout = isLandscape ? 'landscape' : 'portrait';
+
 
       const doc = new PDFDocument({
         margin: 40,
