@@ -894,23 +894,23 @@ const CriteriaConfigSection = ({ selectedSchool, setSelectedSchool, schools }) =
             {/* Sidebar: School Selection */}
             <div className="lg:col-span-1 space-y-4">
                 <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider px-2">Manage by School</h3>
-                <div className="space-y-1">
+                <div className="flex lg:flex-col gap-2 overflow-x-auto pb-2 lg:pb-0 scrollbar-hide -mx-2 px-2">
                     {schools.map(school => (
                         <button
                             key={school}
                             onClick={() => setSelectedSchool(school)}
-                            className={`w-full flex items-center justify-between text-left px-4 py-3 rounded-xl transition-all duration-200 group ${selectedSchool === school
-                                ? 'bg-indigo-50 text-indigo-700 border-2 border-indigo-200 shadow-sm'
-                                : 'bg-white text-gray-600 border-2 border-transparent hover:bg-gray-50 hover:border-gray-200'
+                            className={`flex-none lg:w-full flex items-center justify-between text-left px-4 py-3 rounded-xl transition-all duration-200 group border-2 ${selectedSchool === school
+                                ? 'bg-indigo-50 text-indigo-700 border-indigo-200 shadow-sm'
+                                : 'bg-white text-gray-600 border-transparent hover:bg-gray-50 hover:border-gray-200'
                                 }`}
                         >
-                            <span className="font-semibold text-sm truncate">{school}</span>
-                            <ChevronRight className={`w-4 h-4 transition-transform ${selectedSchool === school ? 'translate-x-1' : 'opacity-0 group-hover:opacity-100'}`} />
+                            <span className="font-semibold text-sm whitespace-nowrap lg:truncate">{school}</span>
+                            <ChevronRight className={`hidden lg:block w-4 h-4 transition-transform ${selectedSchool === school ? 'translate-x-1' : 'opacity-0 group-hover:opacity-100'}`} />
                         </button>
                     ))}
                 </div>
 
-                <div className="p-4 bg-amber-50 rounded-2xl border border-amber-100 mt-6">
+                <div className="hidden lg:block p-4 bg-amber-50 rounded-2xl border border-amber-100 mt-6">
                     <h4 className="text-amber-800 font-bold text-sm mb-2 flex items-center gap-2">
                         <Info className="w-4 h-4" /> System Info
                     </h4>

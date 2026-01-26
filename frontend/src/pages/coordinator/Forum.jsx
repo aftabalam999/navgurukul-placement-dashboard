@@ -57,80 +57,99 @@ const CoordinatorForum = () => {
     const pendingCount = questions.filter(q => !q.answer).length;
 
     return (
-        <div className="space-y-6">
-            <div className="flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                    <h1 className="text-2xl font-bold text-gray-900">Q&A Forum Management</h1>
-                    {pendingCount > 0 && (
-                        <span className="bg-red-500 text-white text-sm font-bold px-3 py-1 rounded-full">
-                            {pendingCount} unanswered
-                        </span>
-                    )}
+        <div className="max-w-4xl mx-auto space-y-6 pb-20 md:pb-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="space-y-1">
+                    <h1 className="text-3xl font-extrabold text-gray-900 flex items-center gap-2">
+                        <MessageCircle className="w-8 h-8 text-primary-600" />
+                        Q&A Forum
+                    </h1>
+                    <p className="text-gray-500 text-sm">Review and answer student queries about job tracks.</p>
                 </div>
+                {pendingCount > 0 && (
+                    <div className="flex items-center gap-2 bg-red-50 px-4 py-2 rounded-2xl border border-red-100">
+                        <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                        <span className="text-red-700 text-xs font-bold uppercase tracking-wider">
+                            {pendingCount} Pending Replies
+                        </span>
+                    </div>
+                )}
             </div>
 
-            <div className="space-y-8">
+            <div className="space-y-10">
                 {loading ? (
-                    <div className="text-center py-12">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto"></div>
-                        <p className="mt-2 text-gray-500">Loading questions...</p>
+                    <div className="flex flex-col items-center justify-center py-20">
+                        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-600"></div>
+                        <p className="mt-4 text-gray-400 font-medium">Fetching conversation history...</p>
                     </div>
                 ) : Object.keys(groupedQuestions).length > 0 ? (
                     Object.entries(groupedQuestions).map(([company, companyQuestions]) => (
-                        <div key={company} className="bg-white rounded-lg shadow-sm border p-6">
-                            <h2 className="text-xl font-bold border-b pb-3 mb-4 flex items-center gap-2">
-                                <Building className="w-5 h-5 text-gray-400" />
-                                {company}
-                            </h2>
+                        <div key={company} className="space-y-4">
+                            <div className="flex items-center gap-3 px-2">
+                                <div className="p-2 bg-gray-100 rounded-lg">
+                                    <Building className="w-4 h-4 text-gray-500" />
+                                </div>
+                                <h2 className="text-lg font-bold text-gray-800 tracking-tight">
+                                    {company}
+                                </h2>
+                                <div className="h-px bg-gray-100 flex-1"></div>
+                            </div>
 
-                            <div className="space-y-6">
+                            <div className="grid grid-cols-1 gap-4">
                                 {companyQuestions.map((q) => (
-                                    <div key={q._id} className="bg-gray-50 rounded-lg p-4 hover:shadow-md transition-shadow">
-                                        <div className="flex justify-between items-start mb-3">
-                                            <div>
-                                                {/* Enhanced Header */}
-                                                <div className="flex flex-wrap items-center gap-2 mb-2 text-sm">
-                                                    <span className="font-semibold text-primary-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
-                                                        {q.jobTitle || 'General Role'}
+                                    <div key={q._id} className="relative space-y-3 group px-1">
+                                        {/* Question Bubble (Student) */}
+                                        <div className="flex flex-col items-start max-w-[90%] md:max-w-[80%]">
+                                            <div className="bg-white border-2 border-gray-100 rounded-2xl rounded-tl-none p-4 shadow-sm hover:border-primary-100 transition-all">
+                                                <div className="flex items-center gap-2 mb-2">
+                                                    <span className="text-[10px] font-bold text-primary-600 bg-primary-50 px-2 py-0.5 rounded-full uppercase tracking-tighter">
+                                                        {q.jobTitle || 'General'}
                                                     </span>
-                                                    <span className="text-gray-400">•</span>
-                                                    <span className="text-gray-600">
-                                                        Apply by: <span className="font-medium text-gray-900">{q.jobDeadline ? format(new Date(q.jobDeadline), 'MMM d, yyyy') : 'No deadline'}</span>
+                                                    <span className="text-[10px] text-gray-400">
+                                                        {format(new Date(q.createdAt), 'h:mm a')}
                                                     </span>
                                                 </div>
-                                                <h3 className="text-lg font-medium text-gray-900">{q.question}</h3>
-                                                <p className="text-xs text-gray-400 mt-1">
-                                                    Asked {format(new Date(q.createdAt), 'MMM d, yyyy h:mm a')}
+                                                <p className="text-sm font-medium text-gray-900 leading-relaxed">
+                                                    {q.question}
                                                 </p>
                                             </div>
-
                                             <button
                                                 onClick={() => handleDelete(q._id)}
-                                                className="p-1.5 text-gray-400 hover:text-red-500 rounded hover:bg-red-50 transition-colors"
-                                                title="Delete Question"
+                                                className="mt-1 ml-1 text-[10px] font-bold text-gray-300 hover:text-red-500 transition-colors uppercase tracking-widest"
                                             >
-                                                <Trash className="w-4 h-4" />
+                                                Delete Question
                                             </button>
                                         </div>
 
+                                        {/* Answer Bubble (Coordinator) */}
                                         {q.answer ? (
-                                            <div className="bg-white rounded-lg p-3 border border-gray-200 mt-2">
-                                                <div className="flex items-start gap-3">
-                                                    <CheckCircle className="w-5 h-5 text-green-500 mt-0.5 shrink-0" />
-                                                    <div>
-                                                        <p className="text-gray-700">{q.answer}</p>
-                                                        {q.answeredAt && (
-                                                            <p className="text-xs text-gray-500 mt-1">
-                                                                Answered {format(new Date(q.answeredAt), 'MMM d, yyyy')}
-                                                            </p>
-                                                        )}
+                                            <div className="flex flex-col items-end w-full">
+                                                <div className="max-w-[90%] md:max-w-[80%] bg-primary-600 text-white rounded-2xl rounded-tr-none p-4 shadow-md shadow-primary-100">
+                                                    <div className="flex items-center justify-end gap-2 mb-2 opacity-80">
+                                                        <CheckCircle className="w-3 h-3" />
+                                                        <span className="text-[10px] font-bold uppercase tracking-tighter">
+                                                            Your Reply
+                                                        </span>
+                                                        <span className="text-[10px]">
+                                                            {format(new Date(q.answeredAt || q.updatedAt), 'h:mm a')}
+                                                        </span>
                                                     </div>
+                                                    <p className="text-sm leading-relaxed font-medium">
+                                                        {q.answer}
+                                                    </p>
                                                 </div>
                                             </div>
                                         ) : (
-                                            <div className="mt-3 pl-4 border-l-2 border-yellow-300">
-                                                <p className="text-xs text-yellow-600 font-medium mb-2">Needs Answer</p>
-                                                <AnswerForm onSubmit={(answer) => handleAnswer(q._id, answer)} />
+                                            <div className="flex flex-col items-end w-full animate-in slide-in-from-right-2">
+                                                <div className="w-full max-w-[90%] md:max-w-[80%] bg-amber-50 border-2 border-amber-200 border-dashed rounded-2xl rounded-tr-none p-4">
+                                                    <div className="flex items-center gap-2 mb-3 text-amber-700">
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></div>
+                                                        <span className="text-[10px] font-extrabold uppercase tracking-widest">
+                                                            Reply Needed
+                                                        </span>
+                                                    </div>
+                                                    <AnswerForm onSubmit={(answer) => handleAnswer(q._id, answer)} />
+                                                </div>
                                             </div>
                                         )}
                                     </div>
@@ -139,9 +158,12 @@ const CoordinatorForum = () => {
                         </div>
                     ))
                 ) : (
-                    <div className="text-center py-12 bg-gray-50 rounded-lg border-2 border-dashed">
-                        <MessageCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                        <h3 className="text-lg font-medium text-gray-900">No questions found</h3>
+                    <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border-2 border-dashed border-gray-100">
+                        <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+                            <MessageCircle className="w-10 h-10 text-gray-200" />
+                        </div>
+                        <h3 className="text-lg font-bold text-gray-900">No active discussions</h3>
+                        <p className="text-gray-500">Student questions will appear here conversationally.</p>
                     </div>
                 )}
             </div>
