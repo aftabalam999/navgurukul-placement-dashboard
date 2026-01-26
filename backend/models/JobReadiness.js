@@ -64,7 +64,8 @@ const jobReadinessConfigSchema = new mongoose.Schema({
   school: {
     type: String,
     required: true,
-    enum: ['School of Programming', 'School of Business', 'School of Finance', 'School of Education', 'School of Second Chance']
+    // Add 'Common' to the types
+    enum: ['Common', 'School of Programming', 'School of Business', 'School of Finance', 'School of Education', 'School of Second Chance']
   },
   campus: {
     type: mongoose.Schema.Types.ObjectId,
@@ -81,6 +82,10 @@ const jobReadinessConfigSchema = new mongoose.Schema({
       required: true
     },
     description: String,
+    targetSchools: [{
+      type: String,
+      default: [] // If empty, inherits from parent config or applies to all if parent is 'Common'
+    }],
     type: {
       type: String,
       enum: ['answer', 'link', 'yes/no', 'comment'],
@@ -241,20 +246,40 @@ studentJobReadinessSchema.index({ isJobReady: 1 });
 
 // Method to calculate readiness percentage
 studentJobReadinessSchema.methods.calculateReadiness = async function () {
-  const config = await JobReadinessConfig.findOne({
-    school: this.school,
+  // Find all relevant configs (School-specific and Common)
+  const configs = await JobReadinessConfig.find({
+    school: { $in: [this.school, 'Common'] },
     $or: [{ campus: this.campus }, { campus: null }],
     isActive: true
-  }).sort({ campus: -1 }); // Prefer campus-specific config
+  }).sort({ campus: 1 }); // Global first, then campus overrides
 
-  if (!config || !config.criteria || config.criteria.length === 0) {
+  if (!configs || configs.length === 0) {
     this.readinessPercentage = 100;
     this.isJobReady = true;
     this.readinessStatus = 'Job Ready';
     return 100;
   }
 
-  const activeCriteria = config.criteria.filter(c => c.isActive);
+  // Merge criteria from all applicable configs, campus-specific overrides global
+  const criteriaMap = new Map();
+  configs.forEach(config => {
+    config.criteria.forEach(c => {
+      // Logic for selecting which criteria apply to this student:
+      // 1. If config school matches student school
+      // 2. If config school is 'Common'
+      // 3. If criterion has targetSchools and student school is in it
+      const appliesToSchool =
+        config.school === this.school ||
+        config.school === 'Common' ||
+        (c.targetSchools && c.targetSchools.length > 0 && c.targetSchools.includes(this.school));
+
+      if (c.isActive && appliesToSchool) {
+        criteriaMap.set(c.criteriaId, c);
+      }
+    });
+  });
+
+  const activeCriteria = Array.from(criteriaMap.values());
 
   if (activeCriteria.length === 0) {
     this.readinessPercentage = 100;

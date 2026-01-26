@@ -29,13 +29,13 @@ const UnifiedJobReadiness = () => {
             const allSchools = res.data.data.schools || [];
             const inactive = res.data.data.inactiveSchools || [];
             const activeSchools = allSchools.filter(s => !inactive.includes(s));
-            setSchools(activeSchools);
-            if (activeSchools.length > 0 && !activeSchools.includes(selectedSchool)) {
-                setSelectedSchool(activeSchools[0]);
+            setSchools(['Common', ...activeSchools]);
+            if (activeSchools.length > 0 && !activeSchools.includes(selectedSchool) && selectedSchool !== 'Common') {
+                setSelectedSchool('Common');
             }
         } catch (err) {
             console.error('Error fetching schools:', err);
-            setSchools(['School of Programming', 'School of Business', 'School of Finance', 'School of Education', 'School of Second Chance']);
+            setSchools(['Common', 'School of Programming', 'School of Business', 'School of Finance', 'School of Education', 'School of Second Chance']);
         }
     };
 
@@ -573,7 +573,8 @@ const CriteriaConfigSection = ({ selectedSchool, setSelectedSchool, schools }) =
         pocRatingRequired: false,
         pocRatingScale: 4,
         category: 'other',
-        isMandatory: true
+        isMandatory: true,
+        targetSchools: []
     });
     const [saving, setSaving] = useState(false);
     const [configId, setConfigId] = useState(null);
@@ -604,17 +605,57 @@ const CriteriaConfigSection = ({ selectedSchool, setSelectedSchool, schools }) =
         setLoading(true);
         try {
             const res = await jobReadinessAPI.getConfig();
-            let config = null;
-            if (Array.isArray(res.data) && res.data.length > 0) {
-                config = res.data.find(c => c.school === selectedSchool);
-            }
+            let configs = res.data || [];
 
-            if (config) {
-                setConfigId(config._id);
-                setCriteria(config.criteria || []);
+            // Criteria from the selected school
+            let mainConfig = configs.find(c => c.school === selectedSchool);
+
+            // Criteria from 'Common'
+            let commonConfig = configs.find(c => c.school === 'Common');
+
+            // Criteria from OTHER schools shared with THIS school
+            let sharedWithMe = [];
+            configs.forEach(c => {
+                if (c.school !== selectedSchool && c.school !== 'Common') {
+                    c.criteria.forEach(crit => {
+                        if (crit.targetSchools?.includes(selectedSchool)) {
+                            sharedWithMe.push({ ...crit, isSharedFrom: c.school });
+                        }
+                    });
+                }
+            });
+
+            if (mainConfig) {
+                setConfigId(mainConfig._id);
+                const merged = [...(mainConfig.criteria || [])];
+
+                // Add shared ones
+                sharedWithMe.forEach(swm => {
+                    if (!merged.find(m => m.criteriaId === swm.criteriaId)) {
+                        merged.push(swm);
+                    }
+                });
+
+                // Add common ones
+                if (selectedSchool !== 'Common' && commonConfig) {
+                    commonConfig.criteria.forEach(cc => {
+                        if (!merged.find(m => m.criteriaId === cc.criteriaId)) {
+                            merged.push({ ...cc, isSharedFromCommon: true });
+                        }
+                    });
+                }
+                setCriteria(merged);
             } else {
                 setConfigId(null);
-                setCriteria([]);
+                const initial = [...sharedWithMe];
+                if (selectedSchool !== 'Common' && commonConfig) {
+                    commonConfig.criteria.forEach(cc => {
+                        if (!initial.find(m => m.criteriaId === cc.criteriaId)) {
+                            initial.push({ ...cc, isSharedFromCommon: true });
+                        }
+                    });
+                }
+                setCriteria(initial);
             }
         } catch (err) {
             toast.error('Failed to load criteria');
@@ -637,12 +678,17 @@ const CriteriaConfigSection = ({ selectedSchool, setSelectedSchool, schools }) =
             pocRatingRequired: false,
             pocRatingScale: 4,
             category: 'other',
-            isMandatory: true
+            isMandatory: true,
+            targetSchools: []
         });
         setShowModal(true);
     };
 
     const handleEdit = (crit) => {
+        if (crit.isSharedFromCommon) {
+            toast.error("This is a Common criterion. Please switch to 'Common' view to edit it.");
+            return;
+        }
         setEditingId(crit.criteriaId);
         setForm({
             criteriaId: crit.criteriaId,
@@ -654,12 +700,14 @@ const CriteriaConfigSection = ({ selectedSchool, setSelectedSchool, schools }) =
             pocRatingRequired: crit.pocRatingRequired || false,
             pocRatingScale: crit.pocRatingScale || 4,
             category: crit.category || 'other',
-            isMandatory: crit.isMandatory !== undefined ? crit.isMandatory : true
+            isMandatory: crit.isMandatory !== undefined ? crit.isMandatory : true,
+            targetSchools: crit.targetSchools || []
         });
         setShowModal(true);
     };
 
     const handleDelete = async (crit) => {
+        if (crit.isSharedFromCommon) return toast.error("Switch to 'Common' view to delete this.");
         if (!window.confirm('Are you sure you want to delete this criterion? This will remove it for all students in this school.')) return;
         if (!configId) return;
 
@@ -701,7 +749,8 @@ const CriteriaConfigSection = ({ selectedSchool, setSelectedSchool, schools }) =
                 pocRatingRequired: form.pocRatingRequired,
                 pocRatingScale: form.pocRatingScale,
                 category: form.category,
-                isMandatory: form.isMandatory
+                isMandatory: form.isMandatory,
+                targetSchools: form.targetSchools
             };
 
             if (editingId) {
@@ -881,30 +930,37 @@ const CriteriaConfigSection = ({ selectedSchool, setSelectedSchool, schools }) =
                                                         <h4 className="font-bold text-gray-900 text-sm">{crit.name}</h4>
                                                         {crit.isMandatory && <span className="text-rose-500" title="Mandatory">*</span>}
                                                     </div>
-                                                    <div className="flex gap-2">
+                                                    <div className="flex flex-wrap gap-2">
                                                         <Badge variant="outline" className="text-[9px] py-0 px-1.5 uppercase tracking-tighter">{crit.type}</Badge>
                                                         {crit.pocRatingRequired && <Badge variant="info" className="text-[9px] py-0 px-1.5 uppercase tracking-tighter">Rating Req.</Badge>}
+                                                        {crit.isSharedFromCommon && <Badge variant="warning" className="text-[9px] py-0 px-1.5 uppercase tracking-tighter">From Common</Badge>}
+                                                        {crit.isSharedFrom && <Badge variant="purple" className="text-[9px] py-0 px-1.5 uppercase tracking-tighter">Shared: {crit.isSharedFrom}</Badge>}
+                                                        {crit.targetSchools?.length > 0 && <Badge variant="amber" className="text-[9px] py-0 px-1.5 uppercase tracking-tighter">Shared with {crit.targetSchools.length}</Badge>}
                                                     </div>
                                                 </div>
-                                                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-all translate-x-2 group-hover:translate-x-0">
+                                                <div className="flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all md:translate-x-2 md:group-hover:translate-x-0">
                                                     <button
                                                         onClick={() => { setPreviewCriteria(crit); setShowPreview(true); }}
                                                         className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
                                                     >
                                                         <Eye className="w-4 h-4" />
                                                     </button>
-                                                    <button
-                                                        onClick={() => handleEdit(crit)}
-                                                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
-                                                    >
-                                                        <Edit className="w-4 h-4" />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDelete(crit)}
-                                                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </button>
+                                                    {(!crit.isSharedFromCommon && !crit.isSharedFrom) && (
+                                                        <>
+                                                            <button
+                                                                onClick={() => handleEdit(crit)}
+                                                                className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                                                            >
+                                                                <Edit className="w-4 h-4" />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDelete(crit)}
+                                                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </button>
+                                                        </>
+                                                    )}
                                                 </div>
                                             </div>
 
@@ -913,7 +969,10 @@ const CriteriaConfigSection = ({ selectedSchool, setSelectedSchool, schools }) =
                                             </p>
 
                                             <div className="pt-4 border-t border-gray-50 flex items-center justify-between text-[9px] font-bold text-gray-400 uppercase tracking-tighter">
-                                                <span>ID: {crit.criteriaId}</span>
+                                                <div>
+                                                    <span>ID: {crit.criteriaId}</span>
+                                                    {crit.targetSchools?.length > 0 && <span className="ml-2 text-amber-600">→ {crit.targetSchools.join(', ')}</span>}
+                                                </div>
                                                 {crit.pocCommentRequired && <span className="text-indigo-500">Feedback Needed</span>}
                                             </div>
                                         </div>
@@ -1064,6 +1123,54 @@ const CriteriaConfigSection = ({ selectedSchool, setSelectedSchool, schools }) =
                                             </div>
                                         )}
                                     </div>
+                                </div>
+
+                                {/* School Visibility Section */}
+                                <div className="md:col-span-2 p-6 bg-amber-50/50 rounded-2xl space-y-4 border border-amber-100/50 mt-2">
+                                    <div className="flex items-center justify-between">
+                                        <h4 className="text-sm font-extrabold text-amber-900 flex items-center gap-2 uppercase tracking-wide">
+                                            <Users className="w-4 h-4" /> Visibility & Sharing
+                                        </h4>
+                                        {selectedSchool === 'Common' && <Badge variant="warning">Global Roadmap</Badge>}
+                                    </div>
+
+                                    <p className="text-xs text-amber-700 mb-2">
+                                        {selectedSchool === 'Common'
+                                            ? "Criteria in the Common track are visible to ALL schools by default."
+                                            : "Mark which other schools should follow this criterion."
+                                        }
+                                    </p>
+
+                                    {selectedSchool !== 'Common' && (
+                                        <div className="flex flex-wrap gap-2">
+                                            {schools.filter(s => s !== 'Common' && s !== selectedSchool).map(schoolName => (
+                                                <button
+                                                    key={schoolName}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const current = form.targetSchools || [];
+                                                        if (current.includes(schoolName)) {
+                                                            setForm({ ...form, targetSchools: current.filter(s => s !== schoolName) });
+                                                        } else {
+                                                            setForm({ ...form, targetSchools: [...current, schoolName] });
+                                                        }
+                                                    }}
+                                                    className={`px-3 py-1.5 rounded-full text-[10px] font-bold transition-all flex items-center gap-2 ${form.targetSchools?.includes(schoolName)
+                                                        ? 'bg-amber-600 text-white shadow-md'
+                                                        : 'bg-white text-amber-700 border border-amber-200 hover:border-amber-400'
+                                                        }`}
+                                                >
+                                                    {form.targetSchools?.includes(schoolName) ? <CheckCircle className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
+                                                    {schoolName}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {selectedSchool === 'Common' && (
+                                        <div className="p-3 bg-white/50 rounded-lg text-[10px] text-amber-800 font-medium italic border border-amber-100">
+                                            Common criteria are automatically distributed to all active student profiles.
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>

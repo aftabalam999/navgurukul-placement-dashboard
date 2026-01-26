@@ -182,19 +182,35 @@ router.get('/my-status', auth, authorize('student'), async (req, res) => {
     // Find or create student readiness record
     let readiness = await StudentJobReadiness.findOne({ student: req.userId });
 
-    if (!readiness) {
-      // Get config for student's school/campus
-      const config = await JobReadinessConfig.findOne({
-        school,
-        $or: [{ campus: student.campus }, { campus: null }],
-        isActive: true
-      }).sort({ campus: -1 }); // Prefer campus-specific
+    // Fetch relevant configs (School and Common)
+    const configs = await JobReadinessConfig.find({
+      school: { $in: [school, 'Common'] },
+      $or: [{ campus: student.campus }, { campus: null }],
+      isActive: true
+    }).sort({ campus: 1 }); // Global first, then campus overrides
 
+    // Merge criteria for display
+    const criteriaMap = new Map();
+    configs.forEach(config => {
+      config.criteria.forEach(c => {
+        const appliesToSchool =
+          config.school === school ||
+          config.school === 'Common' ||
+          (c.targetSchools && c.targetSchools.includes(school));
+
+        if (c.isActive && appliesToSchool) {
+          criteriaMap.set(c.criteriaId, c);
+        }
+      });
+    });
+    const mergedCriteria = Array.from(criteriaMap.values());
+
+    if (!readiness) {
       // Initialize with empty status for each criterion
-      const initialStatus = config?.criteria?.map(c => ({
+      const initialStatus = mergedCriteria.map(c => ({
         criteriaId: c.criteriaId,
         status: 'not_started'
-      })) || [];
+      }));
 
       readiness = new StudentJobReadiness({
         student: req.userId,
@@ -206,7 +222,7 @@ router.get('/my-status', auth, authorize('student'), async (req, res) => {
       await readiness.calculateReadiness();
       await readiness.save();
     } else {
-      // Recalculate readiness on each read to ensure latest percentage/status
+      // Recalculate readiness to ensure latest merged criteria count
       try {
         await readiness.calculateReadiness();
         await readiness.save();
@@ -215,16 +231,9 @@ router.get('/my-status', auth, authorize('student'), async (req, res) => {
       }
     }
 
-    // Get config to include criterion details
-    const config = await JobReadinessConfig.findOne({
-      school: readiness.school,
-      $or: [{ campus: readiness.campus }, { campus: null }],
-      isActive: true
-    }).sort({ campus: -1 });
-
     res.json({
       readiness,
-      config: config?.criteria || [],
+      config: mergedCriteria,
       defaults: DEFAULT_CRITERIA
     });
   } catch (error) {
@@ -241,21 +250,14 @@ router.get('/student/:studentId', auth, authorize('campus_poc', 'coordinator', '
     if (!student) return res.status(404).json({ message: 'Student not found' });
 
     let readiness = await StudentJobReadiness.findOne({ student: studentId });
-    if (!readiness) {
-      // Initialize if missing
-      const config = await JobReadinessConfig.findOne({
-        school: student.studentProfile?.currentSchool,
-        $or: [{ campus: student.campus }, { campus: null }],
-        isActive: true
-      }).sort({ campus: -1 });
+    const school = student.studentProfile?.currentSchool;
 
-      const initialStatus = config?.criteria?.map(c => ({ criteriaId: c.criteriaId, status: 'not_started' })) || [];
-      readiness = new StudentJobReadiness({ student: studentId, school: student.studentProfile?.currentSchool, campus: student.campus, criteriaStatus: initialStatus });
-      // Calculate initial readiness and persist
+    if (!readiness) {
+      if (!school) return res.status(400).json({ message: 'Student school not set' });
+      readiness = new StudentJobReadiness({ student: studentId, school, campus: student.campus, criteriaStatus: [] });
       await readiness.calculateReadiness();
       await readiness.save();
     } else {
-      // Ensure the returned readiness is up-to-date
       try {
         await readiness.calculateReadiness();
         await readiness.save();
@@ -264,13 +266,28 @@ router.get('/student/:studentId', auth, authorize('campus_poc', 'coordinator', '
       }
     }
 
-    const config = await JobReadinessConfig.findOne({
-      school: readiness.school,
-      $or: [{ campus: readiness.campus }, { campus: null }],
+    // Merge criteria for display
+    const configs = await JobReadinessConfig.find({
+      school: { $in: [school, 'Common'] },
+      $or: [{ campus: student.campus }, { campus: null }],
       isActive: true
-    }).sort({ campus: -1 });
+    }).sort({ campus: 1 });
 
-    res.json({ readiness, config: config?.criteria || [], defaults: DEFAULT_CRITERIA });
+    const criteriaMap = new Map();
+    configs.forEach(config => {
+      config.criteria.forEach(c => {
+        const appliesToSchool = config.school === school || config.school === 'Common' || (c.targetSchools && c.targetSchools.includes(school));
+        if (c.isActive && appliesToSchool) {
+          criteriaMap.set(c.criteriaId, c);
+        }
+      });
+    });
+
+    res.json({
+      readiness,
+      config: Array.from(criteriaMap.values()),
+      defaults: DEFAULT_CRITERIA
+    });
   } catch (error) {
     console.error('Get student readiness error:', error);
     res.status(500).json({ message: 'Server error' });
