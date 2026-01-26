@@ -445,55 +445,65 @@ const POCStudentDetails = () => {
               </div>
             </div>
           </div>
-
-          {/* Job Readiness Section */}
-          <div className="card !bg-gray-900 !text-white overflow-hidden relative">
-            <div className="absolute top-0 right-0 p-8 opacity-10">
-              <CheckSquare className="w-32 h-32" />
-            </div>
-            <div className="relative z-10">
-              <div className="flex justify-between items-center mb-6">
-                <h3 className="text-xs font-black uppercase tracking-[0.2em] text-primary-400">Job Readiness Metrics</h3>
-                <button onClick={() => navigate('/campus-poc/job-readiness-criteria')} className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-white transition-colors underline decoration-2 underline-offset-4">Manage Criteria</button>
-              </div>
-
-              {jobReadiness ? (
-                <div className="space-y-6">
-                  {Object.entries(getCriteriaByCategory()).map(([category, criteria]) => (
-                    <div key={category}>
-                      <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">{category}</h4>
-                      <div className="space-y-2">
-                        {criteria.map(c => {
-                          const status = getStudentCriterionStatus(c.criteriaId);
-                          return (
-                            <div key={c.criteriaId} className="group cursor-default">
-                              <div className="flex items-center justify-between p-3 bg-white/5 rounded-2xl hover:bg-white/10 transition-colors border border-white/5">
-                                <div>
-                                  <p className="text-sm font-bold text-white/90">{c.name}</p>
-                                  {status?.selfReportedValue && <p className="text-[10px] text-primary-400 font-black mt-0.5 uppercase tracking-tighter">Value: {status.selfReportedValue}</p>}
-                                </div>
-                                <div className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest
-                                                            ${status?.status === 'verified' ? 'bg-green-500/20 text-green-400' :
-                                    status?.status === 'completed' ? 'bg-amber-500/20 text-amber-400 animate-pulse' :
-                                      'bg-white/10 text-white/40'}`}>
-                                  {status?.status || 'Not Started'}
-                                </div>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : <p className="text-white/40 italic text-sm">Dashboard processing...</p>}
-            </div>
-          </div>
         </div>
       </div>
 
+      {/* Job Readiness Section - Moved to last */}
+      <div className="card !bg-gray-900 !text-white overflow-hidden relative mt-6">
+        <div className="absolute top-0 right-0 p-8 opacity-10">
+          <CheckSquare className="w-32 h-32" />
+        </div>
+        <div className="relative z-10">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-primary-400">Job Readiness Metrics</h3>
+            <button onClick={() => navigate('/campus-poc/job-readiness-criteria')} className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-white transition-colors underline decoration-2 underline-offset-4">Manage Criteria</button>
+          </div>
+
+          {jobReadiness ? (
+            <div className="space-y-6">
+              {Object.entries(getCriteriaByCategory()).map(([category, criteria]) => (
+                <div key={category}>
+                  <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3">{category}</h4>
+                  <div className="space-y-2">
+                    {criteria.map(c => {
+                      const status = getStudentCriterionStatus(c.criteriaId);
+                      const isCompleted = status?.status === 'verified' || status?.status === 'completed';
+
+                      return (
+                        <div key={c.criteriaId} className="group cursor-default">
+                          <div className="flex items-center justify-between p-3 bg-white/5 rounded-2xl hover:bg-white/10 transition-colors border border-white/5">
+                            <div className="flex gap-3 items-center">
+                              <div className={`p-1.5 rounded-lg shrink-0 ${isCompleted ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                                {isCompleted ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
+                              </div>
+                              <div>
+                                <p className="text-sm font-bold text-white/90">{c.name}</p>
+                                {status?.selfReportedValue && <p className="text-[10px] text-primary-400 font-black mt-0.5 uppercase tracking-tighter">Value: {status.selfReportedValue}</p>}
+                              </div>
+                            </div>
+                            <div className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest
+                                                        ${status?.status === 'verified' ? 'bg-green-500/20 text-green-400' :
+                                status?.status === 'completed' ? 'bg-amber-500/20 text-amber-400 animate-pulse' :
+                                  'bg-white/10 text-white/40'}`}>
+                              {status?.status || 'Not Started'}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : <p className="text-white/40 italic text-sm">Dashboard processing...</p>}
+        </div>
+      </div>
+
+      {/* Bottom Spacer to ensure content isn't hidden by fixed buttons */}
+      <div className="h-48" />
+
       {/* Profile Review Actions */}
-      <div className="fixed bottom-6 left-0 right-0 px-4 md:px-0 z-40 pointer-events-none">
+      <div className="fixed bottom-24 left-0 right-0 px-4 md:px-0 z-40 pointer-events-none">
         <div className="max-w-4xl mx-auto flex justify-center gap-4 pointer-events-auto">
           {profile.profileStatus !== 'approved' && (
             <button
