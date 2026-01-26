@@ -50,7 +50,7 @@ const CoordinatorForum = () => {
 
     // Group questions by company
     const groupedQuestions = questions.reduce((acc, q) => {
-        const company = q.companyName || 'Unknown Company';
+        const company = q.companyName || q.jobTitle || 'General Inquiry';
         if (!acc[company]) acc[company] = [];
         acc[company].push(q);
         return acc;
@@ -78,8 +78,11 @@ const CoordinatorForum = () => {
                             </div>
                             <div className="text-left overflow-hidden">
                                 <h3 className="font-bold text-gray-900 truncate">{company}</h3>
-                                <p className="text-sm text-gray-500 truncate mt-0.5 font-medium">
-                                    {unanswered > 0 ? `⚠️ ${unanswered} pending questions` : '✅ All questions answered'}
+                                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tight mt-0.5">
+                                    {lastQuestion.jobTitle} • {format(new Date(lastQuestion.createdAt), 'MMM d, yyyy')}
+                                </p>
+                                <p className="text-xs text-indigo-600 truncate mt-1 font-semibold">
+                                    {unanswered > 0 ? `⚠️ ${unanswered} pending` : '✅ All resolved'}
                                 </p>
                             </div>
                         </div>
@@ -97,11 +100,14 @@ const CoordinatorForum = () => {
 
     // View: Chat Thread for a Company
     const ThreadView = () => {
-        const companyQuestions = groupedQuestions[selectedCompany] || [];
+        // Sort by date ascending: oldest at top, latest at bottom
+        const companyQuestions = [...(groupedQuestions[selectedCompany] || [])].sort((a, b) =>
+            new Date(a.createdAt) - new Date(b.createdAt)
+        );
 
         return (
             <div className="space-y-6 animate-in slide-in-from-right-4 duration-300">
-                <div className="flex items-center gap-4 border-b border-gray-100 pb-4 mb-6">
+                <div className="flex items-center gap-4 border-b border-gray-100 pb-4 mb-6 sticky top-0 bg-gray-50/80 backdrop-blur-sm z-10 px-2">
                     <button
                         onClick={() => setSelectedCompany(null)}
                         className="p-2 hover:bg-gray-100 rounded-xl text-gray-400 hover:text-gray-900 transition-colors"
@@ -114,18 +120,18 @@ const CoordinatorForum = () => {
                     </div>
                 </div>
 
-                <div className="space-y-8">
+                <div className="space-y-8 min-h-[50vh]">
                     {companyQuestions.map((q) => (
                         <div key={q._id} className="relative space-y-3 group px-1">
                             {/* Question Bubble (Student) */}
                             <div className="flex flex-col items-start max-w-[90%] md:max-w-[80%]">
-                                <div className="bg-white border-2 border-gray-100 rounded-2xl rounded-tl-none p-4 shadow-sm hover:border-primary-100 transition-all">
+                                <div className="bg-white border-2 border-gray-100 rounded-3xl rounded-tl-none p-4 shadow-sm hover:border-primary-100 transition-all">
                                     <div className="flex items-center gap-2 mb-2">
                                         <span className="text-[10px] font-bold text-primary-600 bg-primary-50 px-2 py-0.5 rounded-full uppercase tracking-tighter">
                                             {q.jobTitle || 'General'}
                                         </span>
-                                        <span className="text-[10px] text-gray-400">
-                                            {format(new Date(q.createdAt), 'h:mm a')}
+                                        <span className="text-[10px] text-gray-400 font-medium">
+                                            {format(new Date(q.createdAt), 'MMM d, h:mm a')}
                                         </span>
                                     </div>
                                     <p className="text-sm font-medium text-gray-900 leading-relaxed">
@@ -134,7 +140,7 @@ const CoordinatorForum = () => {
                                 </div>
                                 <button
                                     onClick={() => handleDelete(q._id)}
-                                    className="mt-1 ml-1 text-[10px] font-bold text-gray-300 hover:text-red-500 transition-colors uppercase tracking-widest"
+                                    className="mt-1 ml-2 text-[9px] font-bold text-gray-300 hover:text-red-500 transition-colors uppercase tracking-widest"
                                 >
                                     Delete Question
                                 </button>
@@ -143,14 +149,14 @@ const CoordinatorForum = () => {
                             {/* Answer Bubble (Coordinator) */}
                             {q.answer ? (
                                 <div className="flex flex-col items-end w-full">
-                                    <div className="max-w-[90%] md:max-w-[80%] bg-primary-600 text-white rounded-2xl rounded-tr-none p-4 shadow-md shadow-primary-100">
+                                    <div className="max-w-[90%] md:max-w-[80%] bg-primary-600 text-white rounded-3xl rounded-tr-none p-4 shadow-md shadow-primary-100">
                                         <div className="flex items-center justify-end gap-2 mb-2 opacity-80">
                                             <CheckCircle className="w-3 h-3" />
                                             <span className="text-[10px] font-bold uppercase tracking-tighter">
-                                                Your Reply
+                                                Resolved
                                             </span>
                                             <span className="text-[10px]">
-                                                {format(new Date(q.answeredAt || q.updatedAt), 'h:mm a')}
+                                                {format(new Date(q.answeredAt || q.updatedAt), 'MMM d, h:mm a')}
                                             </span>
                                         </div>
                                         <p className="text-sm leading-relaxed font-medium">
@@ -160,11 +166,11 @@ const CoordinatorForum = () => {
                                 </div>
                             ) : (
                                 <div className="flex flex-col items-end w-full animate-in slide-in-from-right-2">
-                                    <div className="w-full max-w-[90%] md:max-w-[80%] bg-amber-50 border-2 border-amber-200 border-dashed rounded-2xl rounded-tr-none p-4">
+                                    <div className="w-full max-w-[90%] md:max-w-[80%] bg-amber-50 border-2 border-amber-200 border-dashed rounded-3xl rounded-tr-none p-5 shadow-sm">
                                         <div className="flex items-center gap-2 mb-3 text-amber-700">
                                             <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></div>
                                             <span className="text-[10px] font-extrabold uppercase tracking-widest">
-                                                Reply Needed
+                                                Pending Your Reply
                                             </span>
                                         </div>
                                         <AnswerForm onSubmit={(answer) => handleAnswer(q._id, answer)} />
@@ -187,12 +193,12 @@ const CoordinatorForum = () => {
                             <MessageCircle className="w-8 h-8 text-primary-600" />
                             Forum Inbox
                         </h1>
-                        <p className="text-gray-500 text-sm">Select a company to view the conversation.</p>
+                        <p className="text-gray-500 text-sm">Select a company to view the conversation history.</p>
                     </div>
                     {pendingCount > 0 && (
-                        <div className="flex items-center gap-2 bg-red-50 px-4 py-2 rounded-2xl border border-red-100">
+                        <div className="flex items-center gap-2 bg-red-50 px-4 py-2 rounded-2xl border border-red-100 shadow-sm">
                             <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
-                            <span className="text-red-700 text-xs font-bold uppercase tracking-wider">
+                            <span className="text-red-700 text-[10px] font-bold uppercase tracking-widest">
                                 {pendingCount} Pending Replies
                             </span>
                         </div>
@@ -212,7 +218,7 @@ const CoordinatorForum = () => {
                             <MessageCircle className="w-10 h-10 text-gray-200" />
                         </div>
                         <h3 className="text-lg font-bold text-gray-900">Inbox is empty</h3>
-                        <p className="text-gray-500 px-8 text-center">New questions from students will appear here automatically.</p>
+                        <p className="text-gray-500 px-8 text-center text-sm">New questions from students will appear here automatically.</p>
                     </div>
                 ) : selectedCompany ? (
                     <ThreadView />
