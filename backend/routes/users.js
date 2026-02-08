@@ -15,9 +15,16 @@ router.get('/students', auth, authorize('campus_poc', 'coordinator', 'manager'),
 
     let query = { role: 'student' };
 
-    // Default: show only Active students if status not provided
-    const statusFilter = status || 'Active';
+    // Default: show only Active students if status not provided, but allow 'all' to show everything
+    const statusFilter = status;
 
+    if (statusFilter && statusFilter !== 'all') {
+      query['studentProfile.currentStatus'] = statusFilter;
+    } else if (!statusFilter && req.user.role === 'student') {
+      // Students see active peers by default
+      query['studentProfile.currentStatus'] = 'Active';
+    }
+    // Note: If statusFilter is undefined and role is staff/poc/coordinator/manager, we show all students.
     // Campus POCs can see students from their managed campuses
     if (req.user.role === 'campus_poc') {
       const managedCampuses = req.user.managedCampuses?.length > 0
@@ -39,9 +46,6 @@ router.get('/students', auth, authorize('campus_poc', 'coordinator', 'manager'),
       query['studentProfile.batch'] = batch;
     }
 
-    if (statusFilter) {
-      query['studentProfile.currentStatus'] = statusFilter;
-    }
 
     if (search) {
       query.$or = [

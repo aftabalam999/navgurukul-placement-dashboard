@@ -517,21 +517,7 @@ const StudentProfile = () => {
     }
   };
 
-  const handleResumeUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('File size must be less than 5MB');
-      return;
-    }
-    try {
-      await userAPI.uploadResume(file);
-      toast.success('Resume uploaded successfully');
-      fetchProfile();
-    } catch (error) {
-      toast.error('Error uploading resume');
-    }
-  };
+
 
   const handleSoftSkillChange = (skillKey, value) => {
     // Legacy support or deprecated function - we now use the new skills handling logic
@@ -2066,13 +2052,6 @@ const StudentProfile = () => {
                 </p>
               )}
             </div>
-
-            {canEdit && (
-              <label className="btn btn-secondary w-full mt-3 cursor-pointer flex items-center justify-center gap-2">
-                <Upload className="w-4 h-4" />Upload Resume
-                <input type="file" accept=".pdf,.doc,.docx" className="hidden" onChange={handleResumeUpload} />
-              </label>
-            )}
           </div>
 
           <div className="card">
@@ -2134,7 +2113,7 @@ const StudentProfile = () => {
           </div>
         </div>
       </div>
-    </div>
+    </div >
   );
 };
 
