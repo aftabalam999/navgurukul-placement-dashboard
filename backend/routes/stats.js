@@ -450,7 +450,7 @@ router.get('/export', auth, authorize('coordinator', 'manager'), async (req, res
         p.updatedAt.toISOString().split('T')[0]
       ]);
     } else if (type === 'students') {
-      headers = ['Name', 'Email', 'Enrollment No', 'Department', 'Batch', 'CGPA', 'Campus', 'Placement Status'];
+      headers = ['Name', 'Email', 'Enrollment No', 'Department', 'Batch', 'CGPA', 'Campus', 'LinkedIn', 'GitHub', 'Portfolio', 'Placement Status'];
 
       let query = { role: 'student' };
       if (campus) query.campus = campus;
@@ -472,6 +472,9 @@ router.get('/export', auth, authorize('coordinator', 'manager'), async (req, res
           student.studentProfile?.batch || '',
           student.studentProfile?.cgpa || '',
           student.campus?.name || '',
+          student.studentProfile?.linkedIn || '',
+          student.studentProfile?.github || '',
+          student.studentProfile?.portfolio || '',
           placement ? 'Placed' : 'Not Placed'
         ]);
       }

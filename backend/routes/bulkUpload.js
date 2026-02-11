@@ -50,10 +50,10 @@ const generatePassword = () => {
 
 // GET sample CSV template for students
 router.get('/sample/students', auth, authorize('campus_poc', 'coordinator', 'manager'), (req, res) => {
-  const csvContent = `firstName,lastName,email,phone,campus,school,batch,tenthGrade,twelfthGrade,highestDegree,specialization,currentStatus
-John,Doe,john.doe@example.com,9876543210,Bangalore,School of Programming,2024,85.5,78.2,B.Tech,Computer Science,Active
-Jane,Smith,jane.smith@example.com,9876543211,Delhi,School of Programming,2024,90.0,88.5,B.Tech,Information Technology,Active
-Rahul,Kumar,rahul.kumar@example.com,9876543212,Bangalore,School of Business,2025,75.0,72.0,MBA,Finance,Placed`;
+  const csvContent = `firstName,lastName,email,phone,campus,school,batch,tenthGrade,twelfthGrade,highestDegree,specialization,currentStatus,github,portfolio
+John,Doe,john.doe@example.com,9876543210,Bangalore,School of Programming,2024,85.5,78.2,B.Tech,Computer Science,Active,https://github.com/johndoe,https://johndoe.com
+Jane,Smith,jane.smith@example.com,9876543211,Delhi,School of Programming,2024,90.0,88.5,B.Tech,Information Technology,Active,https://github.com/janesmith,
+Rahul,Kumar,rahul.kumar@example.com,9876543212,Bangalore,School of Business,2025,75.0,72.0,MBA,Finance,Placed,,`;
 
   res.setHeader('Content-Type', 'text/csv');
   res.setHeader('Content-Disposition', 'attachment; filename=students_sample.csv');
@@ -165,6 +165,8 @@ router.post('/students', auth, authorize('campus_poc', 'coordinator', 'manager')
             highestDegree: row.highestDegree?.trim() || '',
             profileStatus: 'draft',
             currentStatus: row.currentStatus?.trim() || 'Active',
+            github: row.github?.trim() || '',
+            portfolio: row.portfolio?.trim() || '',
             higherEducation: row.highestDegree ? [{
               degree: row.highestDegree.trim(),
               fieldOfStudy: row.specialization?.trim() || '',

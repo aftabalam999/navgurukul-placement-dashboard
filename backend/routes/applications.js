@@ -452,13 +452,16 @@ router.get('/export/csv', auth, authorize('coordinator', 'manager'), async (req,
       .populate('job', 'title company.name location jobType');
 
     // Generate CSV
-    const headers = ['Student Name', 'Email', 'Enrollment No', 'Department', 'Campus', 'Job Title', 'Company', 'Status', 'Applied Date'];
+    const headers = ['Student Name', 'Email', 'Enrollment No', 'Department', 'Campus', 'LinkedIn', 'GitHub', 'Portfolio', 'Job Title', 'Company', 'Status', 'Applied Date'];
     const rows = applications.map(app => [
       `${app.student.firstName} ${app.student.lastName}`,
       app.student.email,
       app.student.studentProfile?.enrollmentNumber || '',
       app.student.studentProfile?.department || '',
       app.student.campus?.name || '',
+      app.student.studentProfile?.linkedIn || '',
+      app.student.studentProfile?.github || '',
+      app.student.studentProfile?.portfolio || '',
       app.job.title,
       app.job.company.name,
       app.status,

@@ -242,6 +242,12 @@ const POCStudentDetails = () => {
                     <Github className="w-3.5 h-3.5" /> GitHub
                   </a>
                 )}
+                {profile.portfolio && (
+                  <a href={profile.portfolio} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-50 text-teal-700 rounded-xl text-xs font-bold hover:bg-teal-100 transition-colors">
+                    <Globe className="w-3.5 h-3.5" /> Portfolio
+                  </a>
+                )}
                 {profile.resumeLink && (
                   <a href={profile.resumeLink} target="_blank" rel="noopener noreferrer"
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-xl text-xs font-bold hover:bg-indigo-100 transition-colors">
