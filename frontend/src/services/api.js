@@ -305,6 +305,7 @@ export const jobReadinessAPI = {
   // Config management (for Coordinator/Manager)
   getConfig: (params) => api.get('/job-readiness/config', { params }),
   createConfig: (data) => api.post('/job-readiness/config', data),
+  seedDefaultCriteria: () => api.post('/job-readiness/config/seed'),
   addCriterion: (configId, data) => api.post(`/job-readiness/config/${configId}/criteria`, data),
   editCriterion: (configId, criteriaId, data) => api.put(`/job-readiness/config/${configId}/criteria/${criteriaId}`, data),
   deleteCriterion: (configId, criteriaId) => api.delete(`/job-readiness/config/${configId}/criteria/${criteriaId}`),

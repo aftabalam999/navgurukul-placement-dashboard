@@ -812,6 +812,38 @@ node scripts/promote_normalized_index_unique.js`;
                 </div>
               </div>
             </Card>
+
+            {/* Job Readiness Section */}
+            <Card>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Job Readiness Configuration</h3>
+              <p className="text-gray-600 mb-4">Manage readiness tracking for students.</p>
+
+              <div className="flex items-center gap-4 p-4 bg-indigo-50 border border-indigo-100 rounded-xl">
+                <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600">
+                  <BookOpen className="w-6 h-6" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-bold text-gray-900">Seed Default Criteria</h4>
+                  <p className="text-sm text-gray-600">Initialize the "School of Programming" with the standard 9-point readiness checklist.</p>
+                </div>
+                <Button onClick={async () => {
+                  if (!window.confirm('This will seed the default job readiness criteria for School of Programming. Continue?')) return;
+                  try {
+                    setSaving(true);
+                    await settingsAPI.seedDefaultCriteria();
+                    setSuccess('Job readiness criteria seeded successfully');
+                    setTimeout(() => setSuccess(null), 3000);
+                  } catch (err) {
+                    setError(err.response?.data?.message || 'Failed to seed criteria');
+                  } finally {
+                    setSaving(false);
+                  }
+                }} variant="primary" disabled={saving}>
+                  {saving ? 'Seeding...' : 'Seed Default Criteria'}
+                </Button>
+              </div>
+            </Card>
+
           </div>
         )}
 
@@ -1449,150 +1481,154 @@ node scripts/promote_normalized_index_unique.js`;
         </div>
       </div>
       {/* Company Detail Modal */}
-      {selectedCompany && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
-          <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm animate-fadeIn" onClick={() => setSelectedCompany(null)}></div>
+      {
+        selectedCompany && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
+            <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm animate-fadeIn" onClick={() => setSelectedCompany(null)}></div>
 
-          <div className="relative w-full max-w-xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden animate-pop border border-gray-100">
-            {/* Modal Header/Banner */}
-            <div className="h-32 bg-gradient-to-r from-blue-600 to-indigo-700 relative">
-              <button
-                onClick={() => setSelectedCompany(null)}
-                className="absolute top-6 right-6 p-2 bg-white/20 hover:bg-white/30 text-white rounded-full backdrop-blur-md transition-all z-10"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Content Area */}
-            <div className="px-8 pb-10 -mt-12 relative">
-              <div className="flex flex-col items-center text-center">
-                <div className="w-24 h-24 bg-white rounded-3xl shadow-xl flex items-center justify-center p-4 mb-6 border-4 border-white">
-                  {selectedCompany.logo ? (
-                    <img src={selectedCompany.logo} alt={selectedCompany.name} className="w-full h-full object-contain" />
-                  ) : (
-                    <Building2 className="w-10 h-10 text-gray-300" />
-                  )}
-                </div>
-
-                <h2 className="text-3xl font-black text-gray-900 tracking-tight mb-2">
-                  {selectedCompany.name}
-                </h2>
-
-                {selectedCompany.website && (
-                  <a
-                    href={selectedCompany.website.startsWith('http') ? selectedCompany.website : `https://${selectedCompany.website}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-full text-sm font-bold hover:bg-blue-100 transition-all mb-8 group"
-                  >
-                    <Globe className="w-4 h-4" />
-                    {selectedCompany.website.replace(/^https?:\/\//, '')}
-                    <ExternalLink className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </a>
-                )}
-
-                <div className="w-full bg-gray-50 rounded-3xl p-6 text-left border border-gray-100">
-                  <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
-                    <MessageSquare className="w-3 h-3 text-blue-500" />
-                    About Company
-                  </h4>
-                  <p className="text-gray-600 text-sm leading-relaxed">
-                    {selectedCompany.description || "No description provided for this company."}
-                  </p>
-                </div>
-
-                <div className="mt-8 flex gap-3 w-full">
-                  <Button
-                    variant="secondary"
-                    onClick={() => setSelectedCompany(null)}
-                    className="flex-1 rounded-2xl py-4 font-bold"
-                  >
-                    Close View
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Add Company Modal */}
-      {isAddingCompany && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
-          <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm animate-fadeIn" onClick={() => setIsAddingCompany(false)}></div>
-
-          <div className="relative w-full max-w-lg bg-white rounded-[2.5rem] shadow-2xl overflow-hidden animate-pop border border-gray-100">
-            <div className="p-8">
-              <div className="flex justify-between items-center mb-8">
-                <div>
-                  <h2 className="text-2xl font-black text-gray-900">Add New Company</h2>
-                  <p className="text-sm text-gray-500 mt-1">Register a company in the master list.</p>
-                </div>
-                <button onClick={() => setIsAddingCompany(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400">
+            <div className="relative w-full max-w-xl bg-white rounded-[2.5rem] shadow-2xl overflow-hidden animate-pop border border-gray-100">
+              {/* Modal Header/Banner */}
+              <div className="h-32 bg-gradient-to-r from-blue-600 to-indigo-700 relative">
+                <button
+                  onClick={() => setSelectedCompany(null)}
+                  className="absolute top-6 right-6 p-2 bg-white/20 hover:bg-white/30 text-white rounded-full backdrop-blur-md transition-all z-10"
+                >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <div className="space-y-6">
-                <div>
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Company Name</label>
-                  <input
-                    type="text"
-                    className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none text-sm font-medium"
-                    placeholder="e.g. Google India"
-                    value={newCompany.name}
-                    onChange={(e) => setNewCompany({ ...newCompany, name: e.target.value })}
-                  />
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Official Website</label>
-                  <div className="relative">
-                    <Globe className="absolute left-5 top-4 w-4 h-4 text-gray-400" />
-                    <input
-                      type="text"
-                      className="w-full pl-12 pr-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none text-sm font-medium"
-                      placeholder="e.g. www.google.com"
-                      value={newCompany.website}
-                      onChange={(e) => setNewCompany({ ...newCompany, website: e.target.value })}
-                    />
+              {/* Content Area */}
+              <div className="px-8 pb-10 -mt-12 relative">
+                <div className="flex flex-col items-center text-center">
+                  <div className="w-24 h-24 bg-white rounded-3xl shadow-xl flex items-center justify-center p-4 mb-6 border-4 border-white">
+                    {selectedCompany.logo ? (
+                      <img src={selectedCompany.logo} alt={selectedCompany.name} className="w-full h-full object-contain" />
+                    ) : (
+                      <Building2 className="w-10 h-10 text-gray-300" />
+                    )}
                   </div>
-                </div>
 
-                <div>
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Description</label>
-                  <textarea
-                    className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none text-sm font-medium min-h-[120px] resize-none"
-                    placeholder="Tell us a bit about what this company does..."
-                    value={newCompany.description}
-                    onChange={(e) => setNewCompany({ ...newCompany, description: e.target.value })}
-                  />
-                </div>
+                  <h2 className="text-3xl font-black text-gray-900 tracking-tight mb-2">
+                    {selectedCompany.name}
+                  </h2>
 
-                <div className="flex gap-3 pt-2">
-                  <Button
-                    variant="secondary"
-                    onClick={() => setIsAddingCompany(false)}
-                    className="flex-1 rounded-2xl py-4 font-bold border-gray-200"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    variant="primary"
-                    onClick={handleAddCompany}
-                    className="flex-1 rounded-2xl py-4 font-bold shadow-lg shadow-blue-200"
-                    disabled={!newCompany.name.trim()}
-                  >
-                    Register Company
-                  </Button>
+                  {selectedCompany.website && (
+                    <a
+                      href={selectedCompany.website.startsWith('http') ? selectedCompany.website : `https://${selectedCompany.website}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 rounded-full text-sm font-bold hover:bg-blue-100 transition-all mb-8 group"
+                    >
+                      <Globe className="w-4 h-4" />
+                      {selectedCompany.website.replace(/^https?:\/\//, '')}
+                      <ExternalLink className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </a>
+                  )}
+
+                  <div className="w-full bg-gray-50 rounded-3xl p-6 text-left border border-gray-100">
+                    <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                      <MessageSquare className="w-3 h-3 text-blue-500" />
+                      About Company
+                    </h4>
+                    <p className="text-gray-600 text-sm leading-relaxed">
+                      {selectedCompany.description || "No description provided for this company."}
+                    </p>
+                  </div>
+
+                  <div className="mt-8 flex gap-3 w-full">
+                    <Button
+                      variant="secondary"
+                      onClick={() => setSelectedCompany(null)}
+                      className="flex-1 rounded-2xl py-4 font-bold"
+                    >
+                      Close View
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+
+      {/* Add Company Modal */}
+      {
+        isAddingCompany && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
+            <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm animate-fadeIn" onClick={() => setIsAddingCompany(false)}></div>
+
+            <div className="relative w-full max-w-lg bg-white rounded-[2.5rem] shadow-2xl overflow-hidden animate-pop border border-gray-100">
+              <div className="p-8">
+                <div className="flex justify-between items-center mb-8">
+                  <div>
+                    <h2 className="text-2xl font-black text-gray-900">Add New Company</h2>
+                    <p className="text-sm text-gray-500 mt-1">Register a company in the master list.</p>
+                  </div>
+                  <button onClick={() => setIsAddingCompany(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-400">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-6">
+                  <div>
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Company Name</label>
+                    <input
+                      type="text"
+                      className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none text-sm font-medium"
+                      placeholder="e.g. Google India"
+                      value={newCompany.name}
+                      onChange={(e) => setNewCompany({ ...newCompany, name: e.target.value })}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Official Website</label>
+                    <div className="relative">
+                      <Globe className="absolute left-5 top-4 w-4 h-4 text-gray-400" />
+                      <input
+                        type="text"
+                        className="w-full pl-12 pr-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none text-sm font-medium"
+                        placeholder="e.g. www.google.com"
+                        value={newCompany.website}
+                        onChange={(e) => setNewCompany({ ...newCompany, website: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">Description</label>
+                    <textarea
+                      className="w-full px-5 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none text-sm font-medium min-h-[120px] resize-none"
+                      placeholder="Tell us a bit about what this company does..."
+                      value={newCompany.description}
+                      onChange={(e) => setNewCompany({ ...newCompany, description: e.target.value })}
+                    />
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
+                    <Button
+                      variant="secondary"
+                      onClick={() => setIsAddingCompany(false)}
+                      className="flex-1 rounded-2xl py-4 font-bold border-gray-200"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="primary"
+                      onClick={handleAddCompany}
+                      className="flex-1 rounded-2xl py-4 font-bold shadow-lg shadow-blue-200"
+                      disabled={!newCompany.name.trim()}
+                    >
+                      Register Company
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      }
+    </div >
   );
 };
 
