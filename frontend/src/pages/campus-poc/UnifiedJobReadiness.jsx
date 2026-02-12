@@ -359,7 +359,9 @@ const ReadinessReviewSection = () => {
                                                                 <div className="flex items-center gap-2 mb-1">
                                                                     {crit.status === 'verified' && <CheckCircle2 className="w-4 h-4 text-green-600" />}
                                                                     {crit.status === 'completed' && <Clock className="w-4 h-4 text-amber-600" />}
-                                                                    <span className="font-bold text-gray-900 text-sm">{crit.criteriaId.replace(/_/g, ' ')}</span>
+                                                                    <span className="font-bold text-gray-900 text-sm">
+                                                                        {crit.criteriaId.split('_').filter(part => isNaN(part)).join(' ')}
+                                                                    </span>
                                                                 </div>
                                                                 {crit.selfReportedValue && (
                                                                     <p className="text-xs text-gray-600 mt-1 line-clamp-1 italic">
@@ -367,15 +369,18 @@ const ReadinessReviewSection = () => {
                                                                     </p>
                                                                 )}
                                                             </div>
-                                                            {crit.status === 'completed' && (
+                                                            {crit.status !== 'verified' && (
                                                                 <button
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
                                                                         setReviewModal({ open: true, student: record, criterion: crit });
                                                                     }}
-                                                                    className="px-3 py-1.5 bg-indigo-600 text-white text-[10px] font-bold rounded-lg hover:bg-indigo-700 transition shadow-sm"
+                                                                    className={`px-3 py-1.5 text-[10px] font-bold rounded-lg transition shadow-sm ${crit.status === 'completed'
+                                                                            ? 'bg-indigo-600 text-white hover:bg-indigo-700'
+                                                                            : 'bg-white border border-gray-200 text-gray-600 hover:text-indigo-600 hover:border-indigo-200'
+                                                                        }`}
                                                                 >
-                                                                    Review
+                                                                    {crit.status === 'completed' ? 'Review' : 'Verify'}
                                                                 </button>
                                                             )}
                                                             {crit.status === 'verified' && crit.rating && (

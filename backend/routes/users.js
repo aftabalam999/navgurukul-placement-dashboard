@@ -13,7 +13,7 @@ router.get('/students', auth, authorize('campus_poc', 'coordinator', 'manager'),
     // Accept pagination, filters and sorting
     const { campus, school, batch, page = 1, limit = 20, search, status, sortField, sortOrder } = req.query;
 
-    let query = { role: 'student' };
+    let query = { role: 'student', isActive: true };
 
     // Default: show only Active students if status not provided, but allow 'all' to show everything
     const statusFilter = status;

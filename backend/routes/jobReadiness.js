@@ -108,9 +108,12 @@ router.get('/config', auth, authorize('campus_poc', 'coordinator', 'manager'), a
     if (school) query.school = school;
     if (campus) query.campus = campus;
 
-    // For campus PoC, default to their campus
+    // For campus PoC, default to their campus OR global
     if (req.user.role === 'campus_poc' && !campus) {
-      query.campus = req.user.campus;
+      query.$or = [
+        { campus: req.user.campus },
+        { campus: null }
+      ];
     }
 
     const configs = await JobReadinessConfig.find(query)
