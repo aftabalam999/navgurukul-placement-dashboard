@@ -168,7 +168,7 @@ const CarouselManagement = () => {
                                     <div className="relative group w-64 h-36 flex-shrink-0 bg-gray-100 rounded-2xl overflow-hidden border border-gray-200 shadow-sm">
                                         {item.heroImage ? (
                                             <img
-                                                src={`${import.meta.env.VITE_API_URL}${item.heroImage}`}
+                                                src={item.heroImage.startsWith('http') ? item.heroImage : `${import.meta.env.VITE_API_URL}${item.heroImage}`}
                                                 alt="Hero"
                                                 className="w-full h-full object-cover"
                                             />
@@ -224,7 +224,8 @@ const CarouselManagement = () => {
                                                                 setEditingId(item._id);
                                                                 setEditForm({
                                                                     customQuote: item.customQuote || '',
-                                                                    isActive: item.isActive
+                                                                    isActive: item.isActive,
+                                                                    heroImage: item.heroImage || ''
                                                                 });
                                                             }}
                                                             className="p-2 text-gray-400 hover:bg-gray-100 rounded-lg transition-colors"
@@ -254,6 +255,32 @@ const CarouselManagement = () => {
                                                             className="w-full p-4 bg-white border border-gray-200 rounded-2xl text-sm focus:ring-2 focus:ring-blue-100 transition-all font-medium resize-none shadow-sm"
                                                             rows={2}
                                                         />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Hero Image URL (Optional)</label>
+                                                        <div className="flex gap-2">
+                                                            <input
+                                                                type="text"
+                                                                value={editForm.heroImage || ''}
+                                                                onChange={(e) => setEditForm({ ...editForm, heroImage: e.target.value })}
+                                                                placeholder="Paste direct image link (e.g. from Drive/Cloudinary)..."
+                                                                className="flex-1 p-4 bg-white border border-gray-200 rounded-2xl text-sm focus:ring-2 focus:ring-blue-100 transition-all font-medium shadow-sm"
+                                                            />
+                                                            {editForm.heroImage && (
+                                                                <a
+                                                                    href={editForm.heroImage}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="p-4 bg-gray-50 text-gray-400 rounded-2xl hover:bg-gray-100 transition-colors"
+                                                                    title="Preview Link"
+                                                                >
+                                                                    <ExternalLink className="w-5 h-5" />
+                                                                </a>
+                                                            )}
+                                                        </div>
+                                                        <p className="mt-2 text-[10px] text-gray-400 font-medium">
+                                                            * Google Drive links usually don't work directly. Use a direct image hosting link for best results.
+                                                        </p>
                                                     </div>
                                                     <div className="flex items-center gap-3">
                                                         <label className="relative inline-flex items-center cursor-pointer">
