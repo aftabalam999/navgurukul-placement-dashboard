@@ -203,22 +203,27 @@ router.get('/placements', async (req, res) => {
 
         if (featured && featured.length > 0) {
             // Use featured placements with custom images and quotes
-            carouselData = featured
-                .filter(f => f.student && f.job && f.job.company)
-                .map(f => ({
-                    studentName: `${f.student.firstName} ${f.student.lastName}`,
-                    studentAvatar: f.student.avatar || null,
-                    studentImage: f.heroImage || f.student.avatar || null, // Use custom hero image if available
-                    role: f.job.title,
-                    companyName: f.job.company.name,
-                    companyLogo: f.job.company.logo || null,
-                    package: (f.job.salary && !isNaN(f.job.salary)) ? (f.job.salary / 100000).toFixed(2) : null,
-                    campus: f.student.campus?.name || null,
-                    batch: f.student.placementCycle ? `${f.student.placementCycle.year || f.student.placementCycle.name}` : null,
-                    quote: f.customQuote || f.student.studentProfile?.about ||
-                        `Thrilled to join ${f.job.company.name} as a ${f.job.title}. Navgurukul has been instrumental in my journey.`,
-                    location: f.job.location || null
-                }));
+            carouselData = featured.map(f => {
+                const studentName = f.manualStudentName || (f.student ? `${f.student.firstName} ${f.student.lastName}` : 'Future Alumni');
+                const role = f.manualJobTitle || f.job?.title || 'Professional';
+                const companyName = f.manualCompanyName || f.job?.company?.name || 'Hiring Partner';
+                const studentAvatar = f.manualStudentAvatar || f.student?.avatar || null;
+
+                return {
+                    studentName,
+                    studentAvatar,
+                    studentImage: f.heroImage || studentAvatar, // Use custom hero image if available
+                    role,
+                    companyName,
+                    companyLogo: f.job?.company?.logo || null,
+                    package: f.manualPackage || ((f.job?.salary && !isNaN(f.job.salary)) ? (f.job.salary / 100000).toFixed(2) : null),
+                    campus: f.manualCampus || f.student?.campus?.name || null,
+                    batch: f.manualBatch || (f.student?.placementCycle ? `${f.student.placementCycle.year || f.student.placementCycle.name}` : null),
+                    quote: f.customQuote || f.student?.studentProfile?.about ||
+                        `Thrilled to join ${companyName} as a ${role}. Navgurukul has been instrumental in my journey.`,
+                    location: f.job?.location || null
+                };
+            });
         }
 
         // If no featured placements, fall back to recent accepted applications

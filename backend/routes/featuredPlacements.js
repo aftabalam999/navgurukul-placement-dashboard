@@ -54,58 +54,73 @@ router.get('/', auth, isManager, async (req, res) => {
  */
 router.post('/', auth, isManager, async (req, res) => {
     try {
-        const { applicationId, heroImage, customQuote, displayOrder } = req.body;
+        const {
+            applicationId,
+            heroImage,
+            customQuote,
+            displayOrder,
+            isManual,
+            manualStudentName,
+            manualJobTitle,
+            manualCompanyName,
+            manualStudentAvatar,
+            manualPackage,
+            manualCampus,
+            manualBatch
+        } = req.body;
 
-        // Verify application exists and is accepted
-        const application = await Application.findById(applicationId)
-            .populate('student')
-            .populate('job');
-
-        if (!application) {
-            return res.status(404).json({
-                success: false,
-                message: 'Application not found'
-            });
-        }
-
-        if (application.status !== 'accepted') {
-            return res.status(400).json({
-                success: false,
-                message: 'Only accepted applications can be featured'
-            });
-        }
-
-        // Check if already featured
-        const existing = await FeaturedPlacement.findOne({ application: applicationId });
-        if (existing) {
-            return res.status(400).json({
-                success: false,
-                message: 'This placement is already featured'
-            });
-        }
-
-        // Create featured placement
-        const featured = new FeaturedPlacement({
-            application: applicationId,
-            student: application.student._id,
-            job: application.job._id,
+        let featuredData = {
             heroImage: heroImage || null,
             customQuote: customQuote || null,
             displayOrder: displayOrder || 0,
             featuredBy: req.userId
-        });
+        };
 
+        if (isManual) {
+            featuredData = {
+                ...featuredData,
+                manualStudentName,
+                manualJobTitle,
+                manualCompanyName,
+                manualStudentAvatar,
+                manualPackage,
+                manualCampus,
+                manualBatch
+            };
+        } else {
+            // Verify application exists and is accepted
+            const application = await Application.findById(applicationId)
+                .populate('student')
+                .populate('job');
+
+            if (!application) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Application not found'
+                });
+            }
+
+            featuredData = {
+                ...featuredData,
+                application: applicationId,
+                student: application.student._id,
+                job: application.job._id
+            };
+        }
+
+        const featured = new FeaturedPlacement(featuredData);
         await featured.save();
 
-        // Populate for response
-        await featured.populate([
-            { path: 'student', select: 'firstName lastName avatar' },
-            {
-                path: 'job',
-                select: 'title company salary',
-                populate: { path: 'company', select: 'name logo' }
-            }
-        ]);
+        if (featured.student) {
+            await featured.populate([
+                { path: 'student', select: 'firstName lastName avatar' },
+                {
+                    path: 'job',
+                    select: 'title company salary',
+                    populate: { path: 'company', select: 'name logo' }
+                }
+            ]);
+        }
 
         res.status(201).json({
             success: true,

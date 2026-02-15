@@ -31,7 +31,7 @@ const PortfolioModal = ({ portfolio, selectedRole, onClose }) => {
         <div className="fixed inset-0 z-[200] overflow-y-auto bg-black/60 backdrop-blur-md flex items-center justify-center p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
                 {/* Header */}
-                <div className="sticky top-0 bg-gray-950 text-white p-6 md:p-8 rounded-t-2xl">
+                <div className="bg-gray-950 text-white p-6 md:p-8 rounded-t-2xl">
                     <div className="flex items-start justify-between gap-6">
                         <div className="flex flex-col md:flex-row items-center md:items-start gap-6">
                             {/* Profile Picture */}
@@ -51,11 +51,6 @@ const PortfolioModal = ({ portfolio, selectedRole, onClose }) => {
                             <div className="text-center md:text-left">
                                 <h2 className="text-3xl font-black uppercase tracking-tighter mb-1">{portfolio.name}</h2>
                                 <p className="text-gray-400 text-sm font-bold uppercase tracking-widest">{selectedRole || portfolio.openForRoles?.join(' • ') || 'Developer'}</p>
-                                {portfolio.about && (
-                                    <p className="mt-4 text-gray-400 text-sm leading-relaxed max-w-xl italic">
-                                        "{portfolio.about}"
-                                    </p>
-                                )}
                                 {portfolio.campus && (
                                     <div className="mt-4">
                                         <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest px-2 py-1 bg-white/5 rounded inline-block border border-white/10">{portfolio.campus.name}</p>

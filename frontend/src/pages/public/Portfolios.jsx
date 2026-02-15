@@ -17,6 +17,7 @@ const Portfolios = () => {
     const [showFilter, setShowFilter] = useState(true);
     const [lastScrollY, setLastScrollY] = useState(0);
     const [testimonials, setTestimonials] = useState([]);
+    const [isExpanded, setIsExpanded] = useState(false);
 
     const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
 
@@ -67,36 +68,7 @@ const Portfolios = () => {
         return () => clearInterval(interval);
     }, [loading]);
 
-    // Idle auto-scroll logic: If user doesn't scroll for 5 seconds, lift the page up
-    useEffect(() => {
-        let timeout;
-        const handleInteraction = () => {
-            clearTimeout(timeout);
-            // Only set timer if we're at the very top
-            if (window.scrollY < 100) {
-                timeout = setTimeout(() => {
-                    const nextSection = document.getElementById('portfolios');
-                    if (nextSection && window.scrollY < 100) {
-                        nextSection.scrollIntoView({ behavior: 'smooth' });
-                    }
-                }, 5000);
-            }
-        };
-
-        window.addEventListener('scroll', handleInteraction, { passive: true });
-        window.addEventListener('mousedown', handleInteraction, { passive: true });
-        window.addEventListener('touchstart', handleInteraction, { passive: true });
-
-        // Start the initial 5s countdown
-        handleInteraction();
-
-        return () => {
-            window.removeEventListener('scroll', handleInteraction);
-            window.removeEventListener('mousedown', handleInteraction);
-            window.removeEventListener('touchstart', handleInteraction);
-            clearTimeout(timeout);
-        };
-    }, []);
+    // Idle auto-scroll logic removed as per request
 
     // Fetch data
     useEffect(() => {
@@ -144,6 +116,11 @@ const Portfolios = () => {
         if (selectedRoles.length === 0) return allRoles;
         return allRoles.filter(([role]) => selectedRoles.includes(role));
     }, [portfoliosByRole, selectedRoles]);
+
+    // Reset expansion on filter change
+    useEffect(() => {
+        if (selectedRoles.length > 0) setIsExpanded(false);
+    }, [selectedRoles]);
 
     const handleRoleToggle = (role) => {
         setSelectedRoles(prev =>
@@ -238,6 +215,14 @@ const Portfolios = () => {
                             </div>
                         ) : (
                             <div className="relative">
+                                {/* Meet Our Talent Heading */}
+                                <div className="mb-16 text-center">
+                                    <h2 className="text-5xl md:text-8xl font-black text-gray-900 mb-6 tracking-tighter uppercase leading-[0.85]">
+                                        Meet Our Talent
+                                    </h2>
+                                    <div className="h-3 w-40 bg-blue-600 mx-auto rounded-full"></div>
+                                </div>
+
                                 {/* Filter Trigger Zone (Hidden top area) */}
                                 <div
                                     className="fixed top-0 left-0 right-0 h-24 z-[55]"
@@ -279,17 +264,17 @@ const Portfolios = () => {
                                     </div>
                                 </div>
 
-                                <div id="portfolios-grid" className="space-y-32 mt-6">
-                                    {displayedRoles.map(([role, roleStudents]) => (
+                                <div id="portfolios-grid" className="space-y-16 mt-6">
+                                    {displayedRoles.slice(0, isExpanded || selectedRoles.length > 0 ? undefined : 2).map(([role, roleStudents]) => (
                                         <div
                                             key={role}
                                             id={`role-${role.toLowerCase().replace(/\s+/g, '-')}`}
-                                            className="flex flex-col md:flex-row gap-8 md:gap-16 relative"
+                                            className="flex flex-col md:flex-row gap-8 md:gap-16 relative min-h-[400px]"
                                         >
-                                            {/* Left Side: Vertical Title Sidebar */}
-                                            <div className="md:w-32 flex-shrink-0 flex md:block items-center gap-4 sticky md:top-0 h-auto md:h-screen">
-                                                <div className="h-full flex md:items-center justify-center">
-                                                    <h3 className="text-3xl md:text-[min(5vh,3rem)] lg:text-[min(6vh,4rem)] font-black text-gray-200 md:rotate-180 md:[writing-mode:vertical-lr] uppercase tracking-[0.1em] whitespace-nowrap leading-none select-none transition-all duration-500 hover:text-blue-600/10 cursor-default">
+                                            {/* ... Left Side Content ... */}
+                                            <div className="md:w-32 flex-shrink-0 flex md:block items-center gap-4 sticky md:top-32 h-auto self-start">
+                                                <div className="h-full flex md:items-center justify-center text-center">
+                                                    <h3 className="text-3xl md:text-[min(4vh,2.5rem)] lg:text-[min(5vh,3rem)] font-black text-gray-200 md:rotate-180 md:[writing-mode:vertical-lr] uppercase tracking-[0.1em] whitespace-nowrap leading-none select-none transition-all duration-500 hover:text-blue-600/20 cursor-default">
                                                         {role}
                                                     </h3>
                                                 </div>
@@ -323,6 +308,22 @@ const Portfolios = () => {
                                         </div>
                                     ))}
 
+                                    {/* Expand Button */}
+                                    {!isExpanded && selectedRoles.length === 0 && displayedRoles.length > 2 && (
+                                        <div className="flex justify-center py-20 relative">
+                                            <div className="absolute inset-0 flex items-center">
+                                                <div className="w-full border-t border-gray-100"></div>
+                                            </div>
+                                            <button
+                                                onClick={() => setIsExpanded(true)}
+                                                className="relative z-10 px-12 py-6 bg-white border border-gray-200 text-gray-900 rounded-2xl font-black uppercase tracking-[0.3em] text-xs hover:bg-gray-900 hover:text-white transition-all shadow-xl group"
+                                            >
+                                                Show All Talent Pools
+                                                <span className="ml-4 opacity-40 group-hover:opacity-100 transition-opacity">({displayedRoles.length - 2} more)</span>
+                                            </button>
+                                        </div>
+                                    )}
+
                                     {/* Testimonials removed from here - now at the top section */}
 
                                     {displayedRoles.length === 0 && !loading && (
@@ -345,77 +346,91 @@ const Portfolios = () => {
                 </section>
 
                 {/* Partners & About Section - Full Screen Impact */}
-                <section id="about" className="min-h-screen bg-white flex flex-col snap-start">
-                    {/* Partners Scroller */}
-                    <div className="py-12 bg-gray-50/50 border-y border-gray-100 overflow-hidden">
-                        <div className="max-w-[1400px] mx-auto px-4 mb-8">
-                            <h3 className="text-center text-xs font-black text-gray-400 uppercase tracking-[0.4em]">Our Hiring Partners</h3>
+                <section id="about" className="h-screen bg-white flex flex-col snap-start justify-center overflow-hidden">
+                    {/* Partners Scroller - Compact */}
+                    <div className="py-6 bg-gray-50/50 border-y border-gray-100 overflow-hidden shrink-0">
+                        <div className="max-w-[1400px] mx-auto px-4 mb-4">
+                            <h3 className="text-center text-[10px] font-black text-gray-400 uppercase tracking-[0.4em]">Our Hiring Partners</h3>
                         </div>
 
-                        <div className="flex flex-col gap-8">
-                            {/* Row 1: Left to Right */}
-                            <div className="flex whitespace-nowrap">
-                                <div className="flex gap-16 items-center animate-scroll-left">
-                                    {partners.map((partner, i) => (
-                                        partner.logo && <img key={`p1-${i}`} src={partner.logo} alt={partner.name} className="h-8 md:h-12 w-auto grayscale opacity-40 hover:grayscale-0 hover:opacity-100 transition-all duration-500 object-contain" />
-                                    ))}
-                                    {partners.map((partner, i) => (
-                                        partner.logo && <img key={`p1-dup-${i}`} src={partner.logo} alt={partner.name} className="h-8 md:h-12 w-auto grayscale opacity-40 hover:grayscale-0 hover:opacity-100 transition-all duration-500 object-contain" />
-                                    ))}
-                                </div>
-                            </div>
-                            {/* Row 2: Right to Left */}
-                            <div className="flex whitespace-nowrap">
-                                <div className="flex gap-16 items-center animate-scroll-right">
-                                    {[...partners].reverse().map((partner, i) => (
-                                        partner.logo && <img key={`p2-${i}`} src={partner.logo} alt={partner.name} className="h-8 md:h-12 w-auto grayscale opacity-40 hover:grayscale-0 hover:opacity-100 transition-all duration-500 object-contain" />
-                                    ))}
-                                    {[...partners].reverse().map((partner, i) => (
-                                        partner.logo && <img key={`p2-dup-${i}`} src={partner.logo} alt={partner.name} className="h-8 md:h-12 w-auto grayscale opacity-40 hover:grayscale-0 hover:opacity-100 transition-all duration-500 object-contain" />
-                                    ))}
-                                </div>
-                            </div>
+                        <div className="flex flex-col gap-4">
+                            {/* Prepare a repeated list to ensure seamless scrolling even on wide screens */}
+                            {(() => {
+                                // Create a base set that is definitely long enough (repeating original list 4 times)
+                                const basePartners = [...partners, ...partners, ...partners, ...partners];
+
+                                return (
+                                    <>
+                                        {/* Row 1: Left to Right */}
+                                        <div className="flex whitespace-nowrap">
+                                            <div className="flex gap-12 items-center animate-scroll-left">
+                                                {/* First Set (The Content) */}
+                                                {basePartners.map((partner, i) => (
+                                                    partner.logo && <img key={`p1-base-${i}`} src={partner.logo} alt={partner.name} className="h-6 md:h-8 w-auto grayscale opacity-40 hover:grayscale-0 hover:opacity-100 transition-all duration-500 object-contain" />
+                                                ))}
+                                                {/* Second Set (The Duplicate for Loop) */}
+                                                {basePartners.map((partner, i) => (
+                                                    partner.logo && <img key={`p1-dup-${i}`} src={partner.logo} alt={partner.name} className="h-6 md:h-8 w-auto grayscale opacity-40 hover:grayscale-0 hover:opacity-100 transition-all duration-500 object-contain" />
+                                                ))}
+                                            </div>
+                                        </div>
+                                        {/* Row 2: Right to Left */}
+                                        <div className="flex whitespace-nowrap">
+                                            <div className="flex gap-12 items-center animate-scroll-right">
+                                                {/* First Set */}
+                                                {[...basePartners].reverse().map((partner, i) => (
+                                                    partner.logo && <img key={`p2-base-${i}`} src={partner.logo} alt={partner.name} className="h-6 md:h-8 w-auto grayscale opacity-40 hover:grayscale-0 hover:opacity-100 transition-all duration-500 object-contain" />
+                                                ))}
+                                                {/* Second Set */}
+                                                {[...basePartners].reverse().map((partner, i) => (
+                                                    partner.logo && <img key={`p2-dup-${i}`} src={partner.logo} alt={partner.name} className="h-6 md:h-8 w-auto grayscale opacity-40 hover:grayscale-0 hover:opacity-100 transition-all duration-500 object-contain" />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </>
+                                );
+                            })()}
                         </div>
                     </div>
 
-                    {/* About Content & CTA */}
-                    <div className="flex-1 flex items-center py-24">
+                    {/* About Content & CTA - Compact */}
+                    <div className="flex-1 flex items-center py-4">
                         <div className="max-w-7xl mx-auto px-4 w-full">
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16 items-center">
                                 <div>
-                                    <h2 className="text-5xl md:text-7xl font-black text-gray-900 mb-8 leading-[0.9] uppercase tracking-tighter">
+                                    <h2 className="text-4xl md:text-6xl font-black text-gray-900 mb-6 leading-[0.9] uppercase tracking-tighter">
                                         Bridging the gap in <br />
                                         <span className="text-blue-600">Higher Education.</span>
                                     </h2>
-                                    <p className="text-xl text-gray-600 leading-relaxed mb-12 max-w-xl">
+                                    <p className="text-sm md:text-lg text-gray-600 leading-relaxed mb-8 max-w-xl">
                                         Navgurukul is committed to empowering students from underserved backgrounds with world-class technical skills and career-ready mindset. Our graduates are trained with modern learning methods and real-world problem solving.
                                     </p>
-                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-8">
+                                    <div className="grid grid-cols-3 gap-4 md:gap-8">
                                         <div className="space-y-1">
-                                            <div className="text-4xl md:text-5xl font-black text-gray-900">840+</div>
-                                            <div className="text-[10px] text-gray-500 font-black uppercase tracking-widest">Placements</div>
+                                            <div className="text-3xl md:text-4xl font-black text-gray-900">840+</div>
+                                            <div className="text-[9px] text-gray-500 font-black uppercase tracking-widest">Placements</div>
                                         </div>
                                         <div className="space-y-1">
-                                            <div className="text-4xl md:text-5xl font-black text-gray-900">600+</div>
-                                            <div className="text-[10px] text-gray-500 font-black uppercase tracking-widest">Hiring Partners</div>
+                                            <div className="text-3xl md:text-4xl font-black text-gray-900">600+</div>
+                                            <div className="text-[9px] text-gray-500 font-black uppercase tracking-widest">Hiring Partners</div>
                                         </div>
                                         <div className="space-y-1">
-                                            <div className="text-4xl md:text-5xl font-black text-gray-900">160+</div>
-                                            <div className="text-[10px] text-gray-500 font-black uppercase tracking-widest">Cities</div>
+                                            <div className="text-3xl md:text-4xl font-black text-gray-900">160+</div>
+                                            <div className="text-[9px] text-gray-500 font-black uppercase tracking-widest">Cities</div>
                                         </div>
                                     </div>
                                 </div>
 
                                 <div className="relative group">
                                     <div className="absolute -inset-4 bg-gray-900/10 rounded-[2rem] opacity-10 group-hover:opacity-20 transition-all blur-2xl"></div>
-                                    <div className="relative bg-gray-950 rounded-[2rem] p-12 md:p-16 overflow-hidden shadow-2xl">
+                                    <div className="relative bg-gray-950 rounded-[2rem] p-8 md:p-12 overflow-hidden shadow-2xl">
                                         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
                                         <div className="relative z-10 text-center md:text-left">
-                                            <h3 className="text-3xl md:text-4xl font-black text-white mb-4 uppercase tracking-tighter">Ready to Hire?</h3>
-                                            <p className="text-gray-400 text-lg mb-10 max-w-sm">Connect with our placement team today and find your next star partner.</p>
+                                            <h3 className="text-2xl md:text-3xl font-black text-white mb-3 uppercase tracking-tighter">Ready to Hire?</h3>
+                                            <p className="text-gray-400 text-sm md:text-base mb-8 max-w-sm">Connect with our placement team today and find your next star partner.</p>
                                             <button
                                                 onClick={() => setShowGetInTouch(true)}
-                                                className="inline-flex px-10 py-5 bg-white text-gray-900 rounded-2xl font-black uppercase tracking-[0.2em] text-xs hover:bg-gray-200 transition-all shadow-xl shadow-black/20"
+                                                className="inline-flex px-8 py-4 bg-white text-gray-900 rounded-xl font-black uppercase tracking-[0.2em] text-[10px] hover:bg-gray-200 transition-all shadow-xl shadow-black/20"
                                             >
                                                 Get in Touch
                                             </button>

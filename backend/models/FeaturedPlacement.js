@@ -4,18 +4,26 @@ const featuredPlacementSchema = new mongoose.Schema({
     application: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Application',
-        required: true
+        required: false
     },
     student: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
-        required: true
+        required: false
     },
     job: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Job',
-        required: true
+        required: false
     },
+    // Manual details (if not linked to system entities)
+    manualStudentName: String,
+    manualJobTitle: String,
+    manualCompanyName: String,
+    manualStudentAvatar: String,
+    manualPackage: String,
+    manualCampus: String,
+    manualBatch: String,
     // Custom hero image (optional - if not provided, uses student avatar)
     heroImage: {
         type: String,
