@@ -164,7 +164,6 @@ const Portfolios = () => {
 
     // Intersection Observer for section tracking
     const [activeRole, setActiveRole] = useState(null);
-    const [visibleSections, setVisibleSections] = useState({});
 
     useEffect(() => {
         const observer = new IntersectionObserver(
@@ -194,25 +193,6 @@ const Portfolios = () => {
         sections.forEach(section => observer.observe(section));
 
         return () => observer.disconnect();
-    }, [displayedRoles, isExpanded, loading]);
-
-    // Separate observer for fade-in animations
-    useEffect(() => {
-        const fadeObserver = new IntersectionObserver(
-            (entries) => {
-                entries.forEach((entry) => {
-                    if (entry.isIntersecting) {
-                        setVisibleSections(prev => ({ ...prev, [entry.target.id]: true }));
-                    }
-                });
-            },
-            { threshold: 0.2 }
-        );
-
-        const sections = document.querySelectorAll('.role-section');
-        sections.forEach(section => fadeObserver.observe(section));
-
-        return () => fadeObserver.disconnect();
     }, [displayedRoles, isExpanded, loading]);
 
     return (
@@ -371,7 +351,7 @@ const Portfolios = () => {
                                             <div className="md:w-32 flex-shrink-0"></div>
 
                                             {/* Right Side: Content Wrapper */}
-                                            <div className={`flex-1 min-w-0 group relative py-8 transition-all duration-1000 ${visibleSections[`role-${role.toLowerCase().replace(/\s+/g, '-')}`] ? 'opacity-100' : 'opacity-0'}`}>
+                                            <div className="flex-1 min-w-0 group relative py-8">
                                                 <div className="hidden md:flex items-center justify-between mb-10">
                                                     <div className="h-[1px] flex-1 bg-gray-100"></div>
                                                     <span className="px-6 py-2 bg-white border border-gray-100 rounded-full text-[10px] font-black text-blue-600 uppercase tracking-[0.4em] shadow-sm">
