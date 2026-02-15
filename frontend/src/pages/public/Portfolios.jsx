@@ -162,19 +162,24 @@ const Portfolios = () => {
         return () => cancelAnimationFrame(animationFrameId);
     }, []);
 
-    // Intersection Observer for section fade-in
-    const [visibleSections, setVisibleSections] = useState({});
+    // Intersection Observer for section tracking
+    const [activeRole, setActiveRole] = useState(null);
 
     useEffect(() => {
         const observer = new IntersectionObserver(
             (entries) => {
                 entries.forEach((entry) => {
                     if (entry.isIntersecting) {
-                        setVisibleSections(prev => ({ ...prev, [entry.target.id]: true }));
+                        const role = entry.target.getAttribute('data-role');
+                        setActiveRole(role);
                     }
                 });
             },
-            { threshold: 0.2, rootMargin: '0px 0px -100px 0px' }
+            {
+                threshold: 0,
+                // Trigger when the section is in the middle of the screen
+                rootMargin: '-40% 0px -40% 0px'
+            }
         );
 
         const sections = document.querySelectorAll('.role-section');
@@ -192,7 +197,7 @@ const Portfolios = () => {
                 </section>
             }
         >
-            <div className="bg-gray-50 snap-y snap-mandatory scroll-pt-[80px]">
+            <div className="bg-gray-50 scroll-pt-[80px]">
                 {/* Portfolios Header Section */}
                 <section id="portfolios" className="py-24 md:py-32 bg-gray-50 flex flex-col justify-center snap-start min-h-[85vh]">
                     <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
@@ -313,28 +318,32 @@ const Portfolios = () => {
                                     </div>
                                 </div>
 
-                                <div id="portfolios-grid" className="space-y-40 mt-12 pb-20">
+                                <div id="portfolios-grid" className="relative mt-12 pb-20">
+                                    {/* FIXED TITLE OVERLAY - Does not scroll */}
+                                    <div className="hidden md:flex fixed left-0 top-0 h-screen w-32 flex-col justify-center items-center z-[70] pointer-events-none">
+                                        <div className="relative h-full flex items-center justify-center">
+                                            {activeRole && (
+                                                <h3
+                                                    key={activeRole}
+                                                    className="text-xl md:text-[2.5vh] lg:text-[3vh] font-black text-gray-400 md:rotate-180 md:[writing-mode:vertical-lr] uppercase tracking-[0.2em] whitespace-nowrap leading-none select-none animate-in fade-in zoom-in-90 slide-in-from-left-full duration-[1500ms] ease-in-out pointer-events-auto"
+                                                >
+                                                    {activeRole}
+                                                </h3>
+                                            )}
+                                        </div>
+                                    </div>
+
                                     {displayedRoles.slice(0, isExpanded || selectedRoles.length > 0 ? undefined : 2).map(([role, roleStudents]) => (
                                         <div
                                             key={role}
                                             id={`role-${role.toLowerCase().replace(/\s+/g, '-')}`}
-                                            className={`flex flex-col md:flex-row gap-8 md:gap-16 relative min-h-[400px] group/role-section role-section transition-all duration-1000 transform ${visibleSections[`role-${role.toLowerCase().replace(/\s+/g, '-')}`] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-20'}`}
+                                            data-role={role}
+                                            className="flex flex-col md:flex-row items-start gap-8 md:gap-16 relative min-h-screen role-section mb-60"
                                         >
-                                            {/* ... Left Side Content ... */}
-                                            <div className="md:w-32 flex-shrink-0 flex md:block items-center gap-4 sticky md:top-[42vh] h-auto self-start z-10">
-                                                <div className="h-full flex md:items-center justify-center text-center">
-                                                    {/* Animated Vertical Title */}
-                                                    <h3 className="text-2xl md:text-[min(3vh,2rem)] lg:text-[min(4vh,2.5rem)] font-black text-gray-300 md:rotate-180 md:[writing-mode:vertical-lr] uppercase tracking-[0.1em] whitespace-nowrap leading-none select-none transition-all duration-1000 ease-out transform group-hover/role-section:text-gray-400 md:group-hover/role-section:scale-110 cursor-default animate-in fade-in zoom-in-50 slide-in-from-left-8 duration-1000">
-                                                        {role}
-                                                    </h3>
-                                                </div>
-                                                <div className="md:hidden h-px flex-1 bg-gray-200"></div>
-                                                <span className="md:hidden text-[9px] font-black text-gray-400 uppercase tracking-widest whitespace-nowrap">
-                                                    {roleStudents.length} Talent{roleStudents.length !== 1 ? 's' : ''}
-                                                </span>
-                                            </div>
+                                            {/* Spacer for Fixed Title Column */}
+                                            <div className="md:w-32 flex-shrink-0"></div>
 
-                                            {/* Right Side: Responsive Grid - smaller cards */}
+                                            {/* Right Side: Content Wrapper */}
                                             <div className="flex-1 min-w-0 group relative py-12">
                                                 <div className="hidden md:flex items-center justify-between mb-10">
                                                     <div className="h-[1px] flex-1 bg-gray-100"></div>
