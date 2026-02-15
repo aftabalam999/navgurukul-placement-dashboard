@@ -142,20 +142,46 @@ const Portfolios = () => {
 
     // Auto-scroll logic for filter bar
     useEffect(() => {
-        const interval = setInterval(() => {
+        let animationFrameId;
+        const scrollSpeed = 0.5; // Pixels per frame - smooth!
+
+        const scroll = () => {
             const filterContainer = document.getElementById('role-filter-scroll');
             if (filterContainer && filterContainer.dataset.paused !== 'true') {
-                // If scanned to end, reset to start smoothly? Or jump?
-                // Let's try simple increment
                 if (filterContainer.scrollLeft >= (filterContainer.scrollWidth - filterContainer.clientWidth - 1)) {
-                    filterContainer.scrollTo({ left: 0, behavior: 'auto' });
+                    // Reset to start
+                    filterContainer.scrollLeft = 0;
                 } else {
-                    filterContainer.scrollLeft += 1;
+                    filterContainer.scrollLeft += scrollSpeed;
                 }
             }
-        }, 50);
-        return () => clearInterval(interval);
+            animationFrameId = requestAnimationFrame(scroll);
+        };
+
+        animationFrameId = requestAnimationFrame(scroll);
+        return () => cancelAnimationFrame(animationFrameId);
     }, []);
+
+    // Intersection Observer for section fade-in
+    const [visibleSections, setVisibleSections] = useState({});
+
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((entry) => {
+                    if (entry.isIntersecting) {
+                        setVisibleSections(prev => ({ ...prev, [entry.target.id]: true }));
+                    }
+                });
+            },
+            { threshold: 0.2, rootMargin: '0px 0px -100px 0px' }
+        );
+
+        const sections = document.querySelectorAll('.role-section');
+        sections.forEach(section => observer.observe(section));
+
+        return () => observer.disconnect();
+    }, [displayedRoles, isExpanded, loading]);
 
     return (
         <PublicLayout
@@ -264,7 +290,7 @@ const Portfolios = () => {
                                         {/* Auto-scrolling Filter Bar */}
                                         <div
                                             id="role-filter-scroll"
-                                            className="flex overflow-x-auto pb-1 gap-2 no-scrollbar scroll-smooth"
+                                            className="flex overflow-x-auto pb-1 gap-2 no-scrollbar"
                                             onMouseEnter={(e) => e.currentTarget.dataset.paused = "true"}
                                             onMouseLeave={(e) => e.currentTarget.dataset.paused = "false"}
                                         >
@@ -287,18 +313,18 @@ const Portfolios = () => {
                                     </div>
                                 </div>
 
-                                <div id="portfolios-grid" className="space-y-16 mt-6">
+                                <div id="portfolios-grid" className="space-y-40 mt-12 pb-20">
                                     {displayedRoles.slice(0, isExpanded || selectedRoles.length > 0 ? undefined : 2).map(([role, roleStudents]) => (
                                         <div
                                             key={role}
                                             id={`role-${role.toLowerCase().replace(/\s+/g, '-')}`}
-                                            className="flex flex-col md:flex-row gap-8 md:gap-16 relative min-h-[400px] group/role-section"
+                                            className={`flex flex-col md:flex-row gap-8 md:gap-16 relative min-h-[400px] group/role-section role-section transition-all duration-1000 transform ${visibleSections[`role-${role.toLowerCase().replace(/\s+/g, '-')}`] ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-20'}`}
                                         >
                                             {/* ... Left Side Content ... */}
-                                            <div className="md:w-32 flex-shrink-0 flex md:block items-center gap-4 sticky md:top-32 h-auto self-start z-10">
+                                            <div className="md:w-32 flex-shrink-0 flex md:block items-center gap-4 sticky md:top-[42vh] h-auto self-start z-10">
                                                 <div className="h-full flex md:items-center justify-center text-center">
                                                     {/* Animated Vertical Title */}
-                                                    <h3 className="text-3xl md:text-[min(4vh,2.5rem)] lg:text-[min(5vh,3rem)] font-black text-gray-200 md:rotate-180 md:[writing-mode:vertical-lr] uppercase tracking-[0.1em] whitespace-nowrap leading-none select-none transition-all duration-1000 ease-out transform group-hover/role-section:text-gray-300 md:group-hover/role-section:translate-y-2 cursor-default animate-in fade-in slide-in-from-bottom-4 duration-700">
+                                                    <h3 className="text-2xl md:text-[min(3vh,2rem)] lg:text-[min(4vh,2.5rem)] font-black text-gray-300 md:rotate-180 md:[writing-mode:vertical-lr] uppercase tracking-[0.1em] whitespace-nowrap leading-none select-none transition-all duration-1000 ease-out transform group-hover/role-section:text-gray-400 md:group-hover/role-section:scale-110 cursor-default animate-in fade-in zoom-in-50 slide-in-from-left-8 duration-1000">
                                                         {role}
                                                     </h3>
                                                 </div>
