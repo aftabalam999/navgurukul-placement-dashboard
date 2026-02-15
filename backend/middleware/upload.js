@@ -13,14 +13,21 @@ uploadDirs.forEach(dir => {
 // Configure storage
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    let uploadPath = 'uploads/documents';
+    // Resolve absolute path to uploads directory (backend/uploads)
+    const uploadsRoot = path.join(__dirname, '../uploads');
+    let uploadPath = path.join(uploadsRoot, 'documents');
 
     if (file.fieldname === 'resume') {
-      uploadPath = 'uploads/resumes';
+      uploadPath = path.join(uploadsRoot, 'resumes');
     } else if (file.fieldname === 'avatar') {
-      uploadPath = 'uploads/avatars';
+      uploadPath = path.join(uploadsRoot, 'avatars');
     } else if (file.fieldname === 'heroImage') {
-      uploadPath = 'uploads/hero_images';
+      uploadPath = path.join(uploadsRoot, 'hero_images');
+    }
+
+    // Ensure directory exists
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
     }
 
     cb(null, uploadPath);
