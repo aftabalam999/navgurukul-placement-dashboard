@@ -325,7 +325,7 @@ const Portfolios = () => {
                                             {activeRole && (
                                                 <h3
                                                     key={activeRole}
-                                                    className="text-xl md:text-[2.5vh] lg:text-[3vh] font-black text-gray-400 md:rotate-180 md:[writing-mode:vertical-lr] uppercase tracking-[0.2em] whitespace-nowrap leading-none select-none animate-in fade-in zoom-in-90 slide-in-from-left-full duration-[1500ms] ease-in-out pointer-events-auto"
+                                                    className="text-xl md:text-[2.5vh] lg:text-[3vh] font-black text-gray-400 md:rotate-180 md:[writing-mode:vertical-lr] uppercase tracking-[0.2em] whitespace-nowrap leading-none select-none animate-in fade-in zoom-in-90 slide-in-from-left-24 duration-[1500ms] ease-in-out pointer-events-auto"
                                                 >
                                                     {activeRole}
                                                 </h3>
