@@ -59,8 +59,8 @@ const authorize = (...roles) => {
     const allowed = roles.map(r => String(r).trim().toLowerCase());
     if (!allowed.includes(userRole)) {
       console.warn(`Authorization denied for user ${req.userId} (role=${req.user?.role}). Allowed roles: ${roles.join(', ')}`);
-      return res.status(403).json({ 
-        message: 'Access denied. You do not have permission to perform this action.' 
+      return res.status(403).json({
+        message: 'Access denied. You do not have permission to perform this action.'
       });
     }
     next();
@@ -77,17 +77,20 @@ const sameCampus = async (req, res, next) => {
     const targetUserId = req.params.studentId || req.params.userId;
     if (targetUserId) {
       const targetUser = await User.findById(targetUserId);
-      if (targetUser) {
-        // Check if target user's campus is in the POC's managed campuses
-        const managedCampuses = req.user.managedCampuses?.length > 0 
-          ? req.user.managedCampuses.map(c => c.toString())
-          : (req.user.campus ? [req.user.campus.toString()] : []);
-        
-        const targetCampus = targetUser.campus?.toString();
-        
-        if (targetCampus && !managedCampuses.includes(targetCampus)) {
-          return res.status(403).json({ 
-            message: 'Access denied. You can only access students from your managed campuses.' 
+      if (targetUser && targetUser.campus) {
+        // Normalize IDs to strings for comparison
+        const targetCampusId = targetUser.campus.toString();
+
+        const managedIds = (req.user.managedCampuses || []).map(c => c.toString());
+        const primaryCampusId = req.user.campus?.toString();
+
+        const allAllowedIds = [...managedIds];
+        if (primaryCampusId) allAllowedIds.push(primaryCampusId);
+
+        if (!allAllowedIds.includes(targetCampusId)) {
+          console.warn(`Access denied for ${req.user.role} ${req.userId}. Student campus ${targetCampusId} not in allowed: [${allAllowedIds.join(', ')}]`);
+          return res.status(403).json({
+            message: 'Access denied. You can only access students from your managed campuses.'
           });
         }
       }
