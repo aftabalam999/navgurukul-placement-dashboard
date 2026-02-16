@@ -497,6 +497,9 @@ userSchema.statics.syncGharData = async function (email, externalData) {
   if (externalData.Gender) {
     gharData.gender = { value: externalData.Gender, lastUpdated: now };
   }
+  if (externalData.Current_Module) {
+    gharData.currentModule = { value: externalData.Current_Module, lastUpdated: now };
+  }
   if (externalData.Attendance_Rate) {
     const rate = parseFloat(externalData.Attendance_Rate);
     if (!isNaN(rate)) {
@@ -505,14 +508,19 @@ userSchema.statics.syncGharData = async function (email, externalData) {
   }
 
   gharData.lastSyncedAt = now;
-  gharData.extraAttributes = {
-    ...gharData.extraAttributes,
-    ...externalData,
-    syncTimestamp: now
-  };
+
+  // Safely update Map
+  if (externalData) {
+    Object.keys(externalData).forEach(key => {
+      user.studentProfile.externalData.ghar.extraAttributes.set(key, externalData[key]);
+    });
+    user.studentProfile.externalData.ghar.extraAttributes.set('syncTimestamp', now);
+  }
 
   user.markModified('studentProfile.externalData');
-  return await user.save();
+  const savedUser = await user.save();
+  console.log(`[GharSync] Successfully synced data for ${email}. Resolved school: ${externalData.Current_School || 'None'}`);
+  return savedUser;
 };
 
 module.exports = mongoose.model('User', userSchema);

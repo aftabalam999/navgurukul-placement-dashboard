@@ -87,7 +87,11 @@ class GharApiService {
      */
     async syncStudentData(email) {
         try {
+            // Be very explicit about production mode
             const isDev = process.env.NODE_ENV !== 'production';
+
+            console.log(`[GharAPI] Attempting sync for ${email} (isDev: ${isDev})`);
+
             const response = await this.client.get('/gharZoho/students/By/NgEmail', {
                 params: {
                     isDev,
@@ -96,7 +100,7 @@ class GharApiService {
             });
 
             // The API returns an array in data, take the first match
-            if (response.data && response.data.data && response.data.data.length > 0) {
+            if (response.data && response.data.data && Array.isArray(response.data.data) && response.data.data.length > 0) {
                 const externalData = response.data.data[0];
                 const User = require('../models/User');
                 await User.syncGharData(email, externalData);

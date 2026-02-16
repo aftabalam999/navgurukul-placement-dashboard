@@ -60,72 +60,22 @@ router.post('/sync-student', isAuthenticated, async (req, res) => {
             });
         }
 
-        // Sync data from Ghar API
+        // Sync data from Ghar API (this already calls User.syncGharData internally)
         const externalData = await gharApiService.syncStudentData(student.email);
 
         if (externalData) {
-            // Initialize externalData if not present
-            if (!student.studentProfile.externalData) {
-                student.studentProfile.externalData = { ghar: {} };
-            }
-            if (!student.studentProfile.externalData.ghar) {
-                student.studentProfile.externalData.ghar = {};
-            }
-
-            const now = new Date();
-            const gharData = student.studentProfile.externalData.ghar;
-
-            // Map the fields safely based on actual Ghar Dashboard response
-            if (externalData.Current_School) {
-                gharData.currentSchool = {
-                    value: externalData.Current_School,
-                    lastUpdated: now
-                };
-            }
-            if (externalData.Joining_Date) {
-                // Formatting date from DD-MMM-YYYY to JS Date
-                gharData.admissionDate = {
-                    value: new Date(externalData.Joining_Date),
-                    lastUpdated: now
-                };
-            }
-            if (externalData.Academic_Status) {
-                gharData.currentStatus = {
-                    value: externalData.Academic_Status,
-                    lastUpdated: now
-                };
-            }
-
-            // Attendance mapping (if present and numeric)
-            if (externalData.Attendance_Rate) {
-                const rate = parseFloat(externalData.Attendance_Rate);
-                if (!isNaN(rate)) {
-                    gharData.attendancePercentage = {
-                        value: rate,
-                        lastUpdated: now
-                    };
-                }
-            }
-
-            // Store everything else in extraAttributes to avoid data loss
-            gharData.extraAttributes = {
-                ...gharData.extraAttributes,
-                ...externalData,
-                syncTimestamp: now
-            };
-
-            // Mark the model modified for mixed type objects
-            student.markModified('studentProfile.externalData');
-            await student.save();
+            // Re-fetch student to get updated virtuals/resolved data
+            const updatedStudent = await User.findById(student._id);
 
             res.json({
                 success: true,
-                message: 'Student data synced to Ghar section successfully',
+                message: 'Student data synced from Ghar successfully',
                 data: {
                     student: {
-                        id: student._id,
-                        name: student.fullName,
-                        email: student.email
+                        id: updatedStudent._id,
+                        name: updatedStudent.fullName,
+                        email: updatedStudent.email,
+                        resolvedProfile: updatedStudent.resolvedProfile
                     },
                     externalData
                 }
@@ -133,7 +83,7 @@ router.post('/sync-student', isAuthenticated, async (req, res) => {
         } else {
             res.status(404).json({
                 success: false,
-                message: 'No data found for this student in Ghar Dashboard'
+                message: `No data found for email ${student.email} in Ghar Dashboard (check if email matches exactly)`
             });
         }
     } catch (error) {
@@ -183,53 +133,6 @@ router.post('/batch-sync', isAuthenticated, isManager, async (req, res) => {
 
         const studentEmails = studentsToSync.map(s => s.email);
         const results = await gharApiService.batchSyncStudents(studentEmails);
-
-        const updatePromises = results
-            .filter(r => r.success && r.data)
-            .map(async (result) => {
-                const student = studentsToSync.find(s => s.email === result.email);
-                if (student && result.data) {
-                    const externalData = result.data;
-
-                    if (!student.studentProfile.externalData) {
-                        student.studentProfile.externalData = { ghar: {} };
-                    }
-                    if (!student.studentProfile.externalData.ghar) {
-                        student.studentProfile.externalData.ghar = {};
-                    }
-
-                    const now = new Date();
-                    const gharData = student.studentProfile.externalData.ghar;
-
-                    // Map the fields safely
-                    if (externalData.Current_School) {
-                        gharData.currentSchool = { value: externalData.Current_School, lastUpdated: now };
-                    }
-                    if (externalData.Joining_Date) {
-                        gharData.admissionDate = { value: new Date(externalData.Joining_Date), lastUpdated: now };
-                    }
-                    if (externalData.Academic_Status) {
-                        gharData.currentStatus = { value: externalData.Academic_Status, lastUpdated: now };
-                    }
-                    if (externalData.Attendance_Rate) {
-                        const rate = parseFloat(externalData.Attendance_Rate);
-                        if (!isNaN(rate)) {
-                            gharData.attendancePercentage = { value: rate, lastUpdated: now };
-                        }
-                    }
-
-                    gharData.extraAttributes = {
-                        ...gharData.extraAttributes,
-                        ...externalData,
-                        syncTimestamp: now
-                    };
-
-                    student.markModified('studentProfile.externalData');
-                    await student.save();
-                }
-            });
-
-        await Promise.all(updatePromises);
 
         const summary = {
             total: results.length,
