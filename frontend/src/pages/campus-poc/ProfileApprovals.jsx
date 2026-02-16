@@ -379,20 +379,12 @@ const ProfileApprovals = () => {
 
                 <div className="mt-4 flex gap-2">
                   <Button
-                    variant="secondary"
+                    variant="primary"
                     size="sm"
                     className="flex-1"
                     onClick={() => openDetailsModal(student)}
                   >
-                    View Details
-                  </Button>
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => handleApprove(student._id)}
-                  >
-                    Approve
+                    Review Profile
                   </Button>
                 </div>
               </Card>

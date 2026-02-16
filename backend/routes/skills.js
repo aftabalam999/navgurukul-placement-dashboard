@@ -193,7 +193,7 @@ router.put('/:id', auth, authorize('coordinator', 'manager', 'campus_poc'), asyn
 });
 
 // Delete skill
-router.delete('/:id', auth, authorize('coordinator', 'manager'), async (req, res) => {
+router.delete('/:id', auth, authorize('coordinator', 'manager', 'campus_poc'), async (req, res) => {
   try {
     const skill = await Skill.findById(req.params.id);
 

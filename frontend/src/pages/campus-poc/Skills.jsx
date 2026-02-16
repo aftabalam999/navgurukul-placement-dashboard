@@ -76,7 +76,10 @@ const POCSkills = () => {
       await fetchSchools();
       await fetchSkills();
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Error saving skill');
+      const msg = error.response?.data?.message ||
+        (error.response?.data?.errors ? error.response.data.errors.map(e => e.msg).join(', ') : null) ||
+        'Error saving skill';
+      toast.error(msg);
     }
   };
 

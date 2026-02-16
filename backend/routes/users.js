@@ -233,6 +233,7 @@ router.put('/profile', auth, authorize('student', 'coordinator', 'manager', 'cam
     if (updates.firstName) user.firstName = updates.firstName;
     if (updates.lastName) user.lastName = updates.lastName;
     if (updates.phone) user.phone = updates.phone;
+    if (updates.gender) user.gender = updates.gender;
 
     // Update Discord info
     if (updates.discord) {

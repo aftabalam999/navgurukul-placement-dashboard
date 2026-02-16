@@ -403,6 +403,7 @@ const userSchema = new mongoose.Schema({
         currentSchool: { value: String, lastUpdated: Date },
         currentModule: { value: String, lastUpdated: Date },
         admissionDate: { value: Date, lastUpdated: Date },
+        gender: { value: String, lastUpdated: Date },
         lastSyncedAt: { type: Date },
         extraAttributes: { type: Map, of: mongoose.Schema.Types.Mixed, default: {} }
       },
@@ -446,12 +447,14 @@ userSchema.virtual('resolvedProfile').get(function () {
     currentModule: ghar.currentModule?.value || local.currentModule || '',
     attendancePercentage: ghar.attendancePercentage?.value || local.attendancePercentage || null,
     currentStatus: ghar.currentStatus?.value || local.currentStatus || 'Active',
+    gender: (ghar.gender?.value || this.gender || '').toLowerCase(),
     // Flags for frontend to know which fields are verified
     isSchoolVerified: !!ghar.currentSchool?.value,
     isJoiningDateVerified: !!ghar.admissionDate?.value,
     isModuleVerified: !!ghar.currentModule?.value,
     isAttendanceVerified: !!ghar.attendancePercentage?.value,
-    isStatusVerified: !!ghar.currentStatus?.value
+    isStatusVerified: !!ghar.currentStatus?.value,
+    isGenderVerified: !!ghar.gender?.value
   };
 });
 
@@ -488,6 +491,9 @@ userSchema.statics.syncGharData = async function (email, externalData) {
   }
   if (externalData.Academic_Status) {
     gharData.currentStatus = { value: externalData.Academic_Status, lastUpdated: now };
+  }
+  if (externalData.Gender) {
+    gharData.gender = { value: externalData.Gender, lastUpdated: now };
   }
   if (externalData.Attendance_Rate) {
     const rate = parseFloat(externalData.Attendance_Rate);

@@ -221,14 +221,14 @@ const StudentProfile = () => {
         firstName: data.firstName || '',
         lastName: data.lastName || '',
         phone: data.phone || '',
-        gender: data.gender || '',
+        gender: data.resolvedProfile?.gender || data.gender || '',
         linkedIn: data.studentProfile?.linkedIn || '',
         github: data.studentProfile?.github || '',
         portfolio: data.studentProfile?.portfolio || '',
         about: data.studentProfile?.about || '',
-        currentSchool: data.studentProfile?.currentSchool || '',
-        joiningDate: data.studentProfile?.joiningDate ? new Date(data.studentProfile.joiningDate).toISOString().split('T')[0] : '',
-        currentModule: data.studentProfile?.currentModule || '',
+        currentSchool: data.resolvedProfile?.currentSchool || data.studentProfile?.currentSchool || '',
+        joiningDate: (data.resolvedProfile?.joiningDate || data.studentProfile?.joiningDate) ? new Date(data.resolvedProfile?.joiningDate || data.studentProfile?.joiningDate).toISOString().split('T')[0] : '',
+        currentModule: data.resolvedProfile?.currentModule || data.studentProfile?.currentModule || '',
         customModuleDescription: data.studentProfile?.customModuleDescription || '',
         tenthGrade: data.studentProfile?.tenthGrade || { passingYear: '', state: '', board: '', percentage: '' },
         twelfthGrade: data.studentProfile?.twelfthGrade || { passingYear: '', state: '', board: '', percentage: '' },
@@ -795,11 +795,19 @@ const StudentProfile = () => {
                     <input type="tel" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} disabled={!canEdit} />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center justify-between">
+                      Gender
+                      {profile?.resolvedProfile?.isGenderVerified && (
+                        <span className="flex items-center gap-1 text-[10px] font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded border border-green-200">
+                          <CheckCircle className="w-2.5 h-2.5" /> Verified by Ghar
+                        </span>
+                      )}
+                    </label>
                     <select
                       value={formData.gender || ''}
                       onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
-                      disabled={!canEdit}
+                      disabled={!canEdit || profile?.resolvedProfile?.isGenderVerified}
+                      className={profile?.resolvedProfile?.isGenderVerified ? 'bg-gray-50 border-green-200' : ''}
                     >
                       <option value="">Select Gender</option>
                       <option value="male">Male</option>
