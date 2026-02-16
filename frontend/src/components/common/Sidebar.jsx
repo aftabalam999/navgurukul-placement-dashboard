@@ -72,7 +72,9 @@ const Sidebar = ({ isOpen, onClose }) => {
           { path: '/manager/leads', icon: MessageCircle, label: 'Recruitment Leads' },
           { path: '/manager/reports', icon: BarChart3, label: 'Reports & Export' },
           { path: '/manager/settings', icon: Settings, label: 'Platform Settings' },
-          { path: '/manager/job-readiness', icon: Target, label: 'Job Readiness' }
+          { path: '/manager/job-readiness', icon: Target, label: 'Job Readiness' },
+          { path: '/manager/users', icon: Users, label: 'User Management' },
+          { path: '/manager/ghar', icon: GraduationCap, label: 'Ghar Integration' }
         ];
       default:
         return [];

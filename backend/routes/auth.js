@@ -467,13 +467,10 @@ router.get('/me', auth, async (req, res) => {
 
     // Trigger background sync if student to keep dynamic data fresh
     if (userObj.role === 'student' && userObj.email) {
-      // Optional: throttle sync to once every 4 hours via timestamp check
-      const lastSync = userObj.studentProfile?.externalData?.ghar?.lastSyncedAt;
-      const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
-
-      if (!lastSync || new Date(lastSync) < fourHoursAgo) {
-        gharApiService.syncStudentData(userObj.email).catch(err => console.error('Background Ghar sync error (/me):', err.message));
-      }
+      // Live fetch: Trigger sync on every profile access (no throttle)
+      gharApiService.syncStudentData(userObj.email).catch(err =>
+        console.error('Background Ghar sync error (/me):', err.message)
+      );
     }
 
     res.json(userObj);
