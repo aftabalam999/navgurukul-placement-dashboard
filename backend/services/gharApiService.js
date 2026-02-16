@@ -22,9 +22,12 @@ class GharApiService {
         // Add request interceptor to include auth token
         this.client.interceptors.request.use(
             (config) => {
-                if (this.token) {
-                    const cleanToken = this.token.split('eyJhbGci').find(t => t.length > 0) ? 'eyJhbGci' + this.token.split('eyJhbGci').pop() : this.token;
-                    config.headers['Authorization'] = `Bearer ${cleanToken}`;
+                if (this.token && typeof this.token === 'string') {
+                    // Handle potential duplicate tokens in .env by taking the last JWT part
+                    const cleanToken = this.token.includes('eyJhbGci')
+                        ? 'eyJhbGci' + this.token.split('eyJhbGci').pop()
+                        : this.token;
+                    config.headers['Authorization'] = `Bearer ${cleanToken.trim()}`;
                 }
                 return config;
             },
@@ -52,7 +55,7 @@ class GharApiService {
      * @param {boolean} isDev - Whether to use dev mode
      * @returns {Promise<Object>} Attendance configurations
      */
-    async getAllAttendanceConfigurations(isDev = true) {
+    async getAllAttendanceConfigurations(isDev = process.env.NODE_ENV !== 'production') {
         try {
             const response = await this.client.get('/gharZoho/All_Attendance_Configurations', {
                 params: { isDev }
@@ -84,9 +87,10 @@ class GharApiService {
      */
     async syncStudentData(email) {
         try {
+            const isDev = process.env.NODE_ENV !== 'production';
             const response = await this.client.get('/gharZoho/students/By/NgEmail', {
                 params: {
-                    isDev: true,
+                    isDev,
                     Student_ng_email: email
                 }
             });
