@@ -84,14 +84,20 @@ class GharApiService {
      */
     async syncStudentData(email) {
         try {
-            // Note: Update this endpoint based on actual Ghar API for student details
-            const response = await this.client.get('/gharZoho/getStudentDetails', {
-                params: { email }
+            const response = await this.client.get('/gharZoho/students/By/NgEmail', {
+                params: {
+                    isDev: true,
+                    Student_ng_email: email
+                }
             });
-            return response.data;
+
+            // The API returns an array in data, take the first match
+            if (response.data && response.data.data && response.data.data.length > 0) {
+                return response.data.data[0];
+            }
+            return null;
         } catch (error) {
-            // Fallback during development if endpoint is different
-            console.warn(`Sync failed for ${email}: ${error.message}. You might need to specify the correct student details endpoint.`);
+            console.error(`Sync failed for ${email}:`, error.message);
             return null;
         }
     }

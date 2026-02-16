@@ -75,24 +75,36 @@ router.post('/sync-student', isAuthenticated, async (req, res) => {
             const now = new Date();
             const gharData = student.studentProfile.externalData.ghar;
 
-            // Map the fields safely to the additive section (Ghar Dashboard specific)
-            if (externalData.attendance) {
-                gharData.attendancePercentage = {
-                    value: externalData.attendance.percentage,
-                    lastUpdated: now
-                };
-            }
-            if (externalData.currentSchool) {
+            // Map the fields safely based on actual Ghar Dashboard response
+            if (externalData.Current_School) {
                 gharData.currentSchool = {
-                    value: externalData.currentSchool,
+                    value: externalData.Current_School,
                     lastUpdated: now
                 };
             }
-            if (externalData.joiningDate) {
+            if (externalData.Joining_Date) {
+                // Formatting date from DD-MMM-YYYY to JS Date
                 gharData.admissionDate = {
-                    value: new Date(externalData.joiningDate),
+                    value: new Date(externalData.Joining_Date),
                     lastUpdated: now
                 };
+            }
+            if (externalData.Academic_Status) {
+                gharData.currentStatus = {
+                    value: externalData.Academic_Status,
+                    lastUpdated: now
+                };
+            }
+
+            // Attendance mapping (if present and numeric)
+            if (externalData.Attendance_Rate) {
+                const rate = parseFloat(externalData.Attendance_Rate);
+                if (!isNaN(rate)) {
+                    gharData.attendancePercentage = {
+                        value: rate,
+                        lastUpdated: now
+                    };
+                }
             }
 
             // Store everything else in extraAttributes to avoid data loss
@@ -189,11 +201,21 @@ router.post('/batch-sync', isAuthenticated, isManager, async (req, res) => {
                     const now = new Date();
                     const gharData = student.studentProfile.externalData.ghar;
 
-                    if (externalData.attendance) {
-                        gharData.attendancePercentage = {
-                            value: externalData.attendance.percentage,
-                            lastUpdated: now
-                        };
+                    // Map the fields safely
+                    if (externalData.Current_School) {
+                        gharData.currentSchool = { value: externalData.Current_School, lastUpdated: now };
+                    }
+                    if (externalData.Joining_Date) {
+                        gharData.admissionDate = { value: new Date(externalData.Joining_Date), lastUpdated: now };
+                    }
+                    if (externalData.Academic_Status) {
+                        gharData.currentStatus = { value: externalData.Academic_Status, lastUpdated: now };
+                    }
+                    if (externalData.Attendance_Rate) {
+                        const rate = parseFloat(externalData.Attendance_Rate);
+                        if (!isNaN(rate)) {
+                            gharData.attendancePercentage = { value: rate, lastUpdated: now };
+                        }
                     }
 
                     gharData.extraAttributes = {
